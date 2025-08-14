@@ -98,7 +98,7 @@ export default function PaymentPage() {
                 ☕
               </div>
               <h1 className="text-2xl font-bold text-gray-900 mb-2">Complete Payment</h1>
-              <p className="text-gray-500">Coffee Shop Lagos • ₦5,000</p>
+              <p className="text-gray-500">TheBuidl Kitchen, Kaduna • ₦5,000</p>
             </div>
 
             {/* Wallet Connection */}

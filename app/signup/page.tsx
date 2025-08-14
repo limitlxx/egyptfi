@@ -200,12 +200,12 @@ export default function SignupPage() {
             <CardContent className="space-y-6">
               <div>
                 <Label htmlFor="business-name">Business Name</Label>
-                <Input id="business-name" placeholder="Coffee Shop Lagos" />
+                <Input id="business-name" placeholder="THeBuidl Kitchen, Kitchen" />
               </div>
 
               <div>
                 <Label htmlFor="business-email">Business Email</Label>
-                <Input id="business-email" type="email" placeholder="hello@coffeeshop.com" />
+                <Input id="business-email" type="email" placeholder="hello@thebuidlkitchen.com" />
               </div>
 
               <div>
@@ -216,6 +216,7 @@ export default function SignupPage() {
                   <option value="restaurant">Restaurant/Cafe</option>
                   <option value="ecommerce">E-commerce</option>
                   <option value="services">Professional Services</option>
+                  <option value="saas">SaaS Platforms</option>
                   <option value="nonprofit">Non-profit</option>
                   <option value="other">Other</option>
                 </select>

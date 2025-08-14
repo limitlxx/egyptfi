@@ -30,10 +30,10 @@ export function InvoiceContent() {
   const router = useRouter()
 
   const invoiceData = {
-    merchantName: "Coffee Shop Lagos",
+    merchantName: "TheBuidl Kitchen, Kaduna",
     merchantLogo: "☕",
-    amountFiat: "₦5,000",
-    invoiceId: "INV-2024-001",
+    amountFiat: "₦500,000",
+    invoiceId: "INV-2025-001",
   }
 
   const chains = [
@@ -212,7 +212,7 @@ export function InvoiceContent() {
           <div className="bg-gray-50 rounded-xl p-4 sm:p-6 mb-4 sm:mb-6">
             <div className="flex justify-between items-center mb-2 sm:mb-3">
               <span className="text-gray-600 text-sm sm:text-base">Amount Due</span>
-              <span className="text-xl sm:text-2xl font-bold text-gray-900">{invoiceData.amountFiat}</span>
+              <span className="font-bold text-gray-900">{invoiceData.amountFiat}</span>
             </div>
             {currentTokenData && (
               <div className="flex justify-between items-center text-xs sm:text-sm">
@@ -241,7 +241,7 @@ export function InvoiceContent() {
             {isPolling ? (
               <>
                 <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2 animate-spin" />
-                Waiting for Payment...
+                Waiting for Payment... 
               </>
             ) : isPaid ? (
               <>
