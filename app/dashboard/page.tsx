@@ -42,7 +42,7 @@ import { Slider } from "@/components/ui/slider"
 import { useToast } from "@/hooks/use-toast"
 
 const initialMerchantData = {
-  name: "Coffee Shop Lagos",
+  name: "TheBuidl Kitchen, Kaduna",
   logo: "☕",
   defaultCurrency: "NGN",
   testApiKey: "test_sk_1234567890abcdef1234567890abcdef",
@@ -69,7 +69,7 @@ export default function DashboardPage() {
   const [defaultCurrency, setDefaultCurrency] = useState(initialMerchantData.defaultCurrency)
 
   // Settings Tab
-  const [email, setEmail] = useState("merchant@coffeeshop.com")
+  const [email, setEmail] = useState("merchant@thebuidlkitcken.com")
   const [phone, setPhone] = useState("+234 801 234 5678")
   const [settlementWallet, setSettlementWallet] = useState("0x1234567890abcdef1234567890abcdef12345678")
 
@@ -87,12 +87,12 @@ export default function DashboardPage() {
       ref: "pay_abc123",
       amount: 5000,
       currency: "NGN",
-      description: "Premium Coffee Blend x2",
+      description: "Jollof Rice x2",
       tokenPaid: "3.2 USDC",
       chain: "Ethereum",
       status: "confirmed",
       txHash: "0x1234567890abcdef...",
-      date: "2024-01-15 09:35:00",
+      date: "2025-01-15 09:35:00",
       hostedUrl: "https://pay.nummus.xyz/pay_abc123",
     },
     {
@@ -104,19 +104,19 @@ export default function DashboardPage() {
       chain: "Polygon",
       status: "pending",
       txHash: "",
-      date: "2024-01-15 10:15:00",
+      date: "2025-01-15 10:15:00",
       hostedUrl: "https://pay.nummus.xyz/pay_def456",
     },
     {
       ref: "pay_ghi789",
       amount: 2500,
       currency: "NGN",
-      description: "Espresso Machine Rental",
+      description: "Family-sized Coke x1",
       tokenPaid: "0.0006 ETH",
       chain: "StarkNet",
       status: "confirmed",
       txHash: "0xabcdef1234567890...",
-      date: "2024-01-14 16:22:00",
+      date: "2025-01-14 16:22:00",
       hostedUrl: "https://pay.nummus.xyz/pay_ghi789",
     },
   ]

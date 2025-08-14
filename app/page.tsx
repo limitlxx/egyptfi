@@ -1,3 +1,5 @@
+
+'use client';
 import {
   ArrowRight,
   Check,
@@ -18,7 +20,33 @@ import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
 import { YieldWaitlist } from "@/components/yield-waitlist"
 
+import { useEffect, useState } from 'react';
+
+const taglines = [
+  "Seamless Crypto Transactions",
+  "Easy to Integrate APIs",
+  "Accept Crypto with Zero Frictiion",
+  "Refundable. Gas-free. Developer-friendly",
+];
+
 export default function HomePage() {
+
+   const [currentIndex, setCurrentIndex] = useState(0);
+  const [fade, setFade] = useState(true);
+
+   useEffect(() => {
+    const interval = setInterval(() => {
+      setFade(false);
+
+      setTimeout(() => {
+        setCurrentIndex((prev) => (prev + 1) % taglines.length);
+        setFade(true);
+      }, 300); // wait for fade-out before switching
+    }, 4000); // change every 4s
+
+    return () => clearInterval(interval);
+  }, []);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       {/* Header */}
@@ -63,19 +91,27 @@ export default function HomePage() {
         <div className="container mx-auto text-center max-w-4xl">
           <div className="inline-flex items-center px-4 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-medium mb-8">
             <Zap className="w-4 h-4 mr-2" />
-            Accept Crypto. Get Stablecoins. Globally.
+            Crypto payments without the complexity.
           </div>
 
-          <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
-            Accept Crypto Instantly —{" "}
+          {/* <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
+            Seamless Crypto Transactions —{" "}
             <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
               QR, Wallet, API
             </span>
-          </h1>
+          </h1> */}
+
+          <h1
+            className={`text-4xl md:text-5xl font-semibold text-center transition-opacity duration-300 ${
+              fade ? 'opacity-100' : 'opacity-0'
+            }`}
+          >
+            {taglines[currentIndex]}
+          </h1><br />
 
           <p className="text-xl text-gray-600 mb-10 max-w-2xl mx-auto leading-relaxed">
-            Let your users pay in ETH, DAI, or USDC and receive USDC on StarkNet automatically. No gas fees for
-            customers, real-time conversion, multi-chain support.
+            Let your users pay in ETH, STRK, or USDC and receive USDC on StarkNet automatically. No gas fees for
+            customers, real-time conversion, multi-chain support and refundable transactions.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
@@ -102,8 +138,8 @@ export default function HomePage() {
                     <span className="text-white font-bold">☕</span>
                   </div>
                   <div>
-                    <h3 className="font-semibold text-gray-900">Coffee Shop Lagos</h3>
-                    <p className="text-sm text-gray-500">Shopping Cart</p>
+                    <h3 className="font-semibold text-gray-900">TheBuidl Kitchen, Kaduna</h3>
+                    <p className="text-sm text-gray-500">Your order</p>
                   </div>
                 </div>
                 <div className="text-right">
@@ -118,7 +154,7 @@ export default function HomePage() {
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center text-sm">☕</div>
                     <div>
-                      <p className="font-medium text-gray-900 text-sm">Cappuccino</p>
+                      <p className="font-medium text-gray-900 text-sm">Iced Coffee</p>
                       <p className="text-xs text-gray-500">Large • Extra shot</p>
                     </div>
                   </div>
@@ -132,8 +168,8 @@ export default function HomePage() {
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center text-sm">🥐</div>
                     <div>
-                      <p className="font-medium text-gray-900 text-sm">Croissant</p>
-                      <p className="text-xs text-gray-500">Butter croissant</p>
+                      <p className="font-medium text-gray-900 text-sm">Rice</p>
+                      <p className="text-xs text-gray-500">Jollof Rice</p>
                     </div>
                   </div>
                   <div className="text-right">
@@ -146,8 +182,8 @@ export default function HomePage() {
                   <div className="flex items-center space-x-3">
                     <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-sm">🧊</div>
                     <div>
-                      <p className="font-medium text-gray-900 text-sm">Iced Latte</p>
-                      <p className="text-xs text-gray-500">Medium • Oat milk</p>
+                      <p className="font-medium text-gray-900 text-sm">Ice Cream</p>
+                      <p className="text-xs text-gray-500">Medium • Vanilla</p>
                     </div>
                   </div>
                   <div className="text-right">
@@ -216,10 +252,9 @@ export default function HomePage() {
                 <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-blue-500 rounded-lg flex items-center justify-center mb-4">
                   <DollarSign className="w-6 h-6 text-white" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">Real-time Token-to-Fiat Conversion</h3>
+                <h3 className="text-xl font-semibold text-gray-900 mb-3">Real-time Crypto Conversion with Stablecoin Settlement</h3>
                 <p className="text-gray-600">
-                  Live exchange rates with oracle-powered pricing. Always know the exact value in your local currency.
-                </p>
+                  We convert crypto payments into stablecoins instantly — matched precisely to your fiat price at the time of checkout.                 </p>
               </CardContent>
             </Card>
 
@@ -240,9 +275,10 @@ export default function HomePage() {
                 <div className="w-12 h-12 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-lg flex items-center justify-center mb-4">
                   <Zap className="w-6 h-6 text-white" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">Instant USDC Settlements</h3>
+                <h3 className="text-xl font-semibold text-gray-900 mb-3">Refundable Transactions</h3>
                 <p className="text-gray-600">
-                  Receive stable value immediately. All payments automatically converted to USDC on StarkNet.
+                  Supports secure, trackable refund handling for all transactions — enabling safer crypto payments for merchants and customers.
+
                 </p>
               </CardContent>
             </Card>
@@ -397,7 +433,7 @@ export default function HomePage() {
                 <span className="text-xl font-bold">Nummus</span>
               </div>
               <p className="text-gray-400 mb-6">
-                The future of crypto payments. Accept crypto, get stablecoins, globally.
+                The future of crypto payments. Crypto payments without the complexity.
               </p>
               <div className="flex space-x-4">
                 <Link href="#" className="text-gray-400 hover:text-white transition-colors">
