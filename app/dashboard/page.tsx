@@ -40,6 +40,12 @@ import Link from "next/link"
 import { WithdrawalHistory } from "./components/withdrawal-history"
 import { Slider } from "@/components/ui/slider"
 import { useToast } from "@/hooks/use-toast"
+import toast from "react-hot-toast";
+import { AuthManager } from "@/lib/auth-utils";
+import { ApiKeysDisplay } from "@/components/ApiKeysDisplay";
+import AccountModal from "@/components/AccountModal"
+import WalletModal from "@/components/WalletModal"
+import { useAccount } from "@starknet-react/core"
 
 const initialMerchantData = {
   name: "Coffee Shop Lagos",
@@ -49,6 +55,7 @@ const initialMerchantData = {
   liveApiKey: "live_sk_abcdef1234567890abcdef1234567890",
   webhookUrl: "https://yoursite.com/webhook",
 }
+
 
 export default function DashboardPage() {
   const { toast } = useToast()
@@ -80,6 +87,10 @@ export default function DashboardPage() {
   const [createPaymentAmount, setCreatePaymentAmount] = useState("")
   const [createPaymentCurrency, setCreatePaymentCurrency] = useState("NGN")
   const [createPaymentDescription, setCreatePaymentDescription] = useState("")
+  const [authMethod, setAuthMethod] = useState<"wallet" | "google" | null>(null)
+
+
+  const { address, isConnected } = useAccount()
 
   // Payments mock
   const payments = [
@@ -163,6 +174,8 @@ export default function DashboardPage() {
   const [yieldStrategy, setYieldStrategy] = useState<"conservative" | "balanced" | "aggressive">("balanced")
   const [isYieldWaitlistOpen, setIsYieldWaitlistOpen] = useState(false)
   const [yieldEmail, setYieldEmail] = useState("")
+  const [showWalletModal, setShowWalletModal] = useState(false)
+  const [showAccountModal, setShowAccountModal] = useState(false)
 
   const strategyApy = useMemo(() => {
     switch (yieldStrategy) {
@@ -179,6 +192,14 @@ export default function DashboardPage() {
 
   const projectedMonthly = useMemo(() => (yieldAmount * strategyApy) / 100 / 12, [yieldAmount, strategyApy])
   const projectedYearly = useMemo(() => (yieldAmount * strategyApy) / 100, [yieldAmount, strategyApy])
+
+  const handleWalletModalClose = () => {
+    setShowWalletModal(false)
+    if (!isConnected) {
+      setAuthMethod("wallet")
+    }
+  }
+
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
@@ -202,10 +223,17 @@ export default function DashboardPage() {
               {initialMerchantData.logo}
             </div>
             <span className="font-medium text-gray-900">{initialMerchantData.name}</span>
-            <Button variant="outline" size="sm">
-              <Settings className="w-4 h-4 mr-2" />
-              Settings
-            </Button>
+            {isConnected && (
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setShowAccountModal(true)}
+                className="text-xs"
+              >
+                <Wallet className="w-3 h-3 mr-1" />
+                {address?.slice(0, 6)}...{address?.slice(-4)}
+              </Button>
+            )}
           </div>
         </div>
       </header>
@@ -714,276 +742,7 @@ export default function DashboardPage() {
           </TabsContent>
 
           {/* Developer Tab */}
-          <TabsContent value="developer" className="space-y-6">
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              {/* API Keys */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>API Keys</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label className="text-sm font-medium text-gray-700">Test Key</Label>
-                    <div className="flex items-center space-x-2 mt-1">
-                      <Input
-                        type={showTestKey ? "text" : "password"}
-                        value={initialMerchantData.testApiKey}
-                        readOnly
-                        className="font-mono text-sm"
-                      />
-                      <Button variant="outline" size="sm" onClick={() => setShowTestKey(!showTestKey)}>
-                        {showTestKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => copyToClipboard(initialMerchantData.testApiKey, "test-key")}
-                      >
-                        {copiedItem === "test-key" ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                      </Button>
-                    </div>
-                  </div>
-                  <div>
-                    <Label className="text-sm font-medium text-gray-700">Live Key</Label>
-                    <div className="flex items-center space-x-2 mt-1">
-                      <Input
-                        type={showLiveKey ? "text" : "password"}
-                        value={initialMerchantData.liveApiKey}
-                        readOnly
-                        className="font-mono text-sm"
-                      />
-                      <Button variant="outline" size="sm" onClick={() => setShowLiveKey(!showLiveKey)}>
-                        {showLiveKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                      </Button>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        onClick={() => copyToClipboard(initialMerchantData.liveApiKey, "live-key")}
-                      >
-                        {copiedItem === "live-key" ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                      </Button>
-                    </div>
-                  </div>
-                  <Button variant="outline" className="w-full bg-transparent">
-                    <RefreshCw className="w-4 h-4 mr-2" />
-                    Regenerate Keys
-                  </Button>
-                </CardContent>
-              </Card>
-
-              {/* Webhook Configuration */}
-              <Card>
-                <CardHeader>
-                  <CardTitle>Webhook Configuration</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div>
-                    <Label htmlFor="webhook-url">Webhook URL</Label>
-                    <Input
-                      id="webhook-url"
-                      value={webhookUrl}
-                      onChange={(e) => setWebhookUrl(e.target.value)}
-                      placeholder="https://yoursite.com/webhook"
-                    />
-                  </div>
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                    <h4 className="font-semibold text-blue-900 mb-2">Webhook Events</h4>
-                    <ul className="text-sm text-blue-800 space-y-1">
-                      <li>• payment.confirmed - Payment verified on blockchain</li>
-                      <li>• payment.settled - USDC settled to your wallet</li>
-                      <li>• payment.failed - Payment failed or expired</li>
-                    </ul>
-                  </div>
-                  <Button className="w-full bg-gradient-to-r from-blue-600 to-purple-600">Update Webhook URL</Button>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Quick Links */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <Card className="hover:shadow-lg transition-shadow cursor-pointer" asChild>
-                <Link href="/docs">
-                  <CardContent className="p-6 text-center">
-                    <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                      <Code className="w-6 h-6 text-blue-600" />
-                    </div>
-                    <h3 className="font-semibold text-gray-900 mb-2">API Documentation</h3>
-                    <p className="text-sm text-gray-600">Complete API reference with examples</p>
-                  </CardContent>
-                </Link>
-              </Card>
-
-              <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-                <CardContent className="p-6 text-center">
-                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <RefreshCw className="w-6 h-6 text-green-600" />
-                  </div>
-                  <h3 className="font-semibold text-gray-900 mb-2">API Playground</h3>
-                  <p className="text-sm text-gray-600">Test API endpoints interactively</p>
-                </CardContent>
-              </Card>
-
-              <Card className="hover:shadow-lg transition-shadow cursor-pointer">
-                <CardContent className="p-6 text-center">
-                  <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                    <Settings className="w-6 h-6 text-purple-600" />
-                  </div>
-                  <h3 className="font-semibold text-gray-900 mb-2">Sandbox Environment</h3>
-                  <p className="text-sm text-gray-600">Test with fake transactions</p>
-                </CardContent>
-              </Card>
-            </div>
-
-            {/* Code Examples */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Quick Start Examples</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Tabs defaultValue="curl" className="w-full">
-                  <TabsList>
-                    <TabsTrigger value="curl">cURL</TabsTrigger>
-                    <TabsTrigger value="javascript">JavaScript</TabsTrigger>
-                    <TabsTrigger value="python">Python</TabsTrigger>
-                  </TabsList>
-                  <TabsContent value="curl" className="mt-4">
-                    <div className="bg-gray-900 rounded-lg p-4 relative">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="absolute top-2 right-2 text-gray-400 hover:text-white"
-                        onClick={() =>
-                          copyToClipboard(
-                            `curl -X POST https://api.nummus.xyz/api/payment/initiate \\
--H "Authorization: Bearer ${initialMerchantData.testApiKey}" \\
--H "Content-Type: application/json" \\
--d '{
-"amount": 5000,
-"currency": "NGN",
-"description": "Premium Coffee Blend x2"
-}'`,
-                            "curl-example",
-                          )
-                        }
-                      >
-                        {copiedItem === "curl-example" ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                      </Button>
-                      <pre className="text-green-400 text-sm overflow-x-auto">
-                        {`curl -X POST https://api.nummus.xyz/api/payment/initiate \\
--H "Authorization: Bearer ${initialMerchantData.testApiKey}" \\
--H "Content-Type: application/json" \\
--d '{
-"amount": 5000,
-"currency": "NGN",
-"description": "Premium Coffee Blend x2"
-}'`}
-                      </pre>
-                    </div>
-                  </TabsContent>
-                  <TabsContent value="javascript" className="mt-4">
-                    <div className="bg-gray-900 rounded-lg p-4 relative">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="absolute top-2 right-2 text-gray-400 hover:text-white"
-                        onClick={() =>
-                          copyToClipboard(
-                            `const response = await fetch('https://api.nummus.xyz/api/payment/initiate', {
-method: 'POST',
-headers: {
-'Authorization': 'Bearer ${initialMerchantData.testApiKey}',
-'Content-Type': 'application/json',
-},
-body: JSON.stringify({
-amount: 5000,
-currency: 'NGN',
-description: 'Premium Coffee Blend x2'
-})
-});
-
-const payment = await response.json();
-console.log(payment.hosted_url);`,
-                            "js-example",
-                          )
-                        }
-                      >
-                        {copiedItem === "js-example" ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                      </Button>
-                      <pre className="text-green-400 text-sm overflow-x-auto">
-                        {`const response = await fetch('https://api.nummus.xyz/api/payment/initiate', {
-method: 'POST',
-headers: {
-'Authorization': 'Bearer ${initialMerchantData.testApiKey}',
-'Content-Type': 'application/json',
-},
-body: JSON.stringify({
-amount: 5000,
-currency: 'NGN',
-description: 'Premium Coffee Blend x2'
-})
-});
-
-const payment = await response.json();
-console.log(payment.hosted_url);`}
-                      </pre>
-                    </div>
-                  </TabsContent>
-                  <TabsContent value="python" className="mt-4">
-                    <div className="bg-gray-900 rounded-lg p-4 relative">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="absolute top-2 right-2 text-gray-400 hover:text-white"
-                        onClick={() =>
-                          copyToClipboard(
-                            `import requests
-
-response = requests.post(
-'https://api.nummus.xyz/api/payment/initiate',
-headers={
-    'Authorization': 'Bearer ${initialMerchantData.testApiKey}',
-    'Content-Type': 'application/json',
-},
-json={
-    'amount': 5000,
-    'currency': 'NGN',
-    'description': 'Premium Coffee Blend x2'
-}
-)
-
-payment = response.json()
-print(payment['hosted_url'])`,
-                            "python-example",
-                          )
-                        }
-                      >
-                        {copiedItem === "python-example" ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
-                      </Button>
-                      <pre className="text-green-400 text-sm overflow-x-auto">
-                        {`import requests
-
-response = requests.post(
-'https://api.nummus.xyz/api/payment/initiate',
-headers={
-    'Authorization': 'Bearer ${initialMerchantData.testApiKey}',
-    'Content-Type': 'application/json',
-},
-json={
-    'amount': 5000,
-    'currency': 'NGN',
-    'description': 'Premium Coffee Blend x2'
-}
-)
-
-payment = response.json()
-print(payment['hosted_url'])`}
-                      </pre>
-                    </div>
-                  </TabsContent>
-                </Tabs>
-              </CardContent>
-            </Card>
-          </TabsContent>
+          <ApiKeysDisplay />
 
           {/* Branding Tab */}
           <TabsContent value="branding" className="space-y-6">
@@ -1119,6 +878,20 @@ print(payment['hosted_url'])`}
             </Card>
           </TabsContent>
         </Tabs>
+
+
+
+             {/* Wallet Modal */}
+              <WalletModal 
+                isOpen={showWalletModal} 
+                onClose={handleWalletModalClose}
+              />
+
+              {/* Account Modal */}
+              <AccountModal 
+                isOpen={showAccountModal} 
+                onClose={() => setShowAccountModal(false)}
+              />
       </div>
     </div>
   )

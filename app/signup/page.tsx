@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { ArrowLeft, Wallet, Mail, Check, Loader2, Shield, Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -9,43 +9,352 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
+import WalletModal from "@/components/WalletModal"
+import AccountModal from "@/components/AccountModal"
+import { useAccount } from "@starknet-react/core"
+import toast from "react-hot-toast"
+import {
+  useContract,
+  usePaymasterEstimateFees,
+  usePaymasterGasTokens,
+  usePaymasterSendTransaction,
+  useTransactionReceipt,
+} from "@starknet-react/core";
+import { EGYPTFI_ABI } from "@/lib/abi";
+import { EGYPT_SEPOLIA_CONTRACT_ADDRESS } from "@/lib/utils";
+import { STRK_SEPOLIA } from "@/lib/coins";
+import { FeeMode } from "starknet";
+import { stringToFelt252, emailToFelt252, truncateToFelt252 } from "@/lib/felt252-utils";
+
+interface MerchantData {
+  business_name: string
+  business_email: string
+  business_type: string
+  monthly_volume: string
+}
 
 export default function SignupPage() {
-  const [isConnecting, setIsConnecting] = useState(false)
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
+  const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isCheckingMerchant, setIsCheckingMerchant] = useState(false)
+  const [isRegisteringOnchain, setIsRegisteringOnchain] = useState(false)
   const [step, setStep] = useState<"auth" | "business" | "complete">("auth")
   const [authMethod, setAuthMethod] = useState<"wallet" | "google" | null>(null)
+  const [showWalletModal, setShowWalletModal] = useState(false)
+  const [showAccountModal, setShowAccountModal] = useState(false)
+  const [merchantData, setMerchantData] = useState<MerchantData>({
+    business_name: "",
+    business_email: "",
+    business_type: "",
+    monthly_volume: ""
+  })
+  const [merchantDbData, setMerchantDbData] = useState<any>(null)
+
+  const { address, isConnected } = useAccount()
   const router = useRouter()
 
-  const connectWallet = async () => {
-    setIsConnecting(true)
+  // Contract setup for register_merchant
+  const { contract } = useContract({
+    abi: EGYPTFI_ABI,
+    address: EGYPT_SEPOLIA_CONTRACT_ADDRESS,
+  });
+
+  const feeMode: FeeMode = {
+    mode: "sponsored",
+  };
+
+  // Prepare contract calls for register_merchant
+  const calls = useMemo(() => {
+    if (!contract || !merchantDbData || !address) {
+      return undefined;
+    }
+    
+    try {
+      // Convert string data to felt252 format
+      const nameAsFelt = truncateToFelt252(merchantDbData.business_name);
+      const emailAsFelt = emailToFelt252(merchantDbData.business_email);
+      const withdrawalAddress = address; // Use connected wallet as withdrawal address
+      const feePercentage = 250; // 2.5% as basis points (250/10000 = 2.5%)
+
+      console.log("Contract call data:", {
+        nameAsFelt,
+        emailAsFelt,
+        withdrawalAddress,
+        feePercentage
+      });
+
+      return [contract.populate("register_merchant", [
+        nameAsFelt,
+        emailAsFelt,
+        withdrawalAddress,
+        feePercentage
+      ])];
+    } catch (error) {
+      console.error("Error preparing contract calls:", error);
+      toast.error("Error preparing blockchain registration");
+      return undefined;
+    }
+  }, [contract, merchantDbData, address]);
+
+  // Paymaster hooks for gas estimation and transaction
+  const {
+    data: estimateData,
+    isPending: isPendingEstimate,
+    error: errorEstimate,
+  } = usePaymasterEstimateFees({
+    calls,
+    options: {
+      feeMode,
+    },
+  });
+
+  const {
+    sendAsync: sendGasless,
+    data: sendData,
+    isPending: isPendingSend,
+    error: errorSend,
+  } = usePaymasterSendTransaction({
+    calls,
+    options: {
+      feeMode,
+    },
+    maxFeeInGasToken: estimateData?.suggested_max_fee_in_gas_token,
+  });
+
+  const {
+    isLoading: waitIsLoading,
+    data: waitData,
+    status: txStatus,
+    isError: isTxError,
+    error: txError,
+  } = useTransactionReceipt({
+    hash: sendData?.transaction_hash,
+    watch: true,
+  });
+
+  // Check if merchant is already registered when wallet connects
+  useEffect(() => {
+    console.log(authMethod);    
+    if (isConnected && address && authMethod === "wallet") {
+      checkExistingMerchant(address)
+    }
+  }, [isConnected, address, authMethod])
+
+  // Handle successful on-chain registration
+  useEffect(() => {
+    if (txStatus === "success" && waitData) {
+      toast.success("Merchant registered on-chain successfully!")
+      setStep("complete")
+      
+      // Store merchant info and redirect
+      setTimeout(() => {
+        router.push("/dashboard")
+      }, 3000)
+    } else if (txStatus === "error" || isTxError) {
+      toast.error("On-chain registration failed. Please try again.")
+      console.error("Transaction error:", txError)
+      setIsRegisteringOnchain(false)
+    }
+  }, [txStatus, waitData, isTxError, txError, router])
+
+  const checkExistingMerchant = async (walletAddress: string) => {
+    console.log("registering");
+    
+    setIsCheckingMerchant(true)
+    try {
+      const response = await fetch(`/api/merchants/check`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ walletAddress }),
+      })
+
+      const data = await response.json()
+
+      if (response.ok && data.exists) {
+        // Merchant already exists, store their tokens and redirect to dashboard
+        toast.success("Welcome back! Redirecting to dashboard...")
+        // You can store the merchant info in localStorage or context here
+        localStorage.setItem('merchant', JSON.stringify(data.merchant))
+        setTimeout(() => {
+          router.push("/dashboard")
+        }, 1500)
+      } else {
+        // New merchant, proceed to business info form
+        setStep("business")
+        toast.success("Wallet connected successfully!")
+      }
+    } catch (error) {
+      console.error("Error checking merchant:", error)
+      toast.error("Failed to check merchant status. Please try again.")
+    } finally {
+      setIsCheckingMerchant(false)
+    }
+  }
+
+  const connectWallet = () => {
     setAuthMethod("wallet")
-    // Simulate wallet connection
-    setTimeout(() => {
-      setIsConnecting(false)
-      setStep("business")
-    }, 2000)
+    setShowWalletModal(true)
   }
 
   const signInWithGoogle = async () => {
     setIsGoogleLoading(true)
     setAuthMethod("google")
-    // Simulate Google OAuth
+    // Simulate Google OAuth - replace with actual Google OAuth implementation
     setTimeout(() => {
       setIsGoogleLoading(false)
       setStep("business")
+      toast.success("Google account connected successfully!")
     }, 1500)
   }
 
+  const handleInputChange = (field: keyof MerchantData, value: string) => {
+    setMerchantData(prev => ({
+      ...prev,
+      [field]: value
+    }))
+  }
+
+  const validateForm = (): boolean => {
+    const { business_name, business_email, business_type, monthly_volume } = merchantData
+    
+    if (!business_name.trim()) {
+      toast.error("Business name is required")
+      return false
+    }
+    
+    if (!business_email.trim()) {
+      toast.error("Business email is required")
+      return false
+    }
+    
+    if (!/\S+@\S+\.\S+/.test(business_email)) {
+      toast.error("Please enter a valid email address")
+      return false
+    }
+    
+    if (!business_type) {
+      toast.error("Please select a business type")
+      return false
+    }
+    
+    if (!monthly_volume) {
+      toast.error("Please select expected monthly volume")
+      return false
+    }
+    
+    return true
+  }
+
+  const registerMerchantOnChain = async () => {
+    if (!calls || !merchantDbData) {
+      toast.error("Unable to prepare transaction")
+      return
+    }
+
+    try {
+      setIsRegisteringOnchain(true)
+      toast.loading("Registering merchant on-chain...")
+      await sendGasless()
+    } catch (error) {
+      console.error("Error registering merchant on-chain:", error)
+      toast.error("Failed to register merchant on-chain")
+      setIsRegisteringOnchain(false)
+    }
+  }
+
   const completeSignup = async () => {
-    // Simulate business info submission
-    setTimeout(() => {
-      setStep("complete")
-      // Redirect to dashboard after showing success
-      setTimeout(() => {
-        router.push("/dashboard")
-      }, 3000)
-    }, 1000)
+    if (!validateForm()) return
+
+    setIsSubmitting(true)
+    
+    try {
+      const payload = {
+        ...merchantData,
+        wallet_address: authMethod === "wallet" ? address : null,
+        authMethod,
+        local_currency: "USD", // Default currency, can be made configurable
+      }
+
+      console.log("Payload", payload);      
+
+      const response = await fetch('/api/merchants/register', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      })
+
+      const data = await response.json()
+
+      console.log("Response", data);
+      
+
+      if (response.ok) {
+        setStep("complete")
+        toast.success("Account created successfully!")
+        
+        // Store merchant info and API keys securely
+        localStorage.setItem('merchant', JSON.stringify(data.merchant))
+        
+        // Store API keys (in production, handle these more securely)
+        // Get from Data endpoints
+        localStorage.setItem('testnet_keys', JSON.stringify({
+          publicKey: data.apiKeys.testnet.publicKey,
+          jwt: data.apiKeys.testnet.jwt
+        }))
+        
+        localStorage.setItem('mainnet_keys', JSON.stringify({
+          publicKey: data.apiKeys.mainnet.publicKey,
+          jwt: data.apiKeys.mainnet.jwt
+        }))
+        
+        // Show secret keys in a secure modal (implement this)
+        console.log('IMPORTANT - Store these secret keys securely:', {
+          testnet: data.apiKeys.testnet.secretKey,
+          mainnet: data.apiKeys.mainnet.secretKey
+        })
+        
+        // Store merchant data for on-chain registration
+        setMerchantDbData(data.merchant)
+        
+        // If wallet is connected, register on-chain
+        if (authMethod === "wallet" && address) {
+          // The on-chain registration will be triggered by the useEffect when merchantDbData is set
+          toast.loading("Now registering on blockchain...")
+        } else {
+          // If no wallet, go directly to complete step
+          setStep("complete")
+          setTimeout(() => {
+            router.push("/dashboard")
+          }, 3000)
+        }
+      } else {
+        toast.error(data.error || "Failed to create account. Please try again.")
+      }
+    } catch (error) {
+      console.error("Error creating merchant account:", error)
+      toast.error("Failed to create account. Please try again.")
+    } finally {
+      setIsSubmitting(false)
+    }
+  }
+
+   // Trigger on-chain registration when merchant data is available
+  useEffect(() => {
+    if (merchantDbData && authMethod === "wallet" && address && !isRegisteringOnchain && !sendData) {
+      registerMerchantOnChain()
+    }
+  }, [merchantDbData, authMethod, address, isRegisteringOnchain, sendData])
+
+
+  const handleWalletModalClose = () => {
+    setShowWalletModal(false)
+    if (!isConnected) {
+      setAuthMethod("wallet")
+    }
   }
 
   return (
@@ -67,11 +376,24 @@ export default function SignupPage() {
               <span className="text-xl font-bold text-gray-900">Nummus</span>
             </div>
           </div>
-          <div className="text-sm text-gray-500">
-            Already have an account?{" "}
-            <Link href="/login" className="text-blue-600 hover:text-blue-700 font-medium">
-              Sign In
-            </Link>
+          <div className="text-sm text-gray-500 flex items-center gap-4">
+            {isConnected && (
+              <Button 
+                variant="outline" 
+                size="sm"
+                onClick={() => setShowAccountModal(true)}
+                className="text-xs"
+              >
+                <Wallet className="w-3 h-3 mr-1" />
+                {address?.slice(0, 6)}...{address?.slice(-4)}
+              </Button>
+            )}
+            <div>
+              Already have an account?{" "}
+              <Link href="/login" className="text-blue-600 hover:text-blue-700 font-medium">
+                Sign In
+              </Link>
+            </div>
           </div>
         </div>
       </header>
@@ -87,13 +409,13 @@ export default function SignupPage() {
               {/* Wallet Connection */}
               <Button
                 onClick={connectWallet}
-                disabled={isConnecting}
+                disabled={isCheckingMerchant}
                 className="w-full h-12 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
               >
-                {isConnecting ? (
+                {isCheckingMerchant ? (
                   <>
                     <Loader2 className="w-5 h-5 mr-3 animate-spin" />
-                    Connecting Wallet...
+                    Checking Account...
                   </>
                 ) : (
                   <>
@@ -199,18 +521,33 @@ export default function SignupPage() {
             </CardHeader>
             <CardContent className="space-y-6">
               <div>
-                <Label htmlFor="business-name">Business Name</Label>
-                <Input id="business-name" placeholder="Coffee Shop Lagos" />
+                <Label htmlFor="business-name">Business Name *</Label>
+                <Input 
+                  id="business-name" 
+                  placeholder="Coffee Shop Lagos" 
+                  value={merchantData.business_name}
+                  onChange={(e) => handleInputChange("business_name", e.target.value)}
+                />
               </div>
 
               <div>
-                <Label htmlFor="business-email">Business Email</Label>
-                <Input id="business-email" type="email" placeholder="hello@coffeeshop.com" />
+                <Label htmlFor="business-email">Business Email *</Label>
+                <Input 
+                  id="business-email" 
+                  type="email" 
+                  placeholder="hello@coffeeshop.com" 
+                  value={merchantData.business_email}
+                  onChange={(e) => handleInputChange("business_email", e.target.value)}
+                />
               </div>
 
               <div>
-                <Label htmlFor="business-type">Business Type</Label>
-                <select className="w-full h-10 px-3 py-2 border border-input bg-background rounded-md text-sm">
+                <Label htmlFor="business-type">Business Type *</Label>
+                <select 
+                  className="w-full h-10 px-3 py-2 border border-input bg-background rounded-md text-sm"
+                  value={merchantData.business_type}
+                  onChange={(e) => handleInputChange("business_type", e.target.value)}
+                >
                   <option value="">Select business type</option>
                   <option value="retail">Retail Store</option>
                   <option value="restaurant">Restaurant/Cafe</option>
@@ -222,8 +559,12 @@ export default function SignupPage() {
               </div>
 
               <div>
-                <Label htmlFor="monthly-volume">Expected Monthly Volume</Label>
-                <select className="w-full h-10 px-3 py-2 border border-input bg-background rounded-md text-sm">
+                <Label htmlFor="monthly-volume">Expected Monthly Volume *</Label>
+                <select 
+                  className="w-full h-10 px-3 py-2 border border-input bg-background rounded-md text-sm"
+                  value={merchantData.monthly_volume}
+                  onChange={(e) => handleInputChange("monthly_volume", e.target.value)}
+                >
                   <option value="">Select volume range</option>
                   <option value="0-1000">$0 - $1,000</option>
                   <option value="1000-10000">$1,000 - $10,000</option>
@@ -233,20 +574,31 @@ export default function SignupPage() {
                 </select>
               </div>
 
-              {authMethod === "wallet" && (
+              {authMethod === "wallet" && address && (
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4">
                   <div className="flex items-center">
                     <Shield className="w-5 h-5 text-green-600 mr-2" />
                     <div>
                       <p className="font-medium text-green-900">Wallet Connected</p>
-                      <p className="text-sm text-green-700">0x1234...5678</p>
+                      <p className="text-sm text-green-700 font-mono">{address.slice(0, 10)}...{address.slice(-8)}</p>
                     </div>
                   </div>
                 </div>
               )}
 
-              <Button onClick={completeSignup} className="w-full bg-gradient-to-r from-blue-600 to-purple-600">
-                Complete Setup
+              <Button 
+                onClick={completeSignup} 
+                disabled={isSubmitting}
+                className="w-full bg-gradient-to-r from-blue-600 to-purple-600"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Creating Account...
+                  </>
+                ) : (
+                  "Complete Setup"
+                )}
               </Button>
             </CardContent>
           </Card>
@@ -290,6 +642,18 @@ export default function SignupPage() {
           </Card>
         )}
       </div>
+
+      {/* Wallet Modal */}
+      <WalletModal 
+        isOpen={showWalletModal} 
+        onClose={handleWalletModalClose}
+      />
+
+      {/* Account Modal */}
+      <AccountModal 
+        isOpen={showAccountModal} 
+        onClose={() => setShowAccountModal(false)}
+      />
     </div>
   )
 }
