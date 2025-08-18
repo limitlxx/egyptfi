@@ -1,32 +1,24 @@
 "use client";
 import { ReactNode } from "react";
-import { sepolia } from "@starknet-react/chains";
+import { sepolia, mainnet } from "@starknet-react/chains";
 import {
   StarknetConfig,
-  ready,
-  braavos,
-  useInjectedConnectors,
   jsonRpcProvider,
   voyager,
   paymasterRpcProvider,
 } from "@starknet-react/core";
-import { headers } from "next/headers";
+import { availableConnectors } from "@/connectors";
 
 export function Providers({ children }: { children: ReactNode }) {
-  const { connectors } = useInjectedConnectors({
-    // Show these connectors if the user has no connector installed.
-    recommended: [ready(), braavos()],
-    // Hide recommended connectors if the user has any connector installed.
-    includeRecommended: "onlyIfNoConnectors",
-    // Randomize the order of the connectors.
-    order: "alphabetical",
-  });
   return (
     <StarknetConfig
+      chains={[sepolia, mainnet]}
       paymasterProvider={paymasterRpcProvider({
-        rpc: () => {
+        rpc: (chain) => {
           return {
-            nodeUrl: "https://sepolia.paymaster.avnu.fi",
+            nodeUrl: chain.id === mainnet.id 
+            ? process.env.NEXT_PUBLIC_PAYMASTER_URL_MAINNET || "https://starknet.paymaster.avnu.fi"
+            : process.env.NEXT_PUBLIC_PAYMASTER_URL || "https://sepolia.paymaster.avnu.fi",
             headers: {
               "x-paymaster-api-key":
                 process.env.NEXT_PUBLIC_PAYMASTER_API ?? "",
@@ -34,11 +26,14 @@ export function Providers({ children }: { children: ReactNode }) {
           };
         },
       })}
-      chains={[sepolia]}
       provider={jsonRpcProvider({
-        rpc: () => ({ nodeUrl: process.env.NEXT_PUBLIC_RPC_URL }),
+        rpc: (chain) => ({
+          nodeUrl: chain.id === mainnet.id 
+            ? process.env.NEXT_PUBLIC_RPC_URL_MAINNET || "https://starknet-mainnet.public.blastapi.io"
+            : process.env.NEXT_PUBLIC_RPC_URL || "https://starknet-sepolia.public.blastapi.io"
+        }),
       })}
-      connectors={connectors}
+      connectors={availableConnectors}
       explorer={voyager}
     >
       {children}

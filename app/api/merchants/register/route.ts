@@ -10,6 +10,7 @@ interface MerchantRegistrationData {
   wallet_address?: string;
   authMethod: 'wallet' | 'google';
   local_currency?: string;
+  transaction_hash?: string;
 }
 
 export async function POST(request: NextRequest) {
@@ -70,7 +71,8 @@ export async function POST(request: NextRequest) {
           business_type: data.business_type,
           monthly_volume: data.monthly_volume,
           authMethod: data.authMethod,
-          registrationDate: new Date().toISOString()
+          registrationDate: new Date().toISOString(),
+          transaction_hash: data.transaction_hash
         })
       ]
     );
@@ -80,11 +82,11 @@ export async function POST(request: NextRequest) {
     console.log("Merchant", newMerchant);
     
 
-    // Generate API keys for both testnet and mainnet
+    // Generate API keys for both testnet and mainnet (only here)
     const testnetKeys = generateApiKeys(newMerchant.id, 'testnet');
     const mainnetKeys = generateApiKeys(newMerchant.id, 'mainnet');
 
-    // Store API keys in database
+    // Store API keys in database (hashed secret)
     await client.query(
       `INSERT INTO api_keys (merchant_id, secret_key, public_key, created_at) VALUES 
        ($1, $2, $3, NOW()), 
@@ -98,28 +100,11 @@ export async function POST(request: NextRequest) {
       ]
     );
 
-    // Generate JWT tokens for both environments
-    const testnetJWT = generateJWT({
-      merchantId: newMerchant.id,
-      walletAddress: newMerchant.wallet_address || '',
-      egyptfiSecret: process.env.EGYPTFI_TESTNET_SECRET || '',
-      createdDate: newMerchant.created_at,
-      environment: 'testnet'
-    });
-
-    const mainnetJWT = generateJWT({
-      merchantId: newMerchant.id,
-      walletAddress: newMerchant.wallet_address || '',
-      egyptfiSecret: process.env.EGYPTFI_MAINNET_SECRET || '',
-      createdDate: newMerchant.created_at,
-      environment: 'mainnet'
-    });
-
     await client.query('COMMIT');
 
     return NextResponse.json({
       success: true,
-      message: 'Merchant account created successfully',
+      message: 'Merchant account created successfully. Login to get JWT.',
       merchant: {
         id: newMerchant.id,
         business_name: data.business_name,
@@ -130,13 +115,11 @@ export async function POST(request: NextRequest) {
       apiKeys: {
         testnet: {
           publicKey: testnetKeys.publicKey,
-          secretKey: testnetKeys.secretKey, // Send once, store securely
-          jwt: testnetJWT
+          secretKey: testnetKeys.secretKey, // Unhashed, sent only once
         },
         mainnet: {
           publicKey: mainnetKeys.publicKey,
-          secretKey: mainnetKeys.secretKey, // Send once, store securely
-          jwt: mainnetJWT
+          secretKey: mainnetKeys.secretKey, // Unhashed, sent only once
         }
       }
     });

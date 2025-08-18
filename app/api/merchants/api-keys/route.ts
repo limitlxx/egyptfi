@@ -1,24 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
-import { verifyJWT, generateApiKeys, hashSecretKey, generateJWT } from '@/lib/jwt';
+import { generateApiKeys, hashSecretKey } from '@/lib/jwt';
+import { authenticateApiKey, getAuthHeaders } from '@/lib/auth-helpers';
 
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization');
+    // Get authentication headers
+    const { apiKey, walletAddress, environment } = getAuthHeaders(request);
     
-    if (!authHeader?.startsWith('Bearer ')) {
+    if (!apiKey || !walletAddress || !environment) {
       return NextResponse.json(
-        { error: 'Authorization header required' },
+        { error: 'Missing authentication headers' },
         { status: 401 }
       );
     }
 
-    const token = authHeader.substring(7);
-    const payload = verifyJWT(token);
-
-    if (!payload) {
+    // Authenticate the request
+    const authResult = await authenticateApiKey(apiKey, walletAddress, environment);
+    if (!authResult.success) {
       return NextResponse.json(
-        { error: 'Invalid or expired token' },
+        { error: authResult.error },
         { status: 401 }
       );
     }
@@ -26,19 +27,20 @@ export async function GET(request: NextRequest) {
     const client = await pool.connect();
     try {
       const result = await client.query(
-        'SELECT public_key, created_at FROM api_keys WHERE merchant_id = $1 ORDER BY created_at DESC',
-        [payload.merchantId]
+        'SELECT secret_key, public_key, created_at FROM api_keys WHERE merchant_id = $1 ORDER BY created_at DESC',
+        [authResult.merchant!.id]
       );
 
       const apiKeys = result.rows.map(row => ({
         publicKey: row.public_key,
+        secretKey: row.secret_key,
         environment: row.public_key.includes('test_') ? 'testnet' : 'mainnet',
         createdAt: row.created_at
       }));
 
       return NextResponse.json({
         apiKeys,
-        currentEnvironment: payload.environment
+        currentEnvironment: environment || 'testnet'
       });
 
     } finally {
@@ -56,21 +58,21 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization');
+    // Get authentication headers
+    const { apiKey, walletAddress, environment: currentEnv } = getAuthHeaders(request);
     
-    if (!authHeader?.startsWith('Bearer ')) {
+    if (!apiKey || !walletAddress || !currentEnv) {
       return NextResponse.json(
-        { error: 'Authorization header required' },
+        { error: 'Missing authentication headers' },
         { status: 401 }
       );
     }
 
-    const token = authHeader.substring(7);
-    const payload = verifyJWT(token);
-
-    if (!payload) {
+    // Authenticate the request
+    const authResult = await authenticateApiKey(apiKey, walletAddress, currentEnv);
+    if (!authResult.success) {
       return NextResponse.json(
-        { error: 'Invalid or expired token' },
+        { error: authResult.error },
         { status: 401 }
       );
     }
@@ -91,28 +93,17 @@ export async function POST(request: NextRequest) {
       // Revoke old keys for this environment
       await client.query(
         'DELETE FROM api_keys WHERE merchant_id = $1 AND public_key LIKE $2',
-        [payload.merchantId, environment === 'testnet' ? 'pk_test_%' : 'pk_live_%']
+        [authResult.merchant!.id, environment === 'testnet' ? 'pk_test_%' : 'pk_live_%']
       );
 
       // Generate new API keys
-      const newKeys = generateApiKeys(payload.merchantId, environment as 'testnet' | 'mainnet');
+      const newKeys = generateApiKeys(authResult.merchant!.id, environment as 'testnet' | 'mainnet');
 
       // Store new API keys
       await client.query(
         'INSERT INTO api_keys (merchant_id, secret_key, public_key) VALUES ($1, $2, $3)',
-        [payload.merchantId, hashSecretKey(newKeys.secretKey), newKeys.publicKey]
+        [authResult.merchant!.id, hashSecretKey(newKeys.secretKey), newKeys.publicKey]
       );
-
-      // Generate new JWT
-      const newJWT = generateJWT({
-        merchantId: payload.merchantId,
-        walletAddress: payload.walletAddress,
-        egyptfiSecret: environment === 'testnet' 
-          ? process.env.EGYPTFI_TESTNET_SECRET || ''
-          : process.env.EGYPTFI_MAINNET_SECRET || '',
-        createdDate: new Date().toISOString(),
-        environment: environment as 'testnet' | 'mainnet'
-      });
 
       await client.query('COMMIT');
 
@@ -121,8 +112,7 @@ export async function POST(request: NextRequest) {
         apiKeys: {
           publicKey: newKeys.publicKey,
           secretKey: newKeys.secretKey, // Send once
-          environment,
-          jwt: newJWT
+          environment
         }
       });
 

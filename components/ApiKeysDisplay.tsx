@@ -30,9 +30,12 @@ import {
 } from "@/components/ui/alert";
 import toast from "react-hot-toast";
 import { AuthManager } from "@/lib/auth-utils";
+// import { useToast } from '@/hooks/use-toast';
+import { useRouter } from 'next/navigation';
 
 interface ApiKeyInfo {
   publicKey: string;
+  secretKey: string;
   environment: 'testnet' | 'mainnet';
   createdAt: string;
 }
@@ -40,8 +43,8 @@ interface ApiKeyInfo {
 export const ApiKeysDisplay: React.FC = () => {
   const [environment, setEnvironment] = useState<'testnet' | 'mainnet'>('testnet');
   const [keys, setKeys] = useState<{
-    testnet?: { publicKey: string; secretKey?: string; jwt: string };
-    mainnet?: { publicKey: string; secretKey?: string; jwt: string };
+    testnet?: { publicKey: string; secretKey?: string; };
+    mainnet?: { publicKey: string; secretKey?: string; };
   }>({});
   const [showSecretKeys, setShowSecretKeys] = useState<{
     testnet: boolean;
@@ -49,6 +52,10 @@ export const ApiKeysDisplay: React.FC = () => {
   }>({ testnet: false, mainnet: false });
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [apiKeysList, setApiKeysList] = useState<ApiKeyInfo[]>([]);
+  const router = useRouter();
+  // const { toast } = useToast();
+
+  const activeKeys = apiKeysList.find(k => k.environment === environment);  
 
   useEffect(() => {
     loadApiKeys();
@@ -68,15 +75,34 @@ export const ApiKeysDisplay: React.FC = () => {
 
   const fetchApiKeysList = async () => {
     try {
-        const response = await AuthManager.makeAuthenticatedRequest('/api/merchants/api-keys');
-        if (response.ok) {
-          const data = await response.json();
+      const response = await AuthManager.makeAuthenticatedRequest('/api/merchants/api-keys');
+      if (response.status === 401) {
+        console.warn('API Keys request returned 401 - JWT may be expired');
+        toast.error('Session expired. Please log in again to continue.');
+        // Don't immediately clear auth - let the user decide
+        // AuthManager.clearAuth();
+        // router.push('/login');
+        return;
+      }
+      if (response.ok) {
+        const data = await response.json();
+        console.log("Keys", data);
+        
         setApiKeysList(data.apiKeys);
+
+      } else {
+        const errorData = await response.json().catch(() => ({ error: 'Failed to fetch API keys' }));
+        throw new Error(errorData.error || 'Failed to fetch API keys');
       }
     } catch (error) {
       console.error('Error fetching API keys:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to fetch API keys');
     }
   };
+
+  useEffect(() => {
+    fetchApiKeysList();
+  }, []);
 
   const copyToClipboard = (text: string, type: string) => {
     navigator.clipboard.writeText(text);
@@ -105,7 +131,7 @@ export const ApiKeysDisplay: React.FC = () => {
           
           AuthManager.setApiKeys(env, {
             publicKey: data.apiKeys.publicKey,
-            jwt: data.apiKeys.jwt,
+            secretKey: data.apiKeys.secretKey,
           });
 
           setKeys(prev => ({
@@ -113,7 +139,6 @@ export const ApiKeysDisplay: React.FC = () => {
             [env]: {
               publicKey: data.apiKeys.publicKey,
               secretKey: data.apiKeys.secretKey,
-              jwt: data.apiKeys.jwt,
             }
           }));
 
@@ -230,14 +255,14 @@ export const ApiKeysDisplay: React.FC = () => {
                 <Label>Public Key</Label>
                 <div className="flex items-center space-x-2 mt-1">
                   <Input
-                    value={keys[environment]?.publicKey || ''}
+                    value={activeKeys?.publicKey || ''}
                     readOnly
                     className="font-mono text-sm"
                   />
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => copyToClipboard(keys[environment]?.publicKey || '', 'Public key')}
+                    onClick={() => copyToClipboard(activeKeys?.publicKey || '', 'Public key')}
                   >
                     <Copy className="w-4 h-4" />
                   </Button>
@@ -248,7 +273,7 @@ export const ApiKeysDisplay: React.FC = () => {
               </div>
 
               {/* Secret Key */}
-              {keys[environment]?.secretKey && (
+              {activeKeys?.secretKey && (
                 <div>
                   <Label className="flex items-center space-x-2">
                     <span>Secret Key</span>
@@ -261,8 +286,8 @@ export const ApiKeysDisplay: React.FC = () => {
                       type={showSecretKeys[environment] ? 'text' : 'password'}
                       value={
                         showSecretKeys[environment] 
-                          ? keys[environment]?.secretKey || ''
-                          : maskSecretKey(keys[environment]?.secretKey || '')
+                          ? activeKeys?.secretKey || ''
+                          : maskSecretKey(activeKeys?.secretKey || '')
                       }
                       readOnly
                       className="font-mono text-sm"
@@ -281,7 +306,7 @@ export const ApiKeysDisplay: React.FC = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => copyToClipboard(keys[environment]?.secretKey || '', 'Secret key')}
+                      onClick={() => copyToClipboard(activeKeys?.secretKey || '', 'Secret key')}
                     >
                       <Copy className="w-4 h-4" />
                     </Button>
@@ -297,11 +322,11 @@ export const ApiKeysDisplay: React.FC = () => {
               )}
 
               {/* JWT Token */}
-              <div>
-                <Label>JWT Authorization Token</Label>
+              {/* <div>
+                <Label className='mb-2'>JWT Authorization Token</Label>
                 <div className="flex items-center space-x-2 mt-1">
                   <Input
-                    value={keys[environment]?.jwt || ''}
+                    value={activeKeys?.jwt || ''}
                     readOnly
                     className="font-mono text-sm"
                     type="password"
@@ -309,7 +334,7 @@ export const ApiKeysDisplay: React.FC = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => copyToClipboard(keys[environment]?.jwt || '', 'JWT token')}
+                    onClick={() => copyToClipboard(activeKeys?.jwt || '', 'JWT token')}
                   >
                     <Copy className="w-4 h-4" />
                   </Button>
@@ -317,19 +342,19 @@ export const ApiKeysDisplay: React.FC = () => {
                 <p className="text-xs text-muted-foreground mt-1">
                   Include this token in the Authorization header: <code>Bearer {'{'}token{'}'}</code>
                 </p>
-              </div>
+              </div> */}
 
               {/* Contract Address */}
               <div>
-                <Label>Contract Address</Label>
+                <Label className='mb-2'>EgyptFi Contract Address</Label>
                 <div className="flex items-center space-x-2 mt-1">
                   <Input
                     value={
                       environment === 'testnet'
-                        ? process.env.NEXT_PUBLIC_TESTNET_CONTRACT_ADDRESS || 'Not configured'
-                        : process.env.NEXT_PUBLIC_MAINNET_CONTRACT_ADDRESS || 'Not configured'
+                        ? process.env.NEXT_PUBLIC_EGYPT_SEPOLIA_CONTRACT_ADDRESS || 'Not configured'
+                        : process.env.NEXT_PUBLIC_EGYPT_MAINNET_CONTRACT_ADDRESS || 'Not configured'
                     }
-                    readOnly
+                    disabled
                     className="font-mono text-sm"
                   />
                   <Button
@@ -337,8 +362,8 @@ export const ApiKeysDisplay: React.FC = () => {
                     size="sm"
                     onClick={() => copyToClipboard(
                       environment === 'testnet'
-                        ? process.env.NEXT_PUBLIC_TESTNET_CONTRACT_ADDRESS || ''
-                        : process.env.NEXT_PUBLIC_MAINNET_CONTRACT_ADDRESS || '',
+                        ? process.env.NEXT_PUBLIC_EGYPT_SEPOLIA_CONTRACT_ADDRESS || ''
+                        : process.env.NEXT_PUBLIC_EGYPT_MAINNET_CONTRACT_ADDRESS || '',
                       'Contract address'
                     )}
                   >
@@ -367,9 +392,13 @@ export const ApiKeysDisplay: React.FC = () => {
   );
 };
 
+type DeveloperTabProps = {
+  webhook: string
+}
+
 // Main Developer Tab Component
-export default function DeveloperTab() {
-  const [webhookUrl, setWebhookUrl] = useState('');
+export default function DeveloperTab({ webhook }: DeveloperTabProps) {
+  const [webhookUrl, setWebhookUrl] = useState(webhook);
   const [copiedItem, setCopiedItem] = useState(null);
 
   const copyToClipboard = (text: string, type: any) => {
@@ -378,9 +407,28 @@ export default function DeveloperTab() {
     setTimeout(() => setCopiedItem(null), 2000);
   };
 
+    const updateWebhookUrl = async () => {
+  try {
+    const response = await AuthManager.makeAuthenticatedRequest('/api/merchants/webhook', {
+      method: 'POST',
+      body: JSON.stringify({ webhookUrl }),
+    });
+
+    if (response.ok) {
+      toast.success('Webhook URL updated successfully');
+    } else {
+      const error = await response.json();
+      toast.error(error.error || 'Failed to update webhook URL');
+    }
+  } catch (error) {
+    console.error('Error updating webhook URL:', error);
+    toast.error('Failed to update webhook URL');
+  }
+};
+
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6">
         {/* API Keys Management - Full Width */}
         <div className="lg:col-span-2">
           <ApiKeysDisplay />
@@ -391,9 +439,9 @@ export default function DeveloperTab() {
           <CardHeader>
             <CardTitle>Webhook Configuration</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
+          <CardContent className="space-y-4 ">
             <div>
-              <Label htmlFor="webhook-url">Webhook URL</Label>
+              <Label className='mb-2' htmlFor="webhook-url">Webhook URL</Label>
               <Input
                 id="webhook-url"
                 value={webhookUrl}
@@ -409,9 +457,13 @@ export default function DeveloperTab() {
                 <li>• payment.failed - Payment failed or expired</li>
               </ul>
             </div>
-            <Button className="w-full bg-gradient-to-r from-blue-600 to-purple-600">
-              Update Webhook URL
-            </Button>
+           <Button
+            className="w-full bg-gradient-to-r from-blue-600 to-purple-600"
+            onClick={updateWebhookUrl}
+            disabled={!webhookUrl}
+          >
+            Update Webhook URL
+          </Button>
           </CardContent>
         </Card>
       </div>

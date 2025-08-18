@@ -1,112 +1,137 @@
-interface StoredKeys {
-  publicKey: string;
-  jwt: string;
-}
-
+// lib/auth-utils.ts
 interface MerchantInfo {
   id: string;
   businessName: string;
   businessEmail: string;
-  walletAddress: string;
+  walletAddress: string; 
+  defaultCurrency: string
+  businessLogo: string
   createdAt: string;
+  webhookUrl: string
+  phone: string
+}
+
+interface ApiKeys {
+  publicKey: string;
+  secretKey?: string; // Optional, only returned once during generation
 }
 
 export class AuthManager {
-  private static readonly MERCHANT_KEY = 'merchant';
-  private static readonly TESTNET_KEYS_KEY = 'testnet_keys';
-  private static readonly MAINNET_KEYS_KEY = 'mainnet_keys';
-  private static readonly CURRENT_ENV_KEY = 'current_environment';
-
   static getMerchantInfo(): MerchantInfo | null {
-    if (typeof window === 'undefined') return null;
-    
-    try {
-      const merchant = localStorage.getItem(this.MERCHANT_KEY);
-      return merchant ? JSON.parse(merchant) : null;
-    } catch {
-      return null;
-    }
+    const merchant = localStorage.getItem("merchant");
+    return merchant ? JSON.parse(merchant) : null;
   }
 
   static setMerchantInfo(merchant: MerchantInfo): void {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem(this.MERCHANT_KEY, JSON.stringify(merchant));
+    localStorage.setItem("merchant", JSON.stringify(merchant));
   }
 
-  static getApiKeys(environment: 'testnet' | 'mainnet'): StoredKeys | null {
-    if (typeof window === 'undefined') return null;
-    
-    try {
-      const key = environment === 'testnet' ? this.TESTNET_KEYS_KEY : this.MAINNET_KEYS_KEY;
-      const keys = localStorage.getItem(key);
-      return keys ? JSON.parse(keys) : null;
-    } catch {
-      return null;
-    }
+  static getApiKeys(environment: "testnet" | "mainnet"): ApiKeys | null {
+    const keys = localStorage.getItem(`${environment}_keys`);
+    return keys ? JSON.parse(keys) : null;
   }
 
-  static setApiKeys(environment: 'testnet' | 'mainnet', keys: StoredKeys): void {
-    if (typeof window === 'undefined') return;
-    
-    const key = environment === 'testnet' ? this.TESTNET_KEYS_KEY : this.MAINNET_KEYS_KEY;
-    localStorage.setItem(key, JSON.stringify(keys));
+  static setApiKeys(environment: "testnet" | "mainnet", keys: ApiKeys): void {
+    localStorage.setItem(`${environment}_keys`, JSON.stringify(keys));
   }
 
-  static getCurrentEnvironment(): 'testnet' | 'mainnet' {
-    if (typeof window === 'undefined') return 'testnet';
-    
-    return localStorage.getItem(this.CURRENT_ENV_KEY) as 'testnet' | 'mainnet' || 'testnet';
+  static getCurrentEnvironment(): "testnet" | "mainnet" {
+    return (
+      (localStorage.getItem("current_environment") as "testnet" | "mainnet") ||
+      "testnet"
+    );
   }
 
-  static setCurrentEnvironment(environment: 'testnet' | 'mainnet'): void {
-    if (typeof window === 'undefined') return;
-    localStorage.setItem(this.CURRENT_ENV_KEY, environment);
+  static setCurrentEnvironment(environment: "testnet" | "mainnet"): void {
+    localStorage.setItem("current_environment", environment);
   }
 
-  static getAuthHeaders(environment?: 'testnet' | 'mainnet'): HeadersInit {
-    const env = environment || this.getCurrentEnvironment();
-    const keys = this.getApiKeys(env);
-    
-    if (!keys?.jwt) {
-      throw new Error(`No JWT token found for ${env} environment`);
-    }
-
-    return {
-      'Authorization': `Bearer ${keys.jwt}`,
-      'Content-Type': 'application/json',
-    };
-  }
-
-  static async makeAuthenticatedRequest(
-    url: string, 
-    options: RequestInit = {}, 
-    environment?: 'testnet' | 'mainnet'
-  ): Promise<Response> {
-    const headers = {
-      ...this.getAuthHeaders(environment),
-      ...options.headers,
-    };
-
-    return fetch(url, {
-      ...options,
-      headers,
-    });
-  }
-
-  static clearAuth(): void {
-    if (typeof window === 'undefined') return;
-    
-    localStorage.removeItem(this.MERCHANT_KEY);
-    localStorage.removeItem(this.TESTNET_KEYS_KEY);
-    localStorage.removeItem(this.MAINNET_KEYS_KEY);
-    localStorage.removeItem(this.CURRENT_ENV_KEY);
-  }
-
-  static isAuthenticated(): boolean {
+  static async isAuthenticated(): Promise<boolean> {
     const merchant = this.getMerchantInfo();
     const currentEnv = this.getCurrentEnvironment();
     const keys = this.getApiKeys(currentEnv);
-    
-    return !!(merchant && keys?.jwt);
+
+    console.log("Keys", keys);
+    console.log("Env", currentEnv);
+    console.log("Merchant", merchant);
+
+    if (!merchant || !keys?.publicKey) {
+      console.error(
+        "Authentication failed: Missing merchant info or public key"
+      );
+      return false;
+    }
+
+    try {
+      const response = await fetch("/api/auth/verify-key", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          publicKey: keys.publicKey,
+          walletAddress: merchant.walletAddress,
+        }),
+      });
+
+      if (response.status === 401) {
+        console.warn(
+          "Public key verification returned 401 - key may be invalid"
+        );
+        return false;
+      }
+
+      const { success, error } = await response.json();
+      if (!success) {
+        console.error("Authentication failed:", error);
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.error(
+        "Authentication error:",
+        error instanceof Error ? error.message : error
+      );
+      return false;
+    }
+  }
+
+  static clearAuth(): void {
+    localStorage.removeItem("merchant");
+    localStorage.removeItem("testnet_keys");
+    localStorage.removeItem("mainnet_keys");
+    localStorage.removeItem("current_environment");
+  }
+
+  static async makeAuthenticatedRequest(
+    url: string,
+    options: RequestInit = {},
+    environment?: "testnet" | "mainnet"
+  ): Promise<Response> {
+    const currentEnv = environment || this.getCurrentEnvironment();
+    const keys = this.getApiKeys(currentEnv);
+    const merchant = this.getMerchantInfo();
+
+    if (!keys?.publicKey || !merchant?.walletAddress) {
+      throw new Error("No public key or wallet address found");
+    }
+
+    const headers = {
+      ...options.headers,
+      "X-API-Key": keys.publicKey,
+      "X-Wallet-Address": merchant.walletAddress,
+      "X-Environment": currentEnv,
+    };
+
+    const response = await fetch(url, {
+      ...options,
+      headers,
+    });
+
+    console.log("Request response status:", response);
+
+    if (response.status === 401) {
+      console.warn("Request returned 401 - API key may be invalid");
+    }
+
+    return response;
   }
 }

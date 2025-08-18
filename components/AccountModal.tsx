@@ -11,6 +11,7 @@ import toast from "react-hot-toast";
 import { useAccount, useDisconnect } from "@starknet-react/core"; 
 import { useState } from "react";
 import { useRouter } from "next/navigation"
+import { AuthManager } from "@/lib/auth-utils";
 
 interface AccountModalProps {
   isOpen: boolean;
@@ -30,7 +31,7 @@ const AccountModal = ({ isOpen, onClose }: AccountModalProps) => {
     try {
       localStorage.clear()
       sessionStorage.clear();
-      
+      AuthManager.clearAuth()
       disconnect();
 
       setForceReset(true);

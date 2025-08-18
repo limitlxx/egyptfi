@@ -1,7 +1,7 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
-import { ArrowLeft, Wallet, Mail, Check, Loader2, Shield, Zap } from "lucide-react"
+import { useState, useEffect, useCallback } from "react"
+import { ArrowLeft, Wallet, Mail, Check, Loader2, Shield, Zap, AlertTriangle, RefreshCw, Wifi } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -12,19 +12,13 @@ import { useRouter } from "next/navigation"
 import WalletModal from "@/components/WalletModal"
 import AccountModal from "@/components/AccountModal"
 import { useAccount } from "@starknet-react/core"
-import toast from "react-hot-toast"
-import {
-  useContract,
-  usePaymasterEstimateFees,
-  usePaymasterGasTokens,
-  usePaymasterSendTransaction,
-  useTransactionReceipt,
-} from "@starknet-react/core";
-import { EGYPTFI_ABI } from "@/lib/abi";
-import { EGYPT_SEPOLIA_CONTRACT_ADDRESS } from "@/lib/utils";
-import { STRK_SEPOLIA } from "@/lib/coins";
-import { FeeMode } from "starknet";
-import { stringToFelt252, emailToFelt252, truncateToFelt252 } from "@/lib/felt252-utils";
+import toast from "react-hot-toast" 
+import { useAccountDeployment } from "@/hooks/useAccountDeployment"
+import { useMerchantStatus } from "@/hooks/useMerchantStatus"
+import { useMerchantRegistration } from "@/hooks/useMerchantRegistration"
+import { MerchantRegistrationData } from "@/services/merchantRegistrationService"
+import { useGlobalNetworkStatus } from "@/components/NetworkStatusProvider"
+import { PaymentModeIndicator } from "@/components/PaymentModeIndicator"
 
 interface MerchantData {
   business_name: string
@@ -35,172 +29,237 @@ interface MerchantData {
 
 export default function SignupPage() {
   const [isGoogleLoading, setIsGoogleLoading] = useState(false)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [isCheckingMerchant, setIsCheckingMerchant] = useState(false)
-  const [isRegisteringOnchain, setIsRegisteringOnchain] = useState(false)
   const [step, setStep] = useState<"auth" | "business" | "complete">("auth")
   const [authMethod, setAuthMethod] = useState<"wallet" | "google" | null>(null)
   const [showWalletModal, setShowWalletModal] = useState(false)
   const [showAccountModal, setShowAccountModal] = useState(false)
+  const [hasProcessedConnection, setHasProcessedConnection] = useState(false)
+  const [walletProcessingComplete, setWalletProcessingComplete] = useState(false) // NEW: Track when wallet processing is done
+  const [deploymentCheckFailed, setDeploymentCheckFailed] = useState(false)
+  const [retryCount, setRetryCount] = useState(0)
   const [merchantData, setMerchantData] = useState<MerchantData>({
     business_name: "",
     business_email: "",
     business_type: "",
     monthly_volume: ""
   })
-  const [merchantDbData, setMerchantDbData] = useState<any>(null)
 
   const { address, isConnected } = useAccount()
   const router = useRouter()
+  const networkStatus = useGlobalNetworkStatus()
 
-  // Contract setup for register_merchant
-  const { contract } = useContract({
-    abi: EGYPTFI_ABI,
-    address: EGYPT_SEPOLIA_CONTRACT_ADDRESS,
-  });
+  // Check account deployment status
+  const {
+    isDeployed,
+    isLoading: isCheckingDeployment,
+    error: deploymentError,
+    retryDeploymentCheck,
+  } = useAccountDeployment(
+    address && authMethod === "wallet" ? address : undefined,
+    'sepolia',
+    true
+  )
 
-  const feeMode: FeeMode = {
-    mode: "sponsored",
-  };
+  // Check merchant status (contract first, then database)
+  const {
+    isLoading: isCheckingMerchant,
+    contractCheck,
+    dbCheck,
+    isContractMerchant,
+    isDbMerchant,
+    error: merchantCheckError,
+    checkMerchantStatus,
+    resetStatus,
+  } = useMerchantStatus()
 
-  // Prepare contract calls for register_merchant
-  const calls = useMemo(() => {
-    if (!contract || !merchantDbData || !address) {
-      return undefined;
+  // Handle merchant registration
+  const {
+    isRegistering,
+    isContractRegistering,
+    isVerifying,
+    registrationStep,
+    error: registrationError,
+    registerMerchant,
+    resetRegistration,
+  } = useMerchantRegistration()
+
+  // Handle deployment check failures and network issues
+  useEffect(() => {
+    if (deploymentError && !networkStatus.isOnline) {
+      setDeploymentCheckFailed(true)
+      toast.error("Account deployment check failed due to network issues. Please check your connection and retry.")
+    } else if (deploymentError && networkStatus.isSlowConnection) {
+      setDeploymentCheckFailed(true)
+      toast.error("Account deployment check failed due to slow connection. Please retry.")
+    } else if (deploymentError) {
+      setDeploymentCheckFailed(true)
+      toast.error("Account deployment check failed. Please retry.")
+    } else {
+      setDeploymentCheckFailed(false)
     }
+  }, [deploymentError, networkStatus.isOnline, networkStatus.isSlowConnection])
+
+  // Retry deployment check function
+  const handleRetryDeploymentCheck = useCallback(async () => {
+    if (!networkStatus.isOnline) {
+      toast.error("Please check your internet connection before retrying")
+      return
+    }
+
+    setRetryCount(prev => prev + 1)
+    setDeploymentCheckFailed(false)
     
     try {
-      // Convert string data to felt252 format
-      const nameAsFelt = truncateToFelt252(merchantDbData.business_name);
-      const emailAsFelt = emailToFelt252(merchantDbData.business_email);
-      const withdrawalAddress = address; // Use connected wallet as withdrawal address
-      const feePercentage = 250; // 2.5% as basis points (250/10000 = 2.5%)
-
-      console.log("Contract call data:", {
-        nameAsFelt,
-        emailAsFelt,
-        withdrawalAddress,
-        feePercentage
-      });
-
-      return [contract.populate("register_merchant", [
-        nameAsFelt,
-        emailAsFelt,
-        withdrawalAddress,
-        feePercentage
-      ])];
+      retryDeploymentCheck()
+      toast.success("Retrying account deployment check...")
     } catch (error) {
-      console.error("Error preparing contract calls:", error);
-      toast.error("Error preparing blockchain registration");
-      return undefined;
+      console.error("Retry failed:", error)
+      setDeploymentCheckFailed(true)
     }
-  }, [contract, merchantDbData, address]);
+  }, [networkStatus.isOnline, retryDeploymentCheck])
 
-  // Paymaster hooks for gas estimation and transaction
-  const {
-    data: estimateData,
-    isPending: isPendingEstimate,
-    error: errorEstimate,
-  } = usePaymasterEstimateFees({
-    calls,
-    options: {
-      feeMode,
-    },
-  });
-
-  const {
-    sendAsync: sendGasless,
-    data: sendData,
-    isPending: isPendingSend,
-    error: errorSend,
-  } = usePaymasterSendTransaction({
-    calls,
-    options: {
-      feeMode,
-    },
-    maxFeeInGasToken: estimateData?.suggested_max_fee_in_gas_token,
-  });
-
-  const {
-    isLoading: waitIsLoading,
-    data: waitData,
-    status: txStatus,
-    isError: isTxError,
-    error: txError,
-  } = useTransactionReceipt({
-    hash: sendData?.transaction_hash,
-    watch: true,
-  });
-
-  // Check if merchant is already registered when wallet connects
+  // Handle wallet connection state changes
   useEffect(() => {
-    console.log(authMethod);    
-    if (isConnected && address && authMethod === "wallet") {
-      checkExistingMerchant(address)
+    if (isConnected && address && authMethod === null && showWalletModal === false) {
+      // Wallet connected but authMethod wasn't set properly
+      console.log("🔧 Fixing authMethod after wallet connection")
+      setAuthMethod("wallet")
     }
-  }, [isConnected, address, authMethod])
-
-  // Handle successful on-chain registration
-  useEffect(() => {
-    if (txStatus === "success" && waitData) {
-      toast.success("Merchant registered on-chain successfully!")
-      setStep("complete")
-      
-      // Store merchant info and redirect
-      setTimeout(() => {
-        router.push("/dashboard")
-      }, 3000)
-    } else if (txStatus === "error" || isTxError) {
-      toast.error("On-chain registration failed. Please try again.")
-      console.error("Transaction error:", txError)
-      setIsRegisteringOnchain(false)
-    }
-  }, [txStatus, waitData, isTxError, txError, router])
-
-  const checkExistingMerchant = async (walletAddress: string) => {
-    console.log("registering");
     
-    setIsCheckingMerchant(true)
-    try {
-      const response = await fetch(`/api/merchants/check`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ walletAddress }),
+    if (!isConnected && authMethod === "wallet") {
+      // Wallet disconnected, reset states
+      console.log("🔌 Wallet disconnected, resetting states")
+      setAuthMethod(null)
+      setHasProcessedConnection(false)
+      setWalletProcessingComplete(false) // Reset processing complete flag
+      setDeploymentCheckFailed(false)
+      setRetryCount(0)
+      setStep("auth")
+    }
+  }, [isConnected, address, authMethod, showWalletModal])
+
+  // Handle wallet connection completion
+  const processWalletConnection = useCallback(async () => {
+    if (
+      authMethod === "wallet" && 
+      isConnected && 
+      address && 
+      !hasProcessedConnection &&
+      !isCheckingDeployment
+    ) {
+      console.log("🔄 Processing wallet connection for address:", address)
+      setHasProcessedConnection(true)
+
+      // Wait for deployment check to complete
+      if (isDeployed) {
+        console.log("✅ Account is deployed, checking merchant status...")
+        await checkMerchantStatus(address)
+      } else {
+        console.log("⚠️ Account not deployed, skipping to business form")
+        setStep("business")
+        setWalletProcessingComplete(true) // Mark processing as complete
+        // Reset registration states to ensure clean state
+        resetRegistration()
+        toast.success("Wallet connected! (Blockchain registration will be skipped)")
+      }
+    }
+  }, [authMethod, isConnected, address, hasProcessedConnection, isCheckingDeployment, isDeployed, checkMerchantStatus])
+
+  // Process wallet connection when conditions are met
+  useEffect(() => {
+    processWalletConnection()
+  }, [processWalletConnection])
+
+  // Handle merchant status check results
+  useEffect(() => {
+    if (
+      authMethod === "wallet" &&
+      hasProcessedConnection &&
+      contractCheck !== null && 
+      dbCheck !== null && 
+      !isCheckingMerchant
+    ) {
+      console.log("📊 Merchant status check complete:", {
+        contractExists: isContractMerchant,
+        dbExists: isDbMerchant,
+        contractData: contractCheck,
+        dbData: dbCheck,
       })
 
-      const data = await response.json()
-
-      if (response.ok && data.exists) {
-        // Merchant already exists, store their tokens and redirect to dashboard
+      if (isContractMerchant || isDbMerchant) {
+        // Existing merchant found
+        const merchantData = dbCheck.merchant || contractCheck.merchant
+        
         toast.success("Welcome back! Redirecting to dashboard...")
-        // You can store the merchant info in localStorage or context here
-        localStorage.setItem('merchant', JSON.stringify(data.merchant))
+
+        console.log("merchantData", merchantData)
+        
+        // Store merchant data if from database
+        if (dbCheck.merchant) {
+          localStorage.setItem('merchant', JSON.stringify(dbCheck.merchant))
+        }
+        
         setTimeout(() => {
           router.push("/dashboard")
         }, 1500)
       } else {
         // New merchant, proceed to business info form
+        console.log("👤 New merchant detected, showing business form")
         setStep("business")
+        setWalletProcessingComplete(true) // Mark processing as complete
+        // Reset registration states to ensure clean state
+        resetRegistration()
         toast.success("Wallet connected successfully!")
       }
-    } catch (error) {
-      console.error("Error checking merchant:", error)
-      toast.error("Failed to check merchant status. Please try again.")
-    } finally {
-      setIsCheckingMerchant(false)
     }
-  }
+  }, [
+    authMethod,
+    hasProcessedConnection,
+    contractCheck, 
+    dbCheck, 
+    isCheckingMerchant, 
+    isContractMerchant, 
+    isDbMerchant, 
+    router
+  ])
+
+  // Force reset registration states when reaching business step
+  useEffect(() => {
+    if (step === "business" && (isRegistering || isContractRegistering || isVerifying) && registrationStep === 'idle') {
+      console.log("🔄 Force resetting stuck registration states")
+      resetRegistration()
+    }
+  }, [step, isRegistering, isContractRegistering, isVerifying, registrationStep, resetRegistration])
+
+  // Handle registration completion
+  useEffect(() => {
+    if (registrationStep === 'complete') {
+      setStep("complete")
+      
+      setTimeout(() => {
+        router.push("/dashboard")
+      }, 3000)
+    }
+  }, [registrationStep, router])
 
   const connectWallet = () => {
+    console.log("🚀 Starting wallet connection process")
     setAuthMethod("wallet")
+    setHasProcessedConnection(false)
+    setWalletProcessingComplete(false) // Reset processing complete flag
+    resetStatus()
+    resetRegistration()
     setShowWalletModal(true)
   }
 
   const signInWithGoogle = async () => {
     setIsGoogleLoading(true)
     setAuthMethod("google")
+    setHasProcessedConnection(false)
+    setWalletProcessingComplete(true) // Google doesn't need wallet processing
+    resetStatus()
+    resetRegistration()
+    
     // Simulate Google OAuth - replace with actual Google OAuth implementation
     setTimeout(() => {
       setIsGoogleLoading(false)
@@ -247,115 +306,115 @@ export default function SignupPage() {
     return true
   }
 
-  const registerMerchantOnChain = async () => {
-    if (!calls || !merchantDbData) {
-      toast.error("Unable to prepare transaction")
-      return
-    }
-
-    try {
-      setIsRegisteringOnchain(true)
-      toast.loading("Registering merchant on-chain...")
-      await sendGasless()
-    } catch (error) {
-      console.error("Error registering merchant on-chain:", error)
-      toast.error("Failed to register merchant on-chain")
-      setIsRegisteringOnchain(false)
-    }
-  }
-
   const completeSignup = async () => {
     if (!validateForm()) return
 
-    setIsSubmitting(true)
+    // Check if wallet processing is still ongoing (only for wallet auth method)
+    if (authMethod === "wallet" && !walletProcessingComplete) {
+      toast.error("Please wait for wallet connection to complete")
+      return
+    }
+
+    // If wallet method is selected but deployment check is still running
+    if (authMethod === "wallet" && address && isCheckingDeployment) {
+      toast.error("Please wait for account verification to complete")
+      return
+    }
+
+    if (authMethod !== "wallet" && authMethod !== "google") {
+      toast.error("Authentication method is required")
+      return
+    }
+
+    const registrationData: MerchantRegistrationData = {
+      ...merchantData,
+      wallet_address: authMethod === "wallet" ? address : undefined,
+      authMethod: authMethod,
+      local_currency: "NGN",
+    }
+
+    const success = await registerMerchant(registrationData, address, isDeployed)
     
-    try {
-      const payload = {
-        ...merchantData,
-        wallet_address: authMethod === "wallet" ? address : null,
-        authMethod,
-        local_currency: "USD", // Default currency, can be made configurable
-      }
+    if (!success) {
+      return
+    }
 
-      console.log("Payload", payload);      
-
-      const response = await fetch('/api/merchants/register', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      })
-
-      const data = await response.json()
-
-      console.log("Response", data);
-      
-
-      if (response.ok) {
-        setStep("complete")
-        toast.success("Account created successfully!")
-        
-        // Store merchant info and API keys securely
-        localStorage.setItem('merchant', JSON.stringify(data.merchant))
-        
-        // Store API keys (in production, handle these more securely)
-        // Get from Data endpoints
-        localStorage.setItem('testnet_keys', JSON.stringify({
-          publicKey: data.apiKeys.testnet.publicKey,
-          jwt: data.apiKeys.testnet.jwt
-        }))
-        
-        localStorage.setItem('mainnet_keys', JSON.stringify({
-          publicKey: data.apiKeys.mainnet.publicKey,
-          jwt: data.apiKeys.mainnet.jwt
-        }))
-        
-        // Show secret keys in a secure modal (implement this)
-        console.log('IMPORTANT - Store these secret keys securely:', {
-          testnet: data.apiKeys.testnet.secretKey,
-          mainnet: data.apiKeys.mainnet.secretKey
-        })
-        
-        // Store merchant data for on-chain registration
-        setMerchantDbData(data.merchant)
-        
-        // If wallet is connected, register on-chain
-        if (authMethod === "wallet" && address) {
-          // The on-chain registration will be triggered by the useEffect when merchantDbData is set
-          toast.loading("Now registering on blockchain...")
-        } else {
-          // If no wallet, go directly to complete step
-          setStep("complete")
-          setTimeout(() => {
-            router.push("/dashboard")
-          }, 3000)
-        }
-      } else {
-        toast.error(data.error || "Failed to create account. Please try again.")
-      }
-    } catch (error) {
-      console.error("Error creating merchant account:", error)
-      toast.error("Failed to create account. Please try again.")
-    } finally {
-      setIsSubmitting(false)
+    // If registration doesn't require contract registration, complete immediately
+    if (registrationStep === 'complete' || (authMethod !== "wallet" || !isDeployed)) {
+      setStep("complete")
+      setTimeout(() => {
+        router.push("/dashboard")
+      }, 3000)
     }
   }
-
-   // Trigger on-chain registration when merchant data is available
-  useEffect(() => {
-    if (merchantDbData && authMethod === "wallet" && address && !isRegisteringOnchain && !sendData) {
-      registerMerchantOnChain()
-    }
-  }, [merchantDbData, authMethod, address, isRegisteringOnchain, sendData])
-
 
   const handleWalletModalClose = () => {
     setShowWalletModal(false)
-    if (!isConnected) {
-      setAuthMethod("wallet")
+    // Only reset auth method if wallet didn't connect
+    // Use a small delay to ensure isConnected state has updated
+    setTimeout(() => {
+      if (!isConnected) {
+        console.log("🔄 Wallet modal closed without connection, resetting auth method")
+        setAuthMethod(null)
+        setHasProcessedConnection(false)
+        setWalletProcessingComplete(false)
+      } else {
+        console.log("✅ Wallet modal closed with successful connection, preserving auth method")
+      }
+    }, 100)
+  }
+
+  // Computed states
+  const isWalletProcessing = authMethod === "wallet" && isConnected && address && (!hasProcessedConnection || isCheckingDeployment || isCheckingMerchant) && !walletProcessingComplete
+  const isRegistrationInProgress = isRegistering && isContractRegistering || isVerifying
+  
+  // FIXED: Only disable the button during actual registration, not during wallet processing
+  // Also check if we're actually in the middle of submitting (registrationStep should not be 'idle' during real registration)
+  const isActuallyRegistering = isRegistrationInProgress && registrationStep !== 'idle'
+  const isCompleteSetupDisabled = isActuallyRegistering || 
+    (authMethod === "wallet" && !walletProcessingComplete) ||
+    (authMethod === "wallet" && deploymentCheckFailed) ||
+    !networkStatus.isOnline
+
+  // Get current registration status message
+  const getRegistrationStatusMessage = () => {
+    switch (registrationStep) {
+      case 'database':
+        return 'Creating account...'
+      case 'contract':
+        return 'Registering on blockchain...'
+      case 'verification':
+        return 'Verifying registration...'
+      default:
+        return 'Complete Setup'
     }
   }
+
+  // Get current error message
+  const currentError = registrationError || merchantCheckError || (deploymentError && "Account deployment check failed")
+
+  // console.log("🛠 Debug state:", {
+  //   step,
+  //   authMethod,
+  //   isConnected,
+  //   address: address?.slice(0, 6) + "..." + address?.slice(-4),
+  //   hasProcessedConnection,
+  //   walletProcessingComplete,
+  //   isCheckingDeployment,
+  //   isDeployed,
+  //   isCheckingMerchant,
+  //   contractCheck: contractCheck?.exists || contractCheck,
+  //   dbCheck: dbCheck?.exists || dbCheck,
+  //   isWalletProcessing,
+  //   isCompleteSetupDisabled,
+  //   // Add these to debug the registration states
+  //   isRegistering,
+  //   isContractRegistering,
+  //   isVerifying,
+  //   registrationStep,
+  //   isRegistrationInProgress,
+  //   isActuallyRegistering
+  // })
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
@@ -399,6 +458,98 @@ export default function SignupPage() {
       </header>
 
       <div className="container mx-auto px-4 py-12 max-w-md">
+        {/* Network Status Display */}
+        {(!networkStatus.isOnline || networkStatus.isSlowConnection) && (
+          <div className={`mb-4 p-4 rounded-lg border ${
+            !networkStatus.isOnline 
+              ? 'bg-red-50 border-red-200' 
+              : 'bg-orange-50 border-orange-200'
+          }`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                {!networkStatus.isOnline ? (
+                  <AlertTriangle className="w-5 h-5 text-red-600 mr-2" />
+                ) : (
+                  <Wifi className="w-5 h-5 text-orange-600 mr-2" />
+                )}
+                <div>
+                  <p className={`font-medium text-sm ${
+                    !networkStatus.isOnline ? 'text-red-800' : 'text-orange-800'
+                  }`}>
+                    {networkStatus.getStatusMessage()}
+                  </p>
+                  {networkStatus.latency && (
+                    <p className="text-xs text-gray-600">
+                      Connection latency: {Math.round(networkStatus.latency)}ms
+                    </p>
+                  )}
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={networkStatus.checkNetworkStatus}
+                disabled={networkStatus.isChecking}
+                className="h-8 w-8 p-0"
+              >
+                <RefreshCw className={`h-4 w-4 ${
+                  networkStatus.isChecking ? 'animate-spin' : ''
+                }`} />
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Error Display */}
+        {currentError && (
+          <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                <AlertTriangle className="w-5 h-5 text-red-600 mr-2" />
+                <div>
+                  <p className="text-red-800 text-sm">{currentError}</p>
+                  {deploymentCheckFailed && retryCount > 0 && (
+                    <p className="text-xs text-red-600 mt-1">
+                      Retry attempt: {retryCount}
+                    </p>
+                  )}
+                </div>
+              </div>
+              {deploymentCheckFailed && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={handleRetryDeploymentCheck}
+                  disabled={!networkStatus.isOnline || isCheckingDeployment}
+                  className="h-8 px-3 text-red-600 hover:text-red-700"
+                >
+                  <RefreshCw className={`h-4 w-4 mr-1 ${
+                    isCheckingDeployment ? 'animate-spin' : ''
+                  }`} />
+                  Retry
+                </Button>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* Processing Status */}
+        {isWalletProcessing && (
+          <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg">
+            <div className="flex items-center">
+              <Loader2 className="w-5 h-5 text-blue-600 mr-2 animate-spin" />
+              <div>
+                <p className="font-medium text-blue-900">Processing wallet connection...</p>
+                <p className="text-sm text-blue-700">
+                  {!hasProcessedConnection && "Initializing..."}
+                  {hasProcessedConnection && isCheckingDeployment && "Checking account deployment..."}
+                  {hasProcessedConnection && !isCheckingDeployment && isCheckingMerchant && "Checking merchant status..."}
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
+
         {step === "auth" && (
           <Card className="shadow-2xl border-0">
             <CardHeader className="text-center">
@@ -409,13 +560,13 @@ export default function SignupPage() {
               {/* Wallet Connection */}
               <Button
                 onClick={connectWallet}
-                disabled={isCheckingMerchant}
+                disabled={isWalletProcessing}
                 className="w-full h-12 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
               >
-                {isCheckingMerchant ? (
+                {isWalletProcessing ? (
                   <>
                     <Loader2 className="w-5 h-5 mr-3 animate-spin" />
-                    Checking Account...
+                    Processing...
                   </>
                 ) : (
                   <>
@@ -430,46 +581,9 @@ export default function SignupPage() {
                   <Separator className="w-full" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-white px-2 text-gray-500">Or continue with</span>
+                  <span className="bg-white px-2 text-gray-500">Wallet must have activity (sent/received STRK)</span>
                 </div>
               </div>
-
-              {/* Google Sign In */}
-              <Button
-                onClick={signInWithGoogle}
-                disabled={isGoogleLoading}
-                variant="outline"
-                className="w-full h-12 bg-transparent"
-              >
-                {isGoogleLoading ? (
-                  <>
-                    <Loader2 className="w-5 h-5 mr-3 animate-spin" />
-                    Signing in...
-                  </>
-                ) : (
-                  <>
-                    <svg className="w-5 h-5 mr-3" viewBox="0 0 24 24">
-                      <path
-                        fill="#4285F4"
-                        d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                      />
-                      <path
-                        fill="#34A853"
-                        d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                      />
-                      <path
-                        fill="#FBBC05"
-                        d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"
-                      />
-                      <path
-                        fill="#EA4335"
-                        d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"
-                      />
-                    </svg>
-                    Continue with Google
-                  </>
-                )}
-              </Button>
 
               {/* Benefits */}
               <div className="bg-blue-50 rounded-lg p-4 mt-6">
@@ -527,6 +641,7 @@ export default function SignupPage() {
                   placeholder="Coffee Shop Lagos" 
                   value={merchantData.business_name}
                   onChange={(e) => handleInputChange("business_name", e.target.value)}
+                  disabled={isRegistrationInProgress}
                 />
               </div>
 
@@ -538,15 +653,17 @@ export default function SignupPage() {
                   placeholder="hello@coffeeshop.com" 
                   value={merchantData.business_email}
                   onChange={(e) => handleInputChange("business_email", e.target.value)}
+                  disabled={isRegistrationInProgress}
                 />
               </div>
 
               <div>
                 <Label htmlFor="business-type">Business Type *</Label>
                 <select 
-                  className="w-full h-10 px-3 py-2 border border-input bg-background rounded-md text-sm"
+                  className="w-full h-10 px-3 py-2 border border-input bg-background rounded-md text-sm disabled:opacity-50"
                   value={merchantData.business_type}
                   onChange={(e) => handleInputChange("business_type", e.target.value)}
+                  disabled={isRegistrationInProgress}
                 >
                   <option value="">Select business type</option>
                   <option value="retail">Retail Store</option>
@@ -561,9 +678,10 @@ export default function SignupPage() {
               <div>
                 <Label htmlFor="monthly-volume">Expected Monthly Volume *</Label>
                 <select 
-                  className="w-full h-10 px-3 py-2 border border-input bg-background rounded-md text-sm"
+                  className="w-full h-10 px-3 py-2 border border-input bg-background rounded-md text-sm disabled:opacity-50"
                   value={merchantData.monthly_volume}
                   onChange={(e) => handleInputChange("monthly_volume", e.target.value)}
+                  disabled={isRegistrationInProgress}
                 >
                   <option value="">Select volume range</option>
                   <option value="0-1000">$0 - $1,000</option>
@@ -574,13 +692,57 @@ export default function SignupPage() {
                 </select>
               </div>
 
+              {/* Wallet Status Display */}
               {authMethod === "wallet" && address && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                <div className={`border rounded-lg p-4 ${
+                  isDeployed 
+                    ? "bg-green-50 border-green-200" 
+                    : "bg-orange-50 border-orange-200"
+                }`}>
                   <div className="flex items-center">
-                    <Shield className="w-5 h-5 text-green-600 mr-2" />
+                    {isDeployed ? (
+                      <Shield className="w-5 h-5 text-green-600 mr-2" />
+                    ) : (
+                      <AlertTriangle className="w-5 h-5 text-orange-600 mr-2" />
+                    )}
                     <div>
-                      <p className="font-medium text-green-900">Wallet Connected</p>
-                      <p className="text-sm text-green-700 font-mono">{address.slice(0, 10)}...{address.slice(-8)}</p>
+                      <p className={`font-medium ${
+                        isDeployed ? "text-green-900" : "text-orange-900"
+                      }`}>
+                        {isDeployed ? "Wallet Connected & Deployed" : "Wallet Connected (Not Deployed)"}
+                      </p>
+                      <p className="text-sm text-gray-700 font-mono">
+                        {address.slice(0, 10)}...{address.slice(-8)}
+                      </p>
+                      {!isDeployed && (
+                        <p className="text-xs text-orange-700 mt-1">
+                          Blockchain registration will be skipped
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Payment Mode Indicator */}
+              {authMethod === "wallet" && address && isDeployed && (
+                <PaymentModeIndicator showDetails={false} />
+              )}
+
+              {/* Registration Progress */}
+              {isRegistrationInProgress && (
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="flex items-center">
+                    <Loader2 className="w-5 h-5 text-blue-600 mr-2 animate-spin" />
+                    <div>
+                      <p className="font-medium text-blue-900">
+                        {getRegistrationStatusMessage()}
+                      </p>
+                      <div className="text-xs text-blue-700 mt-1">
+                        {registrationStep === 'database' && "Setting up your account..."}
+                        {registrationStep === 'contract' && "Submitting blockchain transaction..."}
+                        {registrationStep === 'verification' && "Confirming on-chain registration..."}
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -588,13 +750,13 @@ export default function SignupPage() {
 
               <Button 
                 onClick={completeSignup} 
-                disabled={isSubmitting}
+                disabled={isCompleteSetupDisabled}
                 className="w-full bg-gradient-to-r from-blue-600 to-purple-600"
               >
-                {isSubmitting ? (
+                {isRegistrationInProgress ? (
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                    Creating Account...
+                    {getRegistrationStatusMessage()}
                   </>
                 ) : (
                   "Complete Setup"

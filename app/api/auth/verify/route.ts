@@ -1,61 +1,71 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { verifyJWT } from '@/lib/jwt';
+import { verifyJWT, JWTPayload } from '@/lib/jwt';
 import pool from '@/lib/db';
 
 export async function POST(request: NextRequest) {
   try {
-    const { token, publicKey } = await request.json();
-
-    if (!token && !publicKey) {
+    const authHeader = request.headers.get('authorization');
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
       return NextResponse.json(
-        { error: 'Token or public key required' },
-        { status: 400 }
+        { success: false, error: 'Missing or invalid Authorization header' },
+        { status: 401 }
       );
     }
 
-    let merchantId: string;
+    const token = authHeader.replace('Bearer ', '');
+    const payload = verifyJWT(token);
 
-    if (token) {
-      // Verify JWT token
-      const payload = verifyJWT(token);
-      if (!payload) {
-        return NextResponse.json(
-          { error: 'Invalid or expired token' },
-          { status: 401 }
-        );
-      }
-      merchantId = payload.merchantId;
-    } else {
-      // Verify public key
-      const client = await pool.connect();
-      try {
-        const result = await client.query(
-          'SELECT merchant_id FROM api_keys WHERE public_key = $1',
-          [publicKey]
-        );
-
-        if (result.rows.length === 0) {
-          return NextResponse.json(
-            { error: 'Invalid public key' },
-            { status: 401 }
-          );
-        }
-
-        merchantId = result.rows[0].merchant_id;
-      } finally {
-        client.release();
-      }
+    if (!payload) {
+      return NextResponse.json(
+        { success: false, error: 'Verify: Invalid or expired token' },
+        { status: 401 }
+      );
     }
 
-    return NextResponse.json({
-      valid: true,
-      merchantId
-    });
+    // Verify merchant exists and is still valid
+    const client = await pool.connect();
+    try {
+      const merchantResult = await client.query(
+        `SELECT id, wallet_address, is_verified 
+         FROM merchants 
+         WHERE id = $1 AND LOWER(wallet_address) = LOWER($2)`,
+        [payload.merchantId, payload.walletAddress]
+      );
 
+      if (merchantResult.rows.length === 0) {
+        return NextResponse.json(
+          { success: false, error: 'Merchant not found' },
+          { status: 404 }
+        );
+      }
+
+      const merchant = merchantResult.rows[0];
+      if (!merchant.is_verified) {
+        return NextResponse.json(
+          { success: false, error: 'Merchant account is not verified' },
+          { status: 403 }
+        );
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: 'Token is valid',
+        merchant: {
+          id: merchant.id,
+          wallet_address: merchant.wallet_address
+        }
+      });
+    } finally {
+      client.release();
+    }
   } catch (error) {
-    console.error('Error verifying auth:', error);
+    console.error('Error verifying token:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      {
+        success: false,
+        error: 'Failed to verify token',
+        details: error instanceof Error ? error.message : 'Unknown error'
+      },
       { status: 500 }
     );
   }

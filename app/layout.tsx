@@ -4,6 +4,7 @@ import { GeistMono } from 'geist/font/mono'
 import './globals.css'
 import { Toaster } from "react-hot-toast";
 import { Providers } from "@/components/providers";
+import { NetworkStatusProvider } from "@/components/NetworkStatusProvider";
 
 export const metadata: Metadata = {
   title: 'EgyptFi',
@@ -27,9 +28,12 @@ html {
         `}</style>
       </head>
       <body>
-        <Providers>
-          {children}
-        </Providers>
+        <NetworkStatusProvider>
+          <Providers>
+            {children}
+            <Toaster />
+          </Providers>
+        </NetworkStatusProvider>
       </body>
     </html>
   )

@@ -1,24 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db';
-import { verifyJWT } from '@/lib/jwt';
+import { authenticateApiKey, getAuthHeaders } from '@/lib/auth-helpers';
 
 export async function GET(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization');
+    // Get authentication headers
+    const { apiKey, walletAddress, environment } = getAuthHeaders(request);
     
-    if (!authHeader?.startsWith('Bearer ')) {
+    if (!apiKey || !walletAddress || !environment) {
       return NextResponse.json(
-        { error: 'Authorization header required' },
+        { error: 'Missing authentication headers' },
         { status: 401 }
       );
     }
 
-    const token = authHeader.substring(7);
-    const payload = verifyJWT(token);
-
-    if (!payload) {
+    // Authenticate the request
+    const authResult = await authenticateApiKey(apiKey, walletAddress, environment);
+    if (!authResult.success) {
       return NextResponse.json(
-        { error: 'Invalid or expired token' },
+        { error: authResult.error },
         { status: 401 }
       );
     }
@@ -28,10 +28,10 @@ export async function GET(request: NextRequest) {
     try {
       const result = await client.query(
         `SELECT 
-          id, wallet_address, business_name, business_logo, business_email, 
+          id, wallet_address, business_name, business_logo, business_email, phone,
           webhook, local_currency, supported_currencies, metadata, created_at, updated_at
          FROM merchants WHERE id = $1`,
-        [payload.merchantId]
+        [authResult.merchant!.id]
       );
 
       if (result.rows.length === 0) {
@@ -49,11 +49,12 @@ export async function GET(request: NextRequest) {
         businessName: merchant.business_name,
         businessLogo: merchant.business_logo,
         businessEmail: merchant.business_email,
+        phone: merchant.phone,
         webhook: merchant.webhook,
         localCurrency: merchant.local_currency,
         supportedCurrencies: merchant.supported_currencies,
         metadata: merchant.metadata,
-        environment: payload.environment,
+        environment: environment || 'testnet',
         createdAt: merchant.created_at,
         updatedAt: merchant.updated_at
       });
@@ -73,27 +74,36 @@ export async function GET(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const authHeader = request.headers.get('authorization');
+    // Get authentication headers
+    const { apiKey, walletAddress, environment } = getAuthHeaders(request);
     
-    if (!authHeader?.startsWith('Bearer ')) {
+    if (!apiKey || !walletAddress || !environment) {
       return NextResponse.json(
-        { error: 'Authorization header required' },
+        { error: 'Missing authentication headers' },
         { status: 401 }
       );
     }
 
-    const token = authHeader.substring(7);
-    const payload = verifyJWT(token);
-
-    if (!payload) {
+    // Authenticate the request
+    const authResult = await authenticateApiKey(apiKey, walletAddress, environment);
+    if (!authResult.success) {
       return NextResponse.json(
-        { error: 'Invalid or expired token' },
+        { error: authResult.error },
         { status: 401 }
       );
     }
 
     const updates = await request.json();
-    const allowedFields = ['business_name', 'business_logo', 'webhook', 'local_currency', 'supported_currencies'];
+    
+    // Extended allowed fields to include phone
+    const allowedFields = [
+      'business_name', 
+      'business_logo', 
+      'phone', 
+      'webhook', 
+      'local_currency', 
+      'supported_currencies'
+    ];
     
     const setFields: string[] = [];
     const values: any[] = [];
@@ -115,7 +125,7 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    values.push(payload.merchantId); // Add merchant ID for WHERE clause
+    values.push(authResult.merchant!.id); // Add merchant ID for WHERE clause
 
     const client = await pool.connect();
     try {
@@ -145,6 +155,7 @@ export async function PUT(request: NextRequest) {
           businessName: updatedMerchant.business_name,
           businessLogo: updatedMerchant.business_logo,
           businessEmail: updatedMerchant.business_email,
+          phone: updatedMerchant.phone,
           webhook: updatedMerchant.webhook,
           localCurrency: updatedMerchant.local_currency,
           supportedCurrencies: updatedMerchant.supported_currencies,
@@ -165,3 +176,4 @@ export async function PUT(request: NextRequest) {
     );
   }
 }
+ 

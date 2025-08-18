@@ -8,6 +8,7 @@ CREATE TABLE merchants (
     webhook TEXT,
     local_currency TEXT NOT NULL,
     supported_currencies TEXT[] DEFAULT '{}',
+    is_verified BOOLEAN DEFAULT true,
     metadata JSONB,
     created_at TIMESTAMP DEFAULT NOW(),
     updated_at TIMESTAMP DEFAULT NOW()
@@ -71,3 +72,23 @@ CREATE TRIGGER update_merchant_updated_at
 BEFORE UPDATE ON merchants
 FOR EACH ROW
 EXECUTE FUNCTION update_updated_at_column();
+-- 5. Merchant Activity Logs Table
+CREATE TABLE merchant_activity_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    merchant_id UUID NOT NULL REFERENCES merchants(id) ON DELETE CASCADE,
+    activity_type TEXT NOT NULL,
+    description TEXT,
+    created_at TIMESTAMP DEFAULT NOW()
+);
+
+-- Add indexes for better performance
+CREATE INDEX idx_merchants_wallet_address ON merchants(wallet_address);
+CREATE INDEX idx_merchants_email ON merchants(business_email);
+CREATE INDEX idx_api_keys_merchant_id ON api_keys(merchant_id);
+CREATE INDEX idx_transactions_merchant_id ON transactions(merchant_id);
+CREATE INDEX idx_invoices_merchant_id ON invoices(merchant_id);
+CREATE INDEX idx_activity_logs_merchant_id ON merchant_activity_logs(merchant_id);
+
+-- Add unique constraints
+ALTER TABLE merchants ADD CONSTRAINT unique_wallet_address UNIQUE(wallet_address);
+ALTER TABLE merchants ADD CONSTRAINT unique_business_email UNIQUE(business_email);
