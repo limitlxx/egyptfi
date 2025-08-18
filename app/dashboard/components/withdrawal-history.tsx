@@ -1,40 +1,25 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { ArrowDownToLine, ExternalLink, Copy, Check } from "lucide-react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { WithdrawalService, Withdrawal } from "@/services/withdrawalService"
 
 export function WithdrawalHistory() {
+  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([])
+  const [loading, setLoading] = useState(true)
   const [copiedTx, setCopiedTx] = useState<string | null>(null)
 
-  const withdrawals = [
-    {
-      id: "wd_001",
-      amount: "25.0",
-      status: "completed",
-      txHash: "0xabcd1234567890abcdef1234567890abcdef1234",
-      date: "2024-01-15 14:30:00",
-      gasSponsored: true,
-    },
-    {
-      id: "wd_002",
-      amount: "15.5",
-      status: "completed",
-      txHash: "0xef123456789abcdef123456789abcdef12345678",
-      date: "2024-01-12 09:15:00",
-      gasSponsored: true,
-    },
-    {
-      id: "wd_003",
-      amount: "8.2",
-      status: "pending",
-      txHash: "0x9876543210fedcba9876543210fedcba98765432",
-      date: "2024-01-15 16:45:00",
-      gasSponsored: true,
-    },
-  ]
+  useEffect(() => {
+    async function fetchData() {
+      const data = await WithdrawalService.getWithdrawals()
+      setWithdrawals(data)
+      setLoading(false)
+    }
+    fetchData()
+  }, [])
 
   const copyTxHash = async (txHash: string, id: string) => {
     await navigator.clipboard.writeText(txHash)
@@ -53,6 +38,22 @@ export function WithdrawalHistory() {
       default:
         return "bg-gray-100 text-gray-800"
     }
+  }
+
+  if (loading) {
+    return (
+      <Card className="shadow-lg border-0">
+        <CardHeader>
+          <CardTitle className="flex items-center">
+            <ArrowDownToLine className="w-5 h-5 mr-2 text-green-600" />
+            Withdrawal History
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <p className="text-gray-500">Loading withdrawals...</p>
+        </CardContent>
+      </Card>
+    )
   }
 
   return (
@@ -96,7 +97,11 @@ export function WithdrawalHistory() {
                   <Button variant="ghost" size="sm" onClick={() => copyTxHash(withdrawal.txHash, withdrawal.id)}>
                     {copiedTx === withdrawal.id ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                   </Button>
-                  <Button variant="ghost" size="sm">
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => window.open(`https://etherscan.io/tx/${withdrawal.txHash}`, "_blank")}
+                  >
                     <ExternalLink className="w-4 h-4" />
                   </Button>
                 </div>

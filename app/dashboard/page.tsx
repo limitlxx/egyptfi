@@ -69,8 +69,16 @@ import {
 import DeveloperTab from "@/components/ApiKeysDisplay";
 import AccountModal from "@/components/AccountModal";
 import WalletModal from "@/components/WalletModal";
-import { useAccount } from "@starknet-react/core";
+import { useAccount, useProvider } from "@starknet-react/core";
 import { useRouter } from "next/navigation";
+
+import { InvoiceService, Invoice } from "@/services/invoiceService"; 
+import ContractMerchantService from "@/services/contractMerchantService"; 
+import { PaymentModeIndicator } from "@/components/PaymentModeIndicator";
+import { useWithdrawMerchantCalls } from "@/hooks/useWithdrawMerchantCalls"; // New import
+import { usePaymaster } from "@/hooks/usePayMaster";
+import { WithdrawalService } from "@/services/WithdrawService";
+import { WithdrawalService as listwithdraw, Withdrawal } from "@/services/withdrawalService"
 
 const initialMerchantData = {
   name: "Coffee Shop Lagos",
@@ -97,7 +105,14 @@ export default function DashboardPage() {
   const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
   const [isWithdrawing, setIsWithdrawing] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState("");
-  const [availableBalance, setAvailableBalance] = useState(12.5);
+  const [availableBalance, setAvailableBalance] = useState<number>(0);
+  const [totalBalance, setTotalAmount] = useState<number>(0);
+  const [monthBalance, setMonthAmount] = useState<number>(0);
+  const [successRate, setsuccessRate] = useState<number>(0);
+  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([])
+
+  const [payments, setInvoices] = useState<Invoice[]>([]);
+  const [loading, setLoading] = useState(true);
 
   // Merchant data state
   const [businessName, setBusinessName] = useState(
@@ -118,6 +133,9 @@ export default function DashboardPage() {
   );
   const [webhookUrl, setWebhookUrl] = useState(
     AuthManager.getMerchantInfo()?.webhookUrl || initialMerchantData.webhookUrl
+  );
+  const [merchantwallet, setmerchantwallet] = useState(
+    AuthManager.getMerchantInfo()?.walletAddress || "0x0"
   );
 
   // Update states
@@ -152,6 +170,38 @@ export default function DashboardPage() {
   >("balanced");
   const [isYieldWaitlistOpen, setIsYieldWaitlistOpen] = useState(false);
   const [yieldEmail, setYieldEmail] = useState("");
+
+  const { provider } = useProvider();
+
+   useEffect(() => {
+    async function fetchData() {
+      const data = await listwithdraw.getWithdrawalstats()
+      setTotalAmount(data.total_payments);
+      setMonthAmount(data.current_month_payments)
+      setsuccessRate(data.success_rate)
+      
+      // setWithdrawals(data)
+      setLoading(false)
+    }
+    fetchData()
+  }, [])
+
+  useEffect(() => {
+    async function fetchInvoices() {
+      try {
+        const data = await InvoiceService.getInvoices();
+        console.log("Invoice Data", data);
+        
+        setInvoices(data);
+      } catch (error) {
+        console.error("Error loading invoices:", error);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchInvoices();
+  }, []);
 
   const strategyApy = useMemo(() => {
     switch (yieldStrategy) {
@@ -195,6 +245,12 @@ export default function DashboardPage() {
   const hasSettingsChanges = useMemo(() => {
     return phone !== originalValues.phone;
   }, [phone, originalValues.phone]);
+
+  // Utility to convert u256 to number (assuming 6 decimals)
+ const bigintToNumber = (value?: bigint, decimals = 6): number => {
+  if (!value) return 0;
+  return Number(value) / 10 ** decimals;
+};
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -248,6 +304,12 @@ export default function DashboardPage() {
           setIsCheckingAuth(false);
           return;
         }
+
+        await refetchMerchantInfo(); // Fetch balance on load
+
+        setmerchantwallet(merchant.walletAddress.toLowerCase())      
+
+        setmerchantwallet(merchant.walletAddress.toLowerCase())       
 
         // Verify wallet matches merchant
         if (merchant.walletAddress.toLowerCase() !== address.toLowerCase()) {
@@ -310,6 +372,26 @@ export default function DashboardPage() {
     setPendingLogoFile(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
+    }
+  };
+
+  // Refetch merchant info (including balance)
+  const refetchMerchantInfo = async () => {
+    try {
+      const contractService = new ContractMerchantService(provider);
+      const contractMerchant = await contractService.getMerchant(merchantwallet);
+      console.log("contractMerchant", contractMerchant);
+      
+      const balance = bigintToNumber(contractMerchant?.merchant?.usdc_balance);
+      setAvailableBalance(balance);
+      console.log("Fetched balance:", balance);
+    } catch (error) {
+      console.error("Error fetching merchant info:", error);
+      toast({
+        title: "Error fetching balance",
+        description: "Failed to load available balance. Please try again.",
+        variant: "destructive",
+      });
     }
   };
 
@@ -506,6 +588,85 @@ export default function DashboardPage() {
     }
   };
 
+  // Prepare withdrawal calls (enabled only when dialog is open)
+  const { calls: withdrawCalls } = useWithdrawMerchantCalls({
+    amount: withdrawAmount,
+    enabled: isWithdrawOpen && !!withdrawAmount && parseFloat(withdrawAmount) > 0,
+  });
+
+  // Use paymaster for transaction (sponsored or free mode)
+  const { executeTransaction: executeWithdraw, isLoading: isWithdrawTxLoading, paymentMode } = usePaymaster({
+    calls: withdrawCalls,
+    enabled: !!withdrawCalls,
+    onSuccess: (transactionHash: string) => {
+      toast({
+        title: "Withdrawal initiated",
+        description: `Transaction hash: ${transactionHash}. Funds will arrive shortly.`,
+      });
+      refetchMerchantInfo(); // Refetch balance after success
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Withdrawal error",
+        description: error.message || "Transaction failed. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Handle withdrawal
+  const handleWithdraw = async () => {
+    const amountNum = parseFloat(withdrawAmount);
+    if (amountNum <= 0 || amountNum > availableBalance) {
+      toast({
+        title: "Invalid amount",
+        description: "Please enter a valid amount within your balance.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (!withdrawCalls) {
+      toast({
+        title: "Transaction not ready",
+        description: "Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsWithdrawing(true);
+    try {
+      // Execute withdrawal and record in database
+      const withdrawal = await WithdrawalService.createWithdrawal({
+        merchantWallet: merchantwallet,
+        amount: withdrawAmount,
+        executeWithdraw,
+        calls: withdrawCalls,
+        paymentMode,
+      });
+
+      // Update balance optimistically
+      setAvailableBalance((prev) => prev - amountNum);
+
+      toast({
+        title: "Withdrawal successful",
+        description: `${withdrawAmount} USDC withdrawn to ${withdrawal.to_address}. Transaction hash: ${withdrawal.txHash}`,
+      });
+    } catch (error) {
+      console.error("Withdrawal failed:", error);
+      toast({
+        title: "Withdrawal failed",
+        description: error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setIsWithdrawing(false);
+      setIsWithdrawOpen(false);
+      setWithdrawAmount("");
+    }
+  };
+
   if (isCheckingAuth) {
     return (
       <div className="min-h-screen flex items-center justify-center">
@@ -543,45 +704,6 @@ export default function DashboardPage() {
     );
   }
 
-  const payments = [
-    {
-      ref: "pay_abc123",
-      amount: 5000,
-      currency: "NGN",
-      description: "Premium Coffee Blend x2",
-      tokenPaid: "3.2 USDC",
-      chain: "Ethereum",
-      status: "confirmed",
-      txHash: "0x1234567890abcdef...",
-      date: "2024-01-15 09:35:00",
-      hostedUrl: "https://pay.nummus.xyz/pay_abc123",
-    },
-    {
-      ref: "pay_def456",
-      amount: 12500,
-      currency: "NGN",
-      description: "Catering Service",
-      tokenPaid: "8.1 USDC",
-      chain: "Polygon",
-      status: "pending",
-      txHash: "",
-      date: "2024-01-15 10:15:00",
-      hostedUrl: "https://pay.nummus.xyz/pay_def456",
-    },
-    {
-      ref: "pay_ghi789",
-      amount: 2500,
-      currency: "NGN",
-      description: "Espresso Machine Rental",
-      tokenPaid: "0.0006 ETH",
-      chain: "StarkNet",
-      status: "confirmed",
-      txHash: "0xabcdef1234567890...",
-      date: "2024-01-14 16:22:00",
-      hostedUrl: "https://pay.nummus.xyz/pay_ghi789",
-    },
-  ];
-
   const copyToClipboard = async (text: string, id: string) => {
     await navigator.clipboard.writeText(text);
     setCopiedItem(id);
@@ -590,7 +712,7 @@ export default function DashboardPage() {
 
   const filteredPayments = payments.filter((payment) => {
     const matchesSearch =
-      payment.ref.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      payment.payment_ref.toLowerCase().includes(searchTerm.toLowerCase()) ||
       payment.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus =
       statusFilter === "all" || payment.status === statusFilter;
@@ -610,34 +732,34 @@ export default function DashboardPage() {
     }
   };
 
-  const handleWithdraw = async () => {
-    setIsWithdrawing(true);
-    try {
-      await AuthManager.makeAuthenticatedRequest("/api/withdraw", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ amount: withdrawAmount }),
-      });
-      setAvailableBalance(
-        (prev) => prev - Number.parseFloat(withdrawAmount || "0")
-      );
-      toast({
-        title: "Withdrawal successful",
-        description: `${withdrawAmount} USDC withdrawn to your wallet.`,
-      });
-    } catch (error) {
-      toast({
-        title: "Withdrawal failed",
-        description:
-          error instanceof Error ? error.message : "An error occurred",
-        variant: "destructive",
-      });
-    } finally {
-      setIsWithdrawing(false);
-      setIsWithdrawOpen(false);
-      setWithdrawAmount("");
-    }
-  };
+  // const handleWithdraw = async () => {
+  //   setIsWithdrawing(true);
+  //   try {
+  //     await AuthManager.makeAuthenticatedRequest("/api/withdraw", {
+  //       method: "POST",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify({ amount: withdrawAmount }),
+  //     });
+  //     setAvailableBalance(
+  //       (prev) => prev - Number.parseFloat(withdrawAmount || "0")
+  //     );
+  //     toast({
+  //       title: "Withdrawal successful",
+  //       description: `${withdrawAmount} USDC withdrawn to your wallet.`,
+  //     });
+  //   } catch (error) {
+  //     toast({
+  //       title: "Withdrawal failed",
+  //       description:
+  //         error instanceof Error ? error.message : "An error occurred",
+  //       variant: "destructive",
+  //     });
+  //   } finally {
+  //     setIsWithdrawing(false);
+  //     setIsWithdrawOpen(false);
+  //     setWithdrawAmount("");
+  //   }
+  // };
 
   const handleWalletModalClose = () => {
     setShowWalletModal(false);
@@ -839,15 +961,15 @@ export default function DashboardPage() {
                             <div className="flex justify-between">
                               <span className="text-gray-600">Destination</span>
                               <span className="font-medium font-mono text-xs">
-                                0x1234...5678
+                                {merchantwallet.slice(0, 6)}...{merchantwallet.slice(-4)}
                               </span>
                             </div>
-                            <div className="flex justify-between">
+                            {/* <div className="flex justify-between">
                               <span className="text-gray-600">Gas Fees</span>
                               <span className="font-medium text-green-600">
                                 Sponsored
                               </span>
-                            </div>
+                            </div> */}
                             <div className="flex justify-between">
                               <span className="text-gray-600">
                                 Processing Time
@@ -856,28 +978,23 @@ export default function DashboardPage() {
                             </div>
                           </div>
                         </div>
+                        {merchantwallet && (
+                          <PaymentModeIndicator showDetails={false} />
+                        )}
                         <Button
-                          onClick={handleWithdraw}
-                          disabled={
-                            isWithdrawing ||
-                            !withdrawAmount ||
-                            Number.parseFloat(withdrawAmount) <= 0 ||
-                            Number.parseFloat(withdrawAmount) > availableBalance
-                          }
-                          className="w-full bg-gradient-to-r from-green-600 to-blue-600"
-                        >
-                          {isWithdrawing ? (
-                            <>
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                              Processing Withdrawal...
-                            </>
-                          ) : (
-                            <>
-                              <ArrowDownToLine className="w-4 h-4 mr-2" />
-                              Withdraw {withdrawAmount || "0"} USDC
-                            </>
-                          )}
-                        </Button>
+                            onClick={handleWithdraw}
+                            disabled={isWithdrawing || isWithdrawTxLoading || !withdrawAmount}
+                            className="w-full bg-gradient-to-r from-blue-600 to-purple-600"
+                          >
+                            {isWithdrawing || isWithdrawTxLoading ? (
+                              <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Withdrawing...
+                              </>
+                            ) : (
+                              "Withdraw Now"
+                            )}
+                          </Button>
                       </div>
                     </DialogContent>
                   </Dialog>
@@ -891,7 +1008,7 @@ export default function DashboardPage() {
                         Total Payments
                       </p>
                       <p className="text-2xl font-bold text-gray-900">
-                        ₦20,000
+                        ₦{totalBalance}
                       </p>
                     </div>
                     <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
@@ -908,7 +1025,7 @@ export default function DashboardPage() {
                         This Month
                       </p>
                       <p className="text-2xl font-bold text-gray-900">
-                        ₦15,000
+                        ₦{monthBalance}
                       </p>
                     </div>
                     <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
@@ -924,7 +1041,7 @@ export default function DashboardPage() {
                       <p className="text-sm font-medium text-gray-600">
                         Success Rate
                       </p>
-                      <p className="text-2xl font-bold text-gray-900">95%</p>
+                      <p className="text-2xl font-bold text-gray-900">{successRate}%</p>
                     </div>
                     <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
                       <Badge className="w-6 h-6 text-purple-600" />
@@ -1032,6 +1149,152 @@ export default function DashboardPage() {
                 Export
               </Button>
             </div>
+
+            {/* Payments Table */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center">
+                  <ArrowDownToLine className="w-5 h-5 mr-2 text-green-600" />
+                  Payment History
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="p-0">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="border-b bg-gray-50">
+                      <tr>
+                        <th className="text-left p-4 font-semibold text-gray-900">
+                          Payment Ref
+                        </th>
+                        <th className="text-left p-4 font-semibold text-gray-900">
+                          Amount
+                        </th>
+                        <th className="text-left p-4 font-semibold text-gray-900">
+                          Token Paid
+                        </th>
+                        <th className="text-left p-4 font-semibold text-gray-900">
+                          Chain
+                        </th>
+                        <th className="text-left p-4 font-semibold text-gray-900">
+                          Status
+                        </th>
+                        <th className="text-left p-4 font-semibold text-gray-900">
+                          Date
+                        </th>
+                        <th className="text-left p-4 font-semibold text-gray-900">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {filteredPayments.length > 0 ? (
+                        filteredPayments.map((payment) => (
+                          <tr
+                            key={payment.payment_ref}
+                            className="border-b hover:bg-gray-50"
+                          >
+                            <td className="p-4">
+                              <div>
+                                <code className="text-sm bg-gray-100 px-2 py-1 rounded">
+                                  {payment.payment_ref}
+                                </code>
+                                <p className="text-xs text-gray-500 mt-1">
+                                  {payment.description}
+                                </p>
+                              </div>
+                            </td>
+                            <td className="p-4">
+                              <span className="font-medium">
+                                {payment.local_currency}{" "}
+                                {payment.amount.toLocaleString()}
+                              </span>
+                            </td>
+                            <td className="p-4">
+                              <span className="font-medium">
+                                {payment.tokenPaid}
+                              </span>
+                            </td>
+                            <td className="p-4">
+                              <span className="text-gray-600">
+                                {payment.chain}
+                              </span>
+                            </td>
+                            <td className="p-4">
+                              <Badge className={getStatusColor(payment.status)}>
+                                {payment.status}
+                              </Badge>
+                            </td>
+                            <td className="p-4">
+                              <span className="text-gray-600 text-sm">
+                                {payment.created_at}
+                              </span>
+                            </td>
+                            <td className="p-4">
+                              <DropdownMenu>
+                                <DropdownMenuTrigger asChild>
+                                  <Button variant="ghost" size="sm">
+                                    <MoreHorizontal className="w-4 h-4" />
+                                  </Button>
+                                </DropdownMenuTrigger>
+                                <DropdownMenuContent align="end">
+                                  <DropdownMenuItem
+                                    onClick={() =>
+                                      copyToClipboard(
+                                        payment.secondary_endpoint,
+                                        payment.payment_ref
+                                      )
+                                    }
+                                  >
+                                    <Copy className="w-4 h-4 mr-2" />
+                                    Copy Link
+                                  </DropdownMenuItem>
+                                  <DropdownMenuItem asChild>
+                                    <Link
+                                      href={payment.secondary_endpoint}
+                                      target="_blank"
+                                    >
+                                      <ExternalLink className="w-4 h-4 mr-2" />
+                                      View Payment
+                                    </Link>
+                                  </DropdownMenuItem>
+                                  {payment.tx_hash && (
+                                    <DropdownMenuItem
+                                      onClick={() =>
+                                        copyToClipboard(
+                                          payment.tx_hash,
+                                          `tx-${payment.payment_ref}`
+                                        )
+                                      }
+                                    >
+                                      <Copy className="w-4 h-4 mr-2" />
+                                      Copy Tx Hash
+                                    </DropdownMenuItem>
+                                  )}
+                                </DropdownMenuContent>
+                              </DropdownMenu>
+                            </td>
+                          </tr>
+                        ))
+                      ) : (
+                        <tr>
+                          <td
+                            colSpan={7}
+                            className="p-6 text-center text-gray-500"
+                          > 
+                            <ArrowDownToLine className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                            <p className="text-gray-500">No Payment yet</p>
+                            <p className="text-sm text-gray-400">Your Payment history will appear here</p> 
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Withdrawal History */}
+            <WithdrawalHistory />
 
             {/* Yield Farming - Improved UX (Coming Soon) */}
             <Card className="border border-dashed border-purple-200 bg-white">
@@ -1215,133 +1478,6 @@ export default function DashboardPage() {
                 </div>
               </CardContent>
             </Card>
-
-            {/* Payments Table */}
-            <Card>
-              <CardContent className="p-0">
-                <div className="overflow-x-auto">
-                  <table className="w-full">
-                    <thead className="border-b bg-gray-50">
-                      <tr>
-                        <th className="text-left p-4 font-semibold text-gray-900">
-                          Payment Ref
-                        </th>
-                        <th className="text-left p-4 font-semibold text-gray-900">
-                          Amount
-                        </th>
-                        <th className="text-left p-4 font-semibold text-gray-900">
-                          Token Paid
-                        </th>
-                        <th className="text-left p-4 font-semibold text-gray-900">
-                          Chain
-                        </th>
-                        <th className="text-left p-4 font-semibold text-gray-900">
-                          Status
-                        </th>
-                        <th className="text-left p-4 font-semibold text-gray-900">
-                          Date
-                        </th>
-                        <th className="text-left p-4 font-semibold text-gray-900">
-                          Actions
-                        </th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {filteredPayments.map((payment) => (
-                        <tr
-                          key={payment.ref}
-                          className="border-b hover:bg-gray-50"
-                        >
-                          <td className="p-4">
-                            <div>
-                              <code className="text-sm bg-gray-100 px-2 py-1 rounded">
-                                {payment.ref}
-                              </code>
-                              <p className="text-xs text-gray-500 mt-1">
-                                {payment.description}
-                              </p>
-                            </div>
-                          </td>
-                          <td className="p-4">
-                            <span className="font-medium">
-                              {payment.currency}{" "}
-                              {payment.amount.toLocaleString()}
-                            </span>
-                          </td>
-                          <td className="p-4">
-                            <span className="font-medium">
-                              {payment.tokenPaid}
-                            </span>
-                          </td>
-                          <td className="p-4">
-                            <span className="text-gray-600">
-                              {payment.chain}
-                            </span>
-                          </td>
-                          <td className="p-4">
-                            <Badge className={getStatusColor(payment.status)}>
-                              {payment.status}
-                            </Badge>
-                          </td>
-                          <td className="p-4">
-                            <span className="text-gray-600 text-sm">
-                              {payment.date}
-                            </span>
-                          </td>
-                          <td className="p-4">
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="sm">
-                                  <MoreHorizontal className="w-4 h-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end">
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    copyToClipboard(
-                                      payment.hostedUrl,
-                                      payment.ref
-                                    )
-                                  }
-                                >
-                                  <Copy className="w-4 h-4 mr-2" />
-                                  Copy Link
-                                </DropdownMenuItem>
-                                <DropdownMenuItem asChild>
-                                  <Link
-                                    href={payment.hostedUrl}
-                                    target="_blank"
-                                  >
-                                    <ExternalLink className="w-4 h-4 mr-2" />
-                                    View Payment
-                                  </Link>
-                                </DropdownMenuItem>
-                                {payment.txHash && (
-                                  <DropdownMenuItem
-                                    onClick={() =>
-                                      copyToClipboard(
-                                        payment.txHash,
-                                        `tx-${payment.ref}`
-                                      )
-                                    }
-                                  >
-                                    <Copy className="w-4 h-4 mr-2" />
-                                    Copy Tx Hash
-                                  </DropdownMenuItem>
-                                )}
-                              </DropdownMenuContent>
-                            </DropdownMenu>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* Withdrawal History */}
-            <WithdrawalHistory />
           </TabsContent>
 
           {/* Developer Tab */}

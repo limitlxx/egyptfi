@@ -19,8 +19,8 @@ export interface ContractMerchant {
   withdrawal_address: string;
   fee_percentage: number;
   joined_timestamp: bigint;
- apikeys?: APIKeyEntry[]
- createdAt: string;
+  apikeys?: APIKeyEntry[]
+  createdAt: string;
   // ... other db fields
 }
 
@@ -38,6 +38,7 @@ export interface MerchantCheckResult {
   exists: boolean;
   merchant?: ContractMerchant;
   error?: string;
+  
 }
 
 class ContractMerchantService {

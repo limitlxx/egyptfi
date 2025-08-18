@@ -30,6 +30,24 @@ export function stringToFelt252(str: string): string {
 }
 
 /**
+ * Convert a Cairo felt252 bigint to a safe JS integer (or string if too large).
+ */
+export function feltToInt(value?: bigint): number | string {
+  if (value === undefined) return 0; // default when undefined
+
+  // JavaScript's safe integer limit
+  const MAX_SAFE = BigInt(Number.MAX_SAFE_INTEGER);
+
+  if (value > MAX_SAFE) {
+    // Return as string to avoid losing precision
+    return value.toString();
+  }
+
+  return Number(value);
+}
+
+
+/**
  * Converts a felt252 hex string back to a readable string
  * @param felt252 - Hex string in felt252 format
  * @returns Original string
@@ -198,6 +216,7 @@ export const felt252Utils = {
   smartEmailToFelt252,
   canFitInFelt252,
   hashToFelt252,
+  feltToInt,
   
   // Test function to verify conversion works correctly
   test: (str: string) => {
