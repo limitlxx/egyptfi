@@ -1,6 +1,7 @@
+// components/invoice-content.tsx
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import {
   ExternalLink,
   Check,
@@ -13,100 +14,241 @@ import {
   Gem,
   LinkIcon,
   X,
+  AlertCircle,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { DialogClose } from "@/components/ui/dialog" // Import DialogClose
+import { DialogClose } from "@/components/ui/dialog"
 
-export function InvoiceContent() {
+// Currency conversion rates (for demo purposes, can be fetched from an API)
+const CONVERSION_RATES = {
+  NGN: { USD: 0.00063 },
+  USD: { NGN: 1587 },
+}
+
+interface Chain {
+  id: string
+  name: string
+  icon: React.ComponentType<{ className?: string }>
+}
+
+interface Token {
+  id: string
+  name: string
+  amount: string
+}
+
+interface InvoiceData {
+  merchantName: string
+  merchantLogo: string
+  amountFiat: string
+  invoiceId: string
+  paymentRef: string
+  hostedUrl: string
+  qrCode?: string
+  description?: string
+  secondaryEndpoint?: string
+  currency: string
+  amount: number
+}
+
+interface InvoiceContentProps {
+  invoiceData: InvoiceData
+  onPaymentConfirmed?: (paymentRef: string) => void
+}
+
+export function InvoiceContent({ invoiceData, onPaymentConfirmed }: InvoiceContentProps) {
   const [copied, setCopied] = useState(false)
   const [isPaid, setIsPaid] = useState(false)
   const [isPolling, setIsPolling] = useState(false)
-  const [selectedChain, setSelectedChain] = useState("ethereum")
-  const [selectedToken, setSelectedToken] = useState("usdc")
+  const [error, setError] = useState<string | null>(null)
+  const [selectedChain, setSelectedChain] = useState<string>("starknet")
+  const [selectedToken, setSelectedToken] = useState<string>("usdc")
+  const [tokenAmount, setTokenAmount] = useState<string>("");
+  const [isPriceLoading, setIsPriceLoading] = useState(false);
   const router = useRouter()
 
-  const invoiceData = {
-    merchantName: "Coffee Shop Lagos",
-    merchantLogo: "☕",
-    amountFiat: "₦5,000",
-    invoiceId: "INV-2024-001",
-  }
-
-  const chains = [
-    { id: "ethereum", name: "Ethereum", icon: Network },
+  const chains: Chain[] = [
     { id: "starknet", name: "StarkNet", icon: CircleDotDashed },
+    { id: "ethereum", name: "Ethereum", icon: Network },
     { id: "base", name: "Base", icon: CircleDot },
     { id: "arbitrum", name: "Arbitrum", icon: Gem },
     { id: "polygon", name: "Polygon", icon: Wallet },
-  ]
+  ] 
+  
+  // console.log("InvoiceDate",invoiceData );
+  
 
-  const tokens = {
-    ethereum: [
-      { id: "usdc", name: "USDC", amount: "3.2" },
-      { id: "eth", name: "ETH", amount: "0.0013" },
-      { id: "usdt", name: "USDT", amount: "3.2" },
-      { id: "dai", name: "DAI", amount: "3.18" },
-    ],
+ // Token data (static, as dynamic amounts are fetched from API)
+  const tokens: Record<string, Token[]> = {
     starknet: [
-      { id: "usdc", name: "USDC", amount: "3.2" },
-      { id: "eth", name: "ETH", amount: "0.0013" },
+      { id: "usdc", name: "USDC", amount: "" },
+      { id: "eth", name: "ETH", amount: "" },
+    ],
+    ethereum: [
+      { id: "usdc", name: "USDC", amount: "" },
+      { id: "eth", name: "ETH", amount: "" },
+      { id: "usdt", name: "USDT", amount: "" },
+      { id: "dai", name: "DAI", amount: "" },
     ],
     base: [
-      { id: "usdc", name: "USDC", amount: "3.2" },
-      { id: "eth", name: "ETH", amount: "0.0013" },
+      { id: "usdc", name: "USDC", amount: "" },
+      { id: "eth", name: "ETH", amount: "" },
     ],
     arbitrum: [
-      { id: "usdc", name: "USDC", amount: "3.2" },
-      { id: "eth", name: "ETH", amount: "0.0013" },
+      { id: "usdc", name: "USDC", amount: "" },
+      { id: "eth", name: "ETH", amount: "" },
     ],
     polygon: [
-      { id: "usdc", name: "USDC", amount: "3.2" },
-      { id: "matic", name: "MATIC", amount: "4.1" },
-      { id: "dai", name: "DAI", amount: "3.18" },
+      { id: "usdc", name: "USDC", amount: "" },
+      { id: "matic", name: "MATIC", amount: "" },
+      { id: "dai", name: "DAI", amount: "" },
     ],
-  }
+  };
+
+  // Fetch price from the new endpoint
+  const fetchPrice = useCallback(async () => {
+    if (!selectedChain || !selectedToken) return;
+
+    try {
+      setIsPriceLoading(true);
+      const response = await fetch(
+        `/api/payments/price?token=${selectedToken}&chain=${selectedChain}&fiat_amount=${invoiceData.amount}&fiat_currency=${invoiceData.currency}`
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch price");
+      }
+
+      const result = await response.json();
+      setTokenAmount(result.token_amount);
+    } catch (err) {
+      console.error("Price fetch error:", err);
+      setError("Failed to update price");
+    } finally {
+      setIsPriceLoading(false);
+    }
+  }, [selectedChain, selectedToken, invoiceData.amount, invoiceData.currency]);
+
+  // Poll price every 10 seconds
+  useEffect(() => {
+    fetchPrice(); // Initial fetch
+    const interval = setInterval(fetchPrice, 10000); // Poll every 10 seconds
+    return () => clearInterval(interval);
+  }, [fetchPrice]);
+
+  // Update selected token when chain changes
+  useEffect(() => {
+    if (selectedChain && tokens[selectedChain]?.length > 0) {
+      setSelectedToken(tokens[selectedChain][0].id);
+    } else {
+      setSelectedToken("");
+    }
+  }, [selectedChain]); 
 
   useEffect(() => {
-    if (selectedChain && tokens[selectedChain as keyof typeof tokens]?.length > 0) {
-      setSelectedToken(tokens[selectedChain as keyof typeof tokens][0].id)
+    if (selectedChain && tokens[selectedChain]?.length > 0) {
+      setSelectedToken(tokens[selectedChain][0].id)
     } else {
       setSelectedToken("")
     }
   }, [selectedChain])
 
+  // Polling for payment status
+  useEffect(() => {
+    let interval: NodeJS.Timeout
+    if (isPolling) {
+      interval = setInterval(async () => {
+        try {
+          const response = await fetch(`/api/payments/initiate?payment_ref=${invoiceData.paymentRef}`)
+          if (!response.ok) {
+            setError("Failed to check payment status")
+            setIsPolling(false)
+            return
+          }
+          const result = await response.json()
+          if (result.data.status === "paid") {
+            setIsPaid(true)
+            setIsPolling(false)
+            onPaymentConfirmed?.(invoiceData.paymentRef)
+
+            // Notify secondary endpoint
+            if (invoiceData.secondaryEndpoint) {
+              try {
+                await fetch(invoiceData.secondaryEndpoint, {
+                  method: "POST",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    event: "payment_confirmed",
+                    payment_ref: invoiceData.paymentRef,
+                    amount: invoiceData.amount,
+                    currency: invoiceData.currency,
+                    chain: selectedChain,
+                    token: selectedToken,
+                    timestamp: new Date().toISOString(),
+                  }),
+                })
+              } catch (error) {
+                console.error("Failed to notify secondary endpoint:", error)
+              }
+            }
+
+            setTimeout(() => {
+              router.push(`/payment/success?ref=${invoiceData.paymentRef}`)
+            }, 2000)
+          }
+        } catch (error) {
+          console.error("Error polling payment status:", error)
+          setError("Failed to verify payment")
+          setIsPolling(false)
+        }
+      }, 3000)
+    }
+    return () => clearInterval(interval)
+  }, [isPolling, invoiceData.paymentRef, invoiceData.secondaryEndpoint, selectedChain, selectedToken, router, onPaymentConfirmed])
+
   const copyLink = async () => {
-    const mockPaymentLink = `https://pay.nummus.xyz/invoice/${invoiceData.invoiceId}`
-    await navigator.clipboard.writeText(mockPaymentLink)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 2000)
+    try {
+      await navigator.clipboard.writeText(invoiceData.hostedUrl)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    } catch (error) {
+      setError("Failed to copy payment link")
+    }
   }
 
   const handlePaidClick = () => {
     setIsPolling(true)
-    setTimeout(() => {
-      setIsPaid(true)
-      setIsPolling(false)
-      setTimeout(() => {
-        router.push("/demo/success")
-      }, 2000)
-    }, 3000)
+    setError(null)
   }
 
   const currentTokenData = tokens[selectedChain as keyof typeof tokens]?.find((t) => t.id === selectedToken)
 
   return (
-    <div className="relative flex h-full w-full min-h-[600px]">
-      <DialogClose className="absolute right-3 top-3 z-10 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground bg-white/80 backdrop-blur-sm p-1">
+    <div className="relative flex h-full w-full flex-col">
+      {/* Error Message */}
+      {error && (
+        <div className="absolute top-0 left-0 right-0 p-4 bg-red-50 border-b border-red-200 flex items-center justify-center">
+          <AlertCircle className="w-4 h-4 text-red-600 mr-2" />
+          <p className="text-sm text-red-600">{error}</p>
+        </div>
+      )}
+
+      {/* Close Button */}
+      <DialogClose
+       onClick={() => router.back()} 
+        className="absolute right-3 top-3 z-10 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground bg-white/80 backdrop-blur-sm p-1"
+        aria-label="Close payment dialog"
+      >
         <X className="h-4 w-4" />
         <span className="sr-only">Close</span>
       </DialogClose>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 w-full">
-        {/* Column 1: Blockchain Selection (Left Sidebar) */}
+        {/* Column 1: Blockchain Selection */}
         <div className="col-span-1 p-4 sm:p-6 lg:p-8 border-b lg:border-b-0 lg:border-r border-gray-100 bg-gray-50">
           <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Pay With</h2>
           <div className="space-y-2">
@@ -117,12 +259,13 @@ export function InvoiceContent() {
                   key={chain.id}
                   variant="outline"
                   className={cn(
-                    "w-full justify-start h-9 sm:h-10 text-xs sm:text-sm rounded-md border-gray-200",
+                    "w-full justify-start h-9 sm:h-10 text-xs sm:text-sm rounded-md border-gray-200 transition-colors",
                     selectedChain === chain.id && "border-blue-500 ring-2 ring-blue-200 bg-blue-50 text-blue-800",
                   )}
                   onClick={() => setSelectedChain(chain.id)}
+                  aria-label={`Select ${chain.name} blockchain`}
                 >
-                  <Icon className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+                  <Icon className="w-3 h-3 sm:w-4 sm:h-4 mr-2" aria-hidden="true" />
                   {chain.name}
                 </Button>
               )
@@ -146,6 +289,8 @@ export function InvoiceContent() {
                   selectedToken === token.id && "bg-blue-500 text-white hover:bg-blue-600",
                 )}
                 onClick={() => setSelectedToken(token.id)}
+                role="button"
+                aria-label={`Select ${token.name} token`}
               >
                 {token.name}
               </Badge>
@@ -154,9 +299,17 @@ export function InvoiceContent() {
 
           {/* QR Code */}
           <div className="bg-white rounded-xl p-3 sm:p-4 border-2 border-dashed border-gray-200 flex justify-center mb-3 sm:mb-4">
-            <div className="w-32 h-32 sm:w-40 sm:h-40 bg-gradient-to-br from-blue-100 to-purple-100 rounded-lg flex items-center justify-center">
-              <QrCode className="w-16 h-16 sm:w-20 sm:h-20 text-gray-400" />
-            </div>
+            {invoiceData.qrCode ? (
+              <img
+                src={invoiceData.qrCode}
+                alt={`QR code for payment ${invoiceData.paymentRef}`}
+                className="w-32 h-32 sm:w-40 sm:h-40 object-contain"
+              />
+            ) : (
+              <div className="w-32 h-32 sm:w-40 sm:h-40 bg-gradient-to-br from-blue-100 to-purple-100 rounded-lg flex items-center justify-center">
+                <QrCode className="w-16 h-16 sm:w-20 sm:h-20 text-gray-400" aria-hidden="true" />
+              </div>
+            )}
           </div>
 
           {/* Action Buttons */}
@@ -166,15 +319,16 @@ export function InvoiceContent() {
               size="sm"
               className="w-full bg-transparent border-gray-200 h-8 sm:h-9 text-xs sm:text-sm"
               onClick={copyLink}
+              aria-label={copied ? "Payment link copied" : "Copy payment link"}
             >
               {copied ? (
                 <>
-                  <Check className="w-3 h-3 mr-1" />
+                  <Check className="w-3 h-3 mr-1" aria-hidden="true" />
                   Copied!
                 </>
               ) : (
                 <>
-                  <LinkIcon className="w-3 h-3 mr-1" />
+                  <LinkIcon className="w-3 h-3 mr-1" aria-hidden="true" />
                   Copy Payment Link
                 </>
               )}
@@ -185,8 +339,8 @@ export function InvoiceContent() {
               className="w-full bg-transparent border-gray-200 h-8 sm:h-9 text-xs sm:text-sm"
               asChild
             >
-              <Link href="/demo/payment">
-                <ExternalLink className="w-3 h-3 mr-1" />
+              <Link href={`/wallet/connect?ref=${invoiceData.paymentRef}`} aria-label="Open payment in wallet">
+                <ExternalLink className="w-3 h-3 mr-1" aria-hidden="true" />
                 Open in Wallet
               </Link>
             </Button>
@@ -199,14 +353,37 @@ export function InvoiceContent() {
 
           {/* Merchant Brand */}
           <div className="flex items-center space-x-3 mb-4 sm:mb-6">
-            <div className="w-10 h-10 sm:w-12 sm:h-12 bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg flex items-center justify-center text-lg sm:text-xl">
-              {invoiceData.merchantLogo}
+            <div className="bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg flex items-center justify-center text-lg sm:text-xl">
+               
+               {invoiceData.merchantLogo ? (
+                <img
+                  src={invoiceData.merchantLogo}
+                  alt="Business logo"
+                  className="w-full h-full object-cover rounded-lg"
+                />
+              ) : typeof invoiceData.merchantLogo === "string" &&
+                invoiceData.merchantLogo.startsWith("/") ? (
+                <img
+                  src={invoiceData.merchantLogo}
+                  alt="Business logo"
+                  className="w-full h-full object-cover rounded-lg"
+                />
+              ) : (
+                invoiceData.merchantLogo
+              )}
             </div>
             <div>
               <h3 className="font-semibold text-gray-900 text-sm sm:text-base">{invoiceData.merchantName}</h3>
-              <p className="text-xs sm:text-sm text-gray-500">Invoice ID: {invoiceData.invoiceId}</p>
+              <p className="text-xs text-gray-500">{invoiceData.invoiceId}</p>
             </div>
           </div>
+
+          {/* Description */}
+          {invoiceData.description && (
+            <div className="mb-4 sm:mb-6">
+              <p className="text-sm text-gray-600">{invoiceData.description}</p>
+            </div>
+          )}
 
           {/* Amount Details */}
           <div className="bg-gray-50 rounded-xl p-4 sm:p-6 mb-4 sm:mb-6">
@@ -237,15 +414,16 @@ export function InvoiceContent() {
             className="w-full h-9 sm:h-10 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-sm sm:text-base font-semibold"
             onClick={handlePaidClick}
             disabled={isPolling || isPaid}
+            aria-label={isPaid ? "Payment confirmed" : isPolling ? "Waiting for payment confirmation" : "Confirm payment"}
           >
             {isPolling ? (
               <>
-                <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2 animate-spin" />
+                <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2 animate-spin" aria-hidden="true" />
                 Waiting for Payment...
               </>
             ) : isPaid ? (
               <>
-                <Check className="w-3 h-3 sm:w-4 sm:h-4 mr-2" />
+                <Check className="w-3 h-3 sm:w-4 sm:h-4 mr-2" aria-hidden="true" />
                 Payment Confirmed!
               </>
             ) : (
@@ -257,7 +435,7 @@ export function InvoiceContent() {
           {isPaid && (
             <div className="mt-3 sm:mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
               <div className="flex items-center">
-                <Check className="w-3 h-3 sm:w-4 sm:h-4 text-green-600 mr-2" />
+                <Check className="w-3 h-3 sm:w-4 sm:h-4 text-green-600 mr-2" aria-hidden="true" />
                 <div>
                   <p className="font-medium text-green-900 text-xs sm:text-sm">Payment Confirmed</p>
                   <p className="text-xs text-green-700">Transaction verified on blockchain. Redirecting...</p>

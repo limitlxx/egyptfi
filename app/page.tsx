@@ -1,3 +1,4 @@
+"use client"
 import {
   ArrowRight,
   Check,
@@ -11,14 +12,77 @@ import {
   Users,
   Twitter,
   Send,
+  AlertCircle,
+  Loader2,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
 import { YieldWaitlist } from "@/components/yield-waitlist"
+import { ShoppingCart } from "@/components/shopping-cart"
+import { useState } from "react"
+import { metadata } from "./layout"
 
 export default function HomePage() {
+   const [isInitiating, setIsInitiating] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [qrCode, setQrCode] = useState<string | null>(null)
+
+   const cartItems = [
+    { name: "Cappuccino", description: "Large • Extra shot", icon: "☕", price: "₦2,500", quantity: 1 },
+    { name: "Croissant", description: "Butter croissant", icon: "🥐", price: "₦1,500", quantity: 1 },
+    { name: "Iced Latte", description: "Medium • Oat milk", icon: "🧊", price: "₦1,000", quantity: 1 },
+  ]
+
+  const handleCheckout = async () => {
+    setIsInitiating(true)
+    setError(null)
+    setQrCode(null)
+
+    try {
+      const response = await fetch('/api/payments/initiate', {
+        method: 'POST',
+        headers: {
+          'X-API-Key': 'pk_test_e20af044678ed83d9d1b151f93403e90', // Mock API key for demo
+          'X-Wallet-Address': '0x065982b15Bc87AbdAa2DA7DB5F2164792b6c2e497bd80f4b7ace9E799Be4Beb0', // Mock wallet address
+          'X-Environment': 'testnet',
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          payment_ref: `order-${Date.now()}`,
+          local_amount: 5000,
+          local_currency: "NGN",
+          description: "Coffee purchase",
+          chain: "starknet",
+          secondary_endpoint: "http://localhost:3000/demo/success",
+          email: "emixxshow17@gmail.com",
+          // metadata: [{
+          //   "cancel_action": "http://localhost:3000"
+          // }]
+        }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to initiate payment')
+      }
+
+      const { reference, authorization_url, qr_code } = await response.json()
+      
+      // Store QR code for display (optional)
+      setQrCode(qr_code)
+      
+      // Redirect to hosted payment page
+      window.location.href = authorization_url
+    } catch (err) {
+      console.error('Payment initiation error:', err)
+      setError(err instanceof Error ? err.message : 'Failed to initiate payment')
+    } finally {
+      setIsInitiating(false)
+    }
+  }
+  
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       {/* Header */}
@@ -79,7 +143,7 @@ export default function HomePage() {
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
-            <Button
+            {/* <Button
               size="lg"
               className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 px-8 py-3 text-lg"
               asChild
@@ -88,101 +152,55 @@ export default function HomePage() {
                 Get Started
                 <ArrowRight className="ml-2 w-5 h-5" />
               </Link>
-            </Button>
-            <Button variant="outline" size="lg" className="px-8 py-3 text-lg bg-transparent" asChild>
-              <Link href="/demo/invoice">View Demo</Link>
+            </Button> */}
+            <Button variant="outline" size="lg" className="px-8 py-3 text-lg bg-transparent">
+              {/* <Link href="/demo/invoice"> */}
+              View Demo
+              <ArrowRight className="ml-2 w-5 h-5" />
+              {/* </Link> */}
             </Button>
           </div>
 
-          <div className="mt-16 relative">
-            <div className="bg-white rounded-2xl shadow-2xl p-8 max-w-2xl mx-auto border">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-blue-500 rounded-lg flex items-center justify-center">
-                    <span className="text-white font-bold">☕</span>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-gray-900">Coffee Shop Lagos</h3>
-                    <p className="text-sm text-gray-500">Shopping Cart</p>
-                  </div>
-                </div>
-                <div className="text-right">
-                  <p className="text-2xl font-bold text-gray-900">₦5,000</p>
-                  <p className="text-sm text-gray-500">≈ 3.2 USDC</p>
-                </div>
-              </div>
+         {error && (
+            <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center justify-center max-w-md mx-auto">
+              <AlertCircle className="w-4 h-4 text-red-600 mr-2" />
+              <p className="text-sm text-red-600">{error}</p>
+            </div>
+          )}
 
-              {/* Shopping Cart Items */}
-              <div className="space-y-3 mb-6">
-                <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center text-sm">☕</div>
-                    <div>
-                      <p className="font-medium text-gray-900 text-sm">Cappuccino</p>
-                      <p className="text-xs text-gray-500">Large • Extra shot</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-medium text-gray-900">₦2,500</p>
-                    <p className="text-xs text-gray-500">Qty: 1</p>
-                  </div>
-                </div>
+          {/* QR Code (Optional Display) */}
+          {/* {qrCode && (
+            <div className="mt-4 flex justify-center">
+              <img src={qrCode} alt="Payment QR Code" className="w-40 h-40 rounded-lg border" />
+            </div>
+          )} */}
 
-                <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-orange-100 rounded-lg flex items-center justify-center text-sm">🥐</div>
-                    <div>
-                      <p className="font-medium text-gray-900 text-sm">Croissant</p>
-                      <p className="text-xs text-gray-500">Butter croissant</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-medium text-gray-900">₦1,500</p>
-                    <p className="text-xs text-gray-500">Qty: 1</p>
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between py-2 border-b border-gray-100">
-                  <div className="flex items-center space-x-3">
-                    <div className="w-8 h-8 bg-blue-100 rounded-lg flex items-center justify-center text-sm">🧊</div>
-                    <div>
-                      <p className="font-medium text-gray-900 text-sm">Iced Latte</p>
-                      <p className="text-xs text-gray-500">Medium • Oat milk</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="font-medium text-gray-900">₦1,000</p>
-                    <p className="text-xs text-gray-500">Qty: 1</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Total and Checkout */}
-              <div className="bg-gray-50 rounded-lg p-4 mb-4">
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-gray-600">Subtotal</span>
-                  <span className="font-medium">₦5,000</span>
-                </div>
-                <div className="flex justify-between items-center mb-2">
-                  <span className="text-gray-600">Tax</span>
-                  <span className="font-medium">₦0</span>
-                </div>
-                <div className="border-t pt-2 flex justify-between items-center">
-                  <span className="font-semibold text-gray-900">Total</span>
-                  <span className="font-bold text-gray-900">₦5,000</span>
-                </div>
-              </div>
-
-              <Button
-                className="w-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                asChild
-              >
-                <Link href="/demo/invoice">
+          <div className="mt-8 relative">
+            <ShoppingCart
+              merchantName="Coffee Shop Lagos"
+              merchantLogo="☕"
+              items={cartItems}
+              subtotal="₦5,000"
+              tax="₦0"
+              total="₦5,000"
+            />
+            <Button
+              className="w-full max-w-2xl mx-auto mt-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+              onClick={handleCheckout}
+              disabled={isInitiating}
+            >
+              {isInitiating ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Initiating Payment...
+                </>
+              ) : (
+                <>
                   Checkout with Crypto
                   <ArrowRight className="ml-2 w-4 h-4" />
-                </Link>
-              </Button>
-            </div>
+                </>
+              )}
+            </Button>
           </div>
         </div>
       </section>
