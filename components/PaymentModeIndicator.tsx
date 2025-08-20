@@ -19,7 +19,7 @@ interface PaymentModeIndicatorProps {
   showDetails?: boolean;
 }
 
-export function PaymentModeIndicator({ className = "", showDetails = true }: PaymentModeIndicatorProps) {
+export function   PaymentModeIndicator({ className = "", showDetails = true }: PaymentModeIndicatorProps) {
   const { 
     shouldUseFreeMode, 
     getCreditsStatus, 
@@ -55,7 +55,7 @@ export function PaymentModeIndicator({ className = "", showDetails = true }: Pay
           icon: <CreditCard className="w-4 h-4" />,
           color: 'text-blue-600',
           bgColor: 'bg-blue-50 border-blue-200',
-          title: 'Free Mode Active',
+          title: 'Gas fees not covered',
           description: 'You\'ll pay gas fees with your preferred token (ETH/STRK).',
           badge: { text: 'Free Mode', variant: 'outline' as const }
         };

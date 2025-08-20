@@ -22,12 +22,8 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
 import { DialogClose } from "@/components/ui/dialog"
-
-// Currency conversion rates (for demo purposes, can be fetched from an API)
-const CONVERSION_RATES = {
-  NGN: { USD: 0.00063 },
-  USD: { NGN: 1587 },
-}
+import { PaymentModeIndicator } from "./PaymentModeIndicator"
+import { number } from "zod"
 
 interface Chain {
   id: string
@@ -38,7 +34,6 @@ interface Chain {
 interface Token {
   id: string
   name: string
-  amount: string
 }
 
 interface InvoiceData {
@@ -67,8 +62,9 @@ export function InvoiceContent({ invoiceData, onPaymentConfirmed }: InvoiceConte
   const [error, setError] = useState<string | null>(null)
   const [selectedChain, setSelectedChain] = useState<string>("starknet")
   const [selectedToken, setSelectedToken] = useState<string>("usdc")
-  const [tokenAmount, setTokenAmount] = useState<string>("");
-  const [isPriceLoading, setIsPriceLoading] = useState(false);
+  const [convertedAmounts, setConvertedAmounts] = useState<Record<string, string>>({})
+  const [isPriceLoading, setIsPriceLoading] = useState(false)
+  const [fiatAmount, setFiatAmount] = useState(null)
   const router = useRouter()
 
   const chains: Chain[] = [
@@ -77,57 +73,74 @@ export function InvoiceContent({ invoiceData, onPaymentConfirmed }: InvoiceConte
     { id: "base", name: "Base", icon: CircleDot },
     { id: "arbitrum", name: "Arbitrum", icon: Gem },
     { id: "polygon", name: "Polygon", icon: Wallet },
-  ] 
-  
-  // console.log("InvoiceDate",invoiceData );
-  
+  ]
 
- // Token data (static, as dynamic amounts are fetched from API)
   const tokens: Record<string, Token[]> = {
     starknet: [
-      { id: "usdc", name: "USDC", amount: "" },
-      { id: "eth", name: "ETH", amount: "" },
+      { id: "usdc", name: "USDC" },
+      { id: "eth", name: "ETH" },
+      { id: "strk", name: "STRK" },
     ],
     ethereum: [
-      { id: "usdc", name: "USDC", amount: "" },
-      { id: "eth", name: "ETH", amount: "" },
-      { id: "usdt", name: "USDT", amount: "" },
-      { id: "dai", name: "DAI", amount: "" },
+      { id: "usdc", name: "USDC" },
+      { id: "eth", name: "ETH" },
+      { id: "usdt", name: "USDT" },
+      { id: "dai", name: "DAI" },
     ],
     base: [
-      { id: "usdc", name: "USDC", amount: "" },
-      { id: "eth", name: "ETH", amount: "" },
+      { id: "usdc", name: "USDC" },
+      { id: "eth", name: "ETH" },
     ],
     arbitrum: [
-      { id: "usdc", name: "USDC", amount: "" },
-      { id: "eth", name: "ETH", amount: "" },
+      { id: "usdc", name: "USDC" },
+      { id: "eth", name: "ETH" },
     ],
     polygon: [
-      { id: "usdc", name: "USDC", amount: "" },
-      { id: "matic", name: "MATIC", amount: "" },
-      { id: "dai", name: "DAI", amount: "" },
+      { id: "usdc", name: "USDC" },
+      { id: "matic", name: "MATIC" },
+      { id: "dai", name: "DAI" },
     ],
   };
 
-  // Fetch price from the new endpoint
+  const formatted = new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 6,  // keep up to 6 decimals if needed
+  });
+
+  // Fetch price from the endpoint
   const fetchPrice = useCallback(async () => {
     if (!selectedChain || !selectedToken) return;
 
+    // Only support starknet for price conversion
+    if (selectedChain !== "starknet") {
+      setError("Price conversion currently only available for Starknet");
+      setConvertedAmounts({});
+      return;
+    }
+
     try {
       setIsPriceLoading(true);
+      setError(null);
       const response = await fetch(
         `/api/payments/price?token=${selectedToken}&chain=${selectedChain}&fiat_amount=${invoiceData.amount}&fiat_currency=${invoiceData.currency}`
       );
 
       if (!response.ok) {
-        throw new Error("Failed to fetch price");
+        throw new Error(`Failed to fetch price: ${response.statusText}`);
       }
 
       const result = await response.json();
-      setTokenAmount(result.token_amount);
+      console.log("Price data", result.data);
+      
+      if (!result.data?.converted_amount) {
+        throw new Error("Invalid price data received");
+      }
+      setConvertedAmounts(result.data.converted_amount);
+      setFiatAmount(result.data.amount_fiat)
     } catch (err) {
       console.error("Price fetch error:", err);
-      setError("Failed to update price");
+      setError("Failed to update price: " + (err instanceof Error ? err.message : String(err)));
+      setConvertedAmounts({});
     } finally {
       setIsPriceLoading(false);
     }
@@ -136,7 +149,7 @@ export function InvoiceContent({ invoiceData, onPaymentConfirmed }: InvoiceConte
   // Poll price every 10 seconds
   useEffect(() => {
     fetchPrice(); // Initial fetch
-    const interval = setInterval(fetchPrice, 10000); // Poll every 10 seconds
+    const interval = setInterval(fetchPrice, 600000); // Poll every 10 seconds
     return () => clearInterval(interval);
   }, [fetchPrice]);
 
@@ -147,15 +160,7 @@ export function InvoiceContent({ invoiceData, onPaymentConfirmed }: InvoiceConte
     } else {
       setSelectedToken("");
     }
-  }, [selectedChain]); 
-
-  useEffect(() => {
-    if (selectedChain && tokens[selectedChain]?.length > 0) {
-      setSelectedToken(tokens[selectedChain][0].id)
-    } else {
-      setSelectedToken("")
-    }
-  }, [selectedChain])
+  }, [selectedChain]);
 
   // Polling for payment status
   useEffect(() => {
@@ -188,6 +193,7 @@ export function InvoiceContent({ invoiceData, onPaymentConfirmed }: InvoiceConte
                     currency: invoiceData.currency,
                     chain: selectedChain,
                     token: selectedToken,
+                    token_amount: convertedAmounts[selectedToken.toUpperCase()] || "0",
                     timestamp: new Date().toISOString(),
                   }),
                 })
@@ -208,7 +214,7 @@ export function InvoiceContent({ invoiceData, onPaymentConfirmed }: InvoiceConte
       }, 3000)
     }
     return () => clearInterval(interval)
-  }, [isPolling, invoiceData.paymentRef, invoiceData.secondaryEndpoint, selectedChain, selectedToken, router, onPaymentConfirmed])
+  }, [isPolling, invoiceData.paymentRef, invoiceData.secondaryEndpoint, selectedChain, selectedToken, convertedAmounts, router, onPaymentConfirmed])
 
   const copyLink = async () => {
     try {
@@ -237,9 +243,11 @@ export function InvoiceContent({ invoiceData, onPaymentConfirmed }: InvoiceConte
         </div>
       )}
 
+
+
       {/* Close Button */}
       <DialogClose
-       onClick={() => router.back()} 
+        onClick={() => router.back()}
         className="absolute right-3 top-3 z-10 rounded-sm opacity-70 ring-offset-background transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 disabled:pointer-events-none data-[state=open]:bg-accent data-[state=open]:text-muted-foreground bg-white/80 backdrop-blur-sm p-1"
         aria-label="Close payment dialog"
       >
@@ -270,8 +278,11 @@ export function InvoiceContent({ invoiceData, onPaymentConfirmed }: InvoiceConte
                 </Button>
               )
             })}
+
           </div>
+          
         </div>
+        
 
         {/* Column 2: Payment Info */}
         <div className="col-span-1 border-b lg:border-b-0 lg:border-r border-gray-200 p-4 sm:p-6 lg:p-8">
@@ -292,7 +303,11 @@ export function InvoiceContent({ invoiceData, onPaymentConfirmed }: InvoiceConte
                 role="button"
                 aria-label={`Select ${token.name} token`}
               >
-                {token.name}
+                {token.name} ≈ {isPriceLoading ? (
+                  <Loader2 className="w-3 h-3 animate-spin inline" />
+                ) : (
+                  convertedAmounts[token.id.toUpperCase()] || "N/A"
+                )}
               </Badge>
             ))}
           </div>
@@ -353,9 +368,8 @@ export function InvoiceContent({ invoiceData, onPaymentConfirmed }: InvoiceConte
 
           {/* Merchant Brand */}
           <div className="flex items-center space-x-3 mb-4 sm:mb-6">
-            <div className="bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg flex items-center justify-center text-lg sm:text-xl">
-               
-               {invoiceData.merchantLogo ? (
+            <div className="bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg w-12 h-12 flex items-center justify-center text-lg sm:text-xl">
+              {invoiceData.merchantLogo ? (
                 <img
                   src={invoiceData.merchantLogo}
                   alt="Business logo"
@@ -369,7 +383,7 @@ export function InvoiceContent({ invoiceData, onPaymentConfirmed }: InvoiceConte
                   className="w-full h-full object-cover rounded-lg"
                 />
               ) : (
-                invoiceData.merchantLogo
+                <span className="text-white">{invoiceData.merchantName[0]}</span>
               )}
             </div>
             <div>
@@ -388,14 +402,18 @@ export function InvoiceContent({ invoiceData, onPaymentConfirmed }: InvoiceConte
           {/* Amount Details */}
           <div className="bg-gray-50 rounded-xl p-4 sm:p-6 mb-4 sm:mb-6">
             <div className="flex justify-between items-center mb-2 sm:mb-3">
-              <span className="text-gray-600 text-sm sm:text-base">Amount Due</span>
-              <span className="text-xl sm:text-2xl font-bold text-gray-900">{invoiceData.amountFiat}</span>
+              <span className="text-gray-600">Amount  <br/><strong> {formatted.format(fiatAmount)} </strong></span>
+              {/* <span className="text-xs sm:text-sm font-bold text-gray-900"></span> */}
             </div>
             {currentTokenData && (
               <div className="flex justify-between items-center text-xs sm:text-sm">
                 <span className="text-gray-600">You Pay</span>
                 <span className="font-medium text-gray-900">
-                  ≈ {currentTokenData.amount} {currentTokenData.name}
+                  ≈ {isPriceLoading ? (
+                    <Loader2 className="w-3 h-3 animate-spin inline" />
+                  ) : (
+                    convertedAmounts[selectedToken.toUpperCase()] || "N/A"
+                  )} {currentTokenData.name}
                 </span>
               </div>
             )}
@@ -403,17 +421,17 @@ export function InvoiceContent({ invoiceData, onPaymentConfirmed }: InvoiceConte
               <span className="text-gray-600">Network</span>
               <span className="font-medium text-gray-900">{chains.find((c) => c.id === selectedChain)?.name}</span>
             </div>
-            <div className="flex justify-between items-center text-xs sm:text-sm mt-2">
+            {/* <div className="flex justify-between items-center text-xs sm:text-sm mt-2">
               <span className="text-gray-600">Gas Fees</span>
               <span className="font-medium text-green-600">Sponsored</span>
-            </div>
+            </div> */}
           </div>
 
           {/* Confirmation Button */}
           <Button
             className="w-full h-9 sm:h-10 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-sm sm:text-base font-semibold"
             onClick={handlePaidClick}
-            disabled={isPolling || isPaid}
+            disabled={isPolling || isPaid || !convertedAmounts[selectedToken.toUpperCase()]}
             aria-label={isPaid ? "Payment confirmed" : isPolling ? "Waiting for payment confirmation" : "Confirm payment"}
           >
             {isPolling ? (
@@ -445,6 +463,11 @@ export function InvoiceContent({ invoiceData, onPaymentConfirmed }: InvoiceConte
           )}
         </div>
       </div>
+
+      <div className="bottom-0 left-0 right-0 p-4 bg-gray-50 border-b border-gray-200 flex items-center justify-center">
+         
+            <PaymentModeIndicator showDetails={false} />
+        </div>
     </div>
   )
 }
