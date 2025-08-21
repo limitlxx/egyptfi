@@ -3,6 +3,8 @@
 **EgyptFi** is a Starknet-based multi-chain payment gateway that enables businesses to accept crypto payments and receive settlements in stablecoins like **USDC**.
 With support for **no-code** and **low-code tools**, **developer-friendly APIs**, **gasless transactions**, and **refund support**, Egyptfi makes crypto payments simple, scalable, and secure.
 
+[Website](https://egyptfi.online)
+[X](https://x.com/egyptfi_)
 ---
 
 ## ⚙️ Technologies Used
