@@ -5,6 +5,8 @@ With support for **no-code** and **low-code tools**, **developer-friendly APIs**
 
 ---
 
+### CONTRACT ADDRESS
+
 ## ⚙️ Technologies Used
 
 > A quick overview of the key technologies powering Egyptfi:
