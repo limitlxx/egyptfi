@@ -51,7 +51,7 @@ export default function InvoiceModalPage() {
           </svg>
           Secured by{" "}
           <Link href="/" className="text-blue-600 hover:text-blue-700 font-medium ml-1">
-            Nummus
+            EgyptFi
           </Link>
         </p>
       </div>

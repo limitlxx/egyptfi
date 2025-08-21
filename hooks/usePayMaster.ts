@@ -1,20 +1,20 @@
-import { useMemo, useEffect, useState } from "react";
+import { useMemo, useEffect, useState } from 'react';
 import {
   usePaymasterEstimateFees,
   usePaymasterSendTransaction,
   useTransactionReceipt,
   useSendTransaction,
-} from "@starknet-react/core";
-import { Call, FeeMode } from "starknet";
-import { usePaymasterCredits } from "./usePaymasterCredits";
-import toast from "react-hot-toast";
+} from '@starknet-react/core';
+import { Call, FeeMode } from 'starknet';
+import { usePaymasterCredits } from './usePaymasterCredits';
+import toast from 'react-hot-toast';
 
 interface UsePaymasterOptions {
   calls?: Call[];
   enabled?: boolean;
   onSuccess?: (transactionHash: string) => void;
   onError?: (error: any) => void;
-  forceMode?: "sponsored" | "default"; // Allow forcing a specific mode
+  forceMode?: 'sponsored' | 'default';
 }
 
 export const usePaymaster = ({
@@ -24,38 +24,30 @@ export const usePaymaster = ({
   onError,
   forceMode,
 }: UsePaymasterOptions) => {
-  const [paymentMode, setPaymentMode] = useState<
-    "sponsored" | "default" | "unknown"
-  >("unknown");
+  const [paymentMode, setPaymentMode] = useState<'sponsored' | 'default' | 'unknown'>('unknown');
 
-  // Monitor paymaster credits
-  const { shouldUseFreeMode, getCreditsStatus, checkCredits } =
-    usePaymasterCredits();
+  const { shouldUseFreeMode, getCreditsStatus, checkCredits } = usePaymasterCredits();
 
-  // Determine the payment mode
   const actualMode = useMemo(() => {
     if (forceMode) return forceMode;
-    return shouldUseFreeMode ? "default" : "sponsored";
+    return shouldUseFreeMode ? 'default' : 'sponsored';
   }, [forceMode, shouldUseFreeMode]);
 
   const feeMode: FeeMode = useMemo(() => {
-    if (actualMode === "sponsored") {
-      return { mode: "sponsored" };
+    if (actualMode === 'sponsored') {
+      return { mode: 'sponsored' };
     } else {
-      // For default mode, we need to specify a gas token
-      return { 
-        mode: "default",
-        gasToken: "0x04718f5a0Fc34cC1AF16A1cdee98fFB20C31f5cD61D6Ab07201858f4287c938D" // STRK SEPOLIA token address
+      return {
+        mode: 'default',
+        gasToken: '0x04718f5a0Fc34cC1AF16A1cdee98fFB20C31f5cD61D6Ab07201858f4287c938D', // STRK SEPOLIA
       };
     }
   }, [actualMode]);
 
-  // Update payment mode when it changes
   useEffect(() => {
     setPaymentMode(actualMode);
   }, [actualMode]);
 
-  // Gas estimation (only for sponsored mode)
   const {
     data: estimateData,
     isPending: isPendingEstimate,
@@ -65,7 +57,6 @@ export const usePaymaster = ({
     options: { feeMode },
   });
 
-  // Sponsored transaction sending
   const {
     sendAsync: sendSponsored,
     data: sponsoredData,
@@ -77,7 +68,6 @@ export const usePaymaster = ({
     maxFeeInGasToken: estimateData?.suggested_max_fee_in_gas_token,
   });
 
-  // Free transaction sending (user pays gas)
   const {
     sendAsync: sendFree,
     data: freeData,
@@ -87,13 +77,10 @@ export const usePaymaster = ({
     calls: initialCalls,
   });
 
-  // Determine which data to use based on mode
-  const sendData = actualMode === "sponsored" ? sponsoredData : freeData;
-  const isPendingSend =
-    actualMode === "sponsored" ? isPendingSponsored : isPendingFree;
-  const errorSend = actualMode === "sponsored" ? errorSponsored : errorFree;
+  const sendData = actualMode === 'sponsored' ? sponsoredData : freeData;
+  const isPendingSend = actualMode === 'sponsored' ? isPendingSponsored : isPendingFree;
+  const errorSend = actualMode === 'sponsored' ? errorSponsored : errorFree;
 
-  // Transaction receipt
   const {
     isLoading: waitIsLoading,
     data: waitData,
@@ -105,71 +92,87 @@ export const usePaymaster = ({
     watch: true,
   });
 
-  // Execute transaction with automatic mode selection
   const executeTransaction = async (runtimeCalls?: Call[]) => {
     const txCalls = runtimeCalls ?? initialCalls;
-    console.log("txCall", txCalls);
-    
-    if (!txCalls || !enabled) {
-      throw new Error("Transaction not ready or disabled");
+    console.log('executeTransaction called with:', {
+      txCalls,
+      initialCalls,
+      enabled,
+      paymentMode,
+      feeMode,
+    });
+
+    if (!txCalls || txCalls.length === 0 || !enabled) {
+      const errorMsg = `Invalid transaction calls or disabled: calls=${JSON.stringify(txCalls)}, initialCalls=${JSON.stringify(initialCalls)}, enabled=${enabled}`;
+      console.error(errorMsg);
+      throw new Error(errorMsg);
     }
 
     try {
-      // Check credits before executing sponsored transaction
-      if (actualMode === "sponsored") {
+      if (actualMode === 'sponsored') {
         await checkCredits();
-
-        // If credits are exhausted after check, show warning and switch to free mode
         if (shouldUseFreeMode) {
-          toast.error(
-            "Paymaster credits exhausted. Transaction will use free mode (you'll pay gas fees)."
-          );
-          setPaymentMode("default");
-          const result = await sendFree(txCalls);
-          return result;
+          toast.error('Paymaster credits exhausted. Switching to free mode.');
+          setPaymentMode('default');
+          try {
+            const result = await sendFree(txCalls);
+            return result;
+          } catch (freeError) {
+            if (freeError instanceof Error && freeError.message.includes('User rejected request')) {
+              console.warn('User rejected free mode transaction:', freeError);
+              toast.error('Transaction rejected. Please approve the transaction to continue.', { id: 'transaction-rejected' });
+              throw new Error('User rejected the transaction');
+            }
+            throw freeError;
+          }
         }
 
-        toast.success("Transaction sponsored - no gas fees for you!");
+        toast.success('Transaction sponsored - no gas fees!');
         const result = await sendSponsored(txCalls);
         return result;
       } else {
-        toast.error(
-          "Using free mode - you'll pay the gas fees with your preferred token."
-        );
-        const result = await sendFree(txCalls);
-        return result;
+        toast.error('Using free mode - you pay gas fees.');
+        try {
+          const result = await sendFree(txCalls);
+          return result;
+        } catch (freeError) {
+          if (freeError instanceof Error && freeError.message.includes('User rejected request')) {
+            console.warn('User rejected free mode transaction:', freeError);
+            toast.error('Transaction rejected. Please approve the transaction to continue.', { id: 'transaction-rejected' });
+            throw new Error('User rejected the transaction');
+          }
+          throw freeError;
+        }
       }
     } catch (error) {
-      // If sponsored transaction fails, try free mode as fallback
-      if (actualMode === "sponsored" && !forceMode) {
-        console.warn(
-          "Sponsored transaction failed, falling back to free mode:",
-          error
-        );
-        toast.error("Sponsored transaction failed. Trying free mode...");
-
+      if (actualMode === 'sponsored' && !forceMode) {
+        console.warn('Sponsored transaction failed, falling back to free mode:', error);
+        toast.error('Sponsored transaction failed. Trying free mode...');
         try {
-          setPaymentMode("default");
+          setPaymentMode('default');
           const result = await sendFree(txCalls);
-          toast.success("Transaction completed in free mode.");
+          toast.success('Transaction completed in free mode.');
           return result;
         } catch (fallbackError) {
+          if (fallbackError instanceof Error && fallbackError.message.includes('User rejected request')) {
+            console.warn('User rejected fallback transaction:', fallbackError);
+            toast.error('Transaction rejected. Please approve the transaction to continue.', { id: 'transaction-rejected' });
+            throw new Error('User rejected the transaction');
+          }
+          console.error('Free mode transaction failed:', fallbackError);
           onError?.(fallbackError);
           throw fallbackError;
         }
       }
-
+      console.error('Transaction error:', error);
       onError?.(error);
       throw error;
     }
   };
 
-  // Computed states
-  const isSuccess = txStatus === "success" && waitData;
-  const isError =
-    txStatus === "error" || isTxError || errorSend || errorEstimate;
+  const isSuccess = txStatus === 'success' && waitData;
+  const isError = txStatus === 'error' || isTxError || errorSend || errorEstimate;
 
-  // Callbacks
   if (isSuccess && onSuccess && sendData?.transaction_hash) {
     onSuccess(sendData.transaction_hash);
   }
@@ -178,36 +181,25 @@ export const usePaymaster = ({
   }
 
   return {
-    // Estimation
     estimateData,
     isPendingEstimate,
     errorEstimate,
-
-    // Transaction
     executeTransaction,
     sendData,
     isPendingSend,
     errorSend,
-
-    // Receipt
     waitIsLoading,
     waitData,
     txStatus,
     isTxError,
     txError,
-
-    // Computed states
     isLoading: isPendingEstimate || isPendingSend || waitIsLoading,
     isSuccess,
     isError,
     transactionHash: sendData?.transaction_hash,
-
-    // Payment mode info
     paymentMode,
     creditsStatus: getCreditsStatus(),
     shouldUseFreeMode,
-
-    // Fee mode
     feeMode,
   };
 };

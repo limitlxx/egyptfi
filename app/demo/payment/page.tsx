@@ -256,7 +256,7 @@ export default function PaymentPage() {
           <p className="text-sm text-gray-500">
             Powered by{" "}
             <Link href="/" className="text-blue-600 hover:text-blue-700 font-medium">
-              Nummus
+              EgyptFi
             </Link>
           </p>
         </div>

@@ -54,4 +54,4 @@ export const ARGENT_DUMMY_CONTRACT_ADDRESS =
     : ARGENT_DUMMY_CONTRACT_MAINNET_ADDRESS
 
 export const AVNU_PAYMASTER_API_KEY =
-  process.env.NEXT_PUBLIC_AVNU_API_KEY || undefined
+  process.env.NEXT_PUBLIC_PAYMASTER_API || undefined

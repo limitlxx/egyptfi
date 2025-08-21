@@ -712,7 +712,7 @@ export default function DashboardPage() {
 
   const filteredPayments = payments.filter((payment) => {
     const matchesSearch =
-      payment.payment_ref.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      payment.ref.toLowerCase().includes(searchTerm.toLowerCase()) ||
       payment.description.toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus =
       statusFilter === "all" || payment.status === statusFilter;
@@ -783,7 +783,7 @@ export default function DashboardPage() {
               <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-sm">N</span>
               </div>
-              <span className="text-xl font-bold text-gray-900">Nummus</span>
+              <span className="text-xl font-bold text-gray-900">EgyptFi</span>
             </Link>
             <div className="hidden md:flex items-center space-x-2 text-sm text-gray-500">
               <span>/</span>
@@ -1798,7 +1798,7 @@ export default function DashboardPage() {
                       </h4>
                       <ul className="text-sm text-yellow-800 space-y-1">
                         <li>• Minimum withdrawal: 1 USDC</li>
-                        <li>• Gas fees are sponsored by Nummus</li>
+                        <li>• Gas fees are sponsored by EgyptFi</li>
                         <li>• Processing time: ~30 seconds on StarkNet</li>
                         <li>• Withdrawals are processed instantly</li>
                       </ul>

@@ -14,6 +14,7 @@ export interface Invoice {
   tx_hash: string;
   created_at: string;
   secondary_endpoint: string;
+  ref: string;
 }
 
 /**

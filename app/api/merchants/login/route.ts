@@ -1,7 +1,6 @@
 // app/api/merchants/login/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import pool from '@/lib/db';
-import { generateJWT } from '@/lib/jwt';
+import pool from '@/lib/db'; 
 
 interface LoginRequest {
   walletAddress: string;

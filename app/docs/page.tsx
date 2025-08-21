@@ -30,7 +30,7 @@ export default function DocsPage() {
       ],
       response: {
         payment_ref: "pay_abc123",
-        hosted_url: "https://pay.nummus.xyz/pay_abc123",
+        hosted_url: "https://pay.EgyptFi.xyz/pay_abc123",
         qr_code: "data:image/png;base64,iVBOR...",
         expires_at: "2024-01-15T10:30:00Z",
       },
@@ -151,7 +151,7 @@ export default function DocsPage() {
 
   const codeExamples = {
     curl: {
-      initiate: `curl -X POST https://api.nummus.xyz/api/payment/initiate \\
+      initiate: `curl -X POST https://api.EgyptFi.xyz/api/payment/initiate \\
   -H "Authorization: Bearer YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -160,9 +160,9 @@ export default function DocsPage() {
     "description": "Premium Coffee Blend x2",
     "webhook_url": "https://yoursite.com/webhook"
   }'`,
-      fetch: `curl -X GET https://api.nummus.xyz/api/payment/pay_abc123 \\
+      fetch: `curl -X GET https://api.EgyptFi.xyz/api/payment/pay_abc123 \\
   -H "Authorization: Bearer YOUR_API_KEY"`,
-      confirm: `curl -X POST https://api.nummus.xyz/api/payment/confirm \\
+      confirm: `curl -X POST https://api.EgyptFi.xyz/api/payment/confirm \\
   -H "Authorization: Bearer YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -173,7 +173,7 @@ export default function DocsPage() {
   }'`,
     },
     javascript: {
-      initiate: `const response = await fetch('https://api.nummus.xyz/api/payment/initiate', {
+      initiate: `const response = await fetch('https://api.EgyptFi.xyz/api/payment/initiate', {
   method: 'POST',
   headers: {
     'Authorization': 'Bearer YOUR_API_KEY',
@@ -189,7 +189,7 @@ export default function DocsPage() {
 
 const payment = await response.json();
 console.log(payment.hosted_url);`,
-      fetch: `const response = await fetch('https://api.nummus.xyz/api/payment/pay_abc123', {
+      fetch: `const response = await fetch('https://api.EgyptFi.xyz/api/payment/pay_abc123', {
   headers: {
     'Authorization': 'Bearer YOUR_API_KEY',
   }
@@ -197,7 +197,7 @@ console.log(payment.hosted_url);`,
 
 const invoice = await response.json();
 console.log(invoice.crypto_amounts);`,
-      confirm: `const response = await fetch('https://api.nummus.xyz/api/payment/confirm', {
+      confirm: `const response = await fetch('https://api.EgyptFi.xyz/api/payment/confirm', {
   method: 'POST',
   headers: {
     'Authorization': 'Bearer YOUR_API_KEY',
@@ -217,7 +217,7 @@ const confirmation = await response.json();`,
       initiate: `import requests
 
 response = requests.post(
-    'https://api.nummus.xyz/api/payment/initiate',
+    'https://api.EgyptFi.xyz/api/payment/initiate',
     headers={
         'Authorization': 'Bearer YOUR_API_KEY',
         'Content-Type': 'application/json',
@@ -235,7 +235,7 @@ print(payment['hosted_url'])`,
       fetch: `import requests
 
 response = requests.get(
-    'https://api.nummus.xyz/api/payment/pay_abc123',
+    'https://api.EgyptFi.xyz/api/payment/pay_abc123',
     headers={'Authorization': 'Bearer YOUR_API_KEY'}
 )
 
@@ -244,7 +244,7 @@ print(invoice['crypto_amounts'])`,
       confirm: `import requests
 
 response = requests.post(
-    'https://api.nummus.xyz/api/payment/confirm',
+    'https://api.EgyptFi.xyz/api/payment/confirm',
     headers={
         'Authorization': 'Bearer YOUR_API_KEY',
         'Content-Type': 'application/json',
@@ -277,7 +277,7 @@ confirmation = response.json()`,
               <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-sm">N</span>
               </div>
-              <span className="text-xl font-bold text-gray-900">Nummus API</span>
+              <span className="text-xl font-bold text-gray-900">EgyptFi API</span>
             </div>
           </div>
           <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
@@ -296,7 +296,7 @@ confirmation = response.json()`,
           <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
             Build with{" "}
             <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              Nummus API
+              EgyptFi API
             </span>
           </h1>
           <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-8">
@@ -539,7 +539,7 @@ confirmation = response.json()`,
           </CardHeader>
           <CardContent>
             <p className="text-gray-600 mb-4">
-              Nummus sends webhook notifications to your specified URL when payment events occur. Configure your webhook
+              EgyptFi sends webhook notifications to your specified URL when payment events occur. Configure your webhook
               URL in the merchant dashboard or when creating a payment.
             </p>
 

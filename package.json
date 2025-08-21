@@ -42,6 +42,7 @@
     "@types/jsonwebtoken": "^9.0.10",
     "@types/pg": "^8.15.5",
     "autoprefixer": "^10.4.20",
+    "autoswap-sdk": "^1.0.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "1.0.4",

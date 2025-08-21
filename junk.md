@@ -1,161 +1,396 @@
-// app/api/price/route.ts
-import { NextRequest, NextResponse } from "next/server";
-import { z } from "zod";
-import { RpcProvider, constants } from "starknet";
+"use client";
 
-// Validation schema for query parameters
-const PriceFetchSchema = z.object({
-  token: z.enum(["strk", "eth", "usdc"], {
-    message: "Token must be one of strk, eth, usdc",
-  }),
-  chain: z
-    .enum(["starknet"], { message: "Only starknet is supported for now" })
-    .optional(),
-  fiat_amount: z.number().positive("Fiat amount must be positive"),
-  fiat_currency: z
-    .string()
-    .min(3, "Fiat currency code must be at least 3 characters")
-    .toUpperCase(),
-});
+import { useState, useEffect, useCallback } from "react";
+import {
+  ExternalLink,
+  Check,
+  Loader2,
+  Wallet,
+  QrCode,
+  CircleDot,
+  CircleDotDashed,
+  Network,
+  Gem,
+  LinkIcon,
+  X,
+  AlertCircle,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { cn } from "@/lib/utils";
+import { DialogClose } from "@/components/ui/dialog";
+import QRCode from "react-qr-code";
+import toast from "react-hot-toast";
+import { PaymentModeIndicator } from "./PaymentModeIndicator";
+import { get_payment, verify_payment } from "@/services/payment";
+import { useWallet } from "@/hooks/useWallet";
 
-export async function GET(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const token = searchParams.get("token")?.toLowerCase();
-    const chain = searchParams.get("chain")?.toLowerCase();
-    const fiat_amount = parseFloat(searchParams.get("fiat_amount") || "0");
-    const fiat_currency = searchParams.get("fiat_currency")?.toUpperCase();
+interface Chain {
+  id: string;
+  name: string;
+  icon: React.ComponentType<{ className?: string }>;
+}
 
-    // Validate query parameters
-    const validatedData = PriceFetchSchema.parse({
-      token,
-      chain,
-      fiat_amount,
-      fiat_currency,
-    });
+interface Token {
+  id: string;
+  name: string;
+}
 
-    // CMC API Key from env
-    const cmcApiKey = process.env.CMC_API_KEY;
-    if (!cmcApiKey) {
-      return NextResponse.json(
-        { error: "CMC API key not configured" },
-        { status: 500 }
-      );
+interface InvoiceData {
+  merchantName: string;
+  merchantLogo: string;
+  amountFiat: string;
+  invoiceId: string;
+  paymentRef: string;
+  hostedUrl: string;
+  qrCode?: string;
+  description?: string;
+  secondaryEndpoint?: string;
+  currency: string;
+  amount: number;
+  payUrl: string;
+}
+
+interface InvoiceContentProps {
+  invoiceData: InvoiceData;
+  onPaymentConfirmed?: (paymentRef: string) => void;
+  isMobile?: boolean; // Added from previous suggestion
+}
+
+export function InvoiceContent({ invoiceData, onPaymentConfirmed, isMobile }: InvoiceContentProps) {
+  const [copied, setCopied] = useState(false);
+  const [isPaid, setIsPaid] = useState(false);
+  const [isPolling, setIsPolling] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [selectedChain, setSelectedChain] = useState<string>("starknet");
+  const [selectedToken, setSelectedToken] = useState<string>("usdc");
+  const [convertedAmounts, setConvertedAmounts] = useState<Record<string, string>>({});
+  const [isPriceLoading, setIsPriceLoading] = useState(false);
+  const [fiatAmount, setFiatAmount] = useState<number | null>(null);
+  const router = useRouter();
+  const { isConnected, account } = useWallet();
+
+  const chains: Chain[] = [
+    { id: "starknet", name: "StarkNet", icon: CircleDotDashed },
+    { id: "ethereum", name: "Ethereum", icon: Network },
+    { id: "base", name: "Base", icon: CircleDot },
+    { id: "arbitrum", name: "Arbitrum", icon: Gem },
+    { id: "polygon", name: "Polygon", icon: Wallet },
+  ];
+
+  const tokens: Record<string, Token[]> = {
+    starknet: [
+      { id: "usdc", name: "USDC" },
+      { id: "eth", name: "ETH" },
+      { id: "strk", name: "STRK" },
+    ],
+    ethereum: [
+      { id: "usdc", name: "USDC" },
+      { id: "eth", name: "ETH" },
+      { id: "usdt", name: "USDT" },
+      { id: "dai", name: "DAI" },
+    ],
+    base: [
+      { id: "usdc", name: "USDC" },
+      { id: "eth", name: "ETH" },
+    ],
+    arbitrum: [
+      { id: "usdc", name: "USDC" },
+      { id: "eth", name: "ETH" },
+    ],
+    polygon: [
+      { id: "usdc", name: "USDC" },
+      { id: "matic", name: "MATIC" },
+      { id: "dai", name: "DAI" },
+    ],
+  };
+
+  const formatted = new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 6,
+  });
+
+  const fetchPrice = useCallback(async () => {
+    if (!selectedChain || !selectedToken) return;
+    if (selectedChain !== "starknet") {
+      setError("Price conversion currently only available for Starknet");
+      setConvertedAmounts({});
+      return;
     }
 
-    // Fetch USDC price in fiat_currency from CoinMarketCap to bridge fiat/USD rate
-    const cmcResponse = await fetch(
-      `https://pro-api.coinmarketcap.com/v2/cryptocurrency/quotes/latest?symbol=USDC&convert=${validatedData.fiat_currency}`,
-      {
-        headers: {
-          "X-CMC_PRO_API_KEY": cmcApiKey,
-          Accept: "application/json",
-        },
+    try {
+      setIsPriceLoading(true);
+      setError(null);
+      const response = await fetch(
+        `/api/payments/price?token=${selectedToken}&chain=${selectedChain}&fiat_amount=${invoiceData.amount}&fiat_currency=${invoiceData.currency}`
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to fetch price: ${response.statusText}`);
       }
-    );
 
-    if (!cmcResponse.ok) {
-      return NextResponse.json(
-        { error: "Failed to fetch from CoinMarketCap" },
-        { status: 502 }
-      );
+      const result = await response.json();
+      setConvertedAmounts(result.data.converted_amount);
+      setFiatAmount(result.data.amount_fiat);
+    } catch (err) {
+      console.error("Price fetch error:", err);
+      setError("Failed to update price: " + (err instanceof Error ? err.message : String(err)));
+      setConvertedAmounts({});
+    } finally {
+      setIsPriceLoading(false);
     }
+  }, [selectedChain, selectedToken, invoiceData.amount, invoiceData.currency]);
 
-    const cmcData = await cmcResponse.json();
-    const fiatPerUsd =
-      cmcData.data.USDC[0].quote[validatedData.fiat_currency].price;
-    if (!fiatPerUsd) {
-      return NextResponse.json(
-        { error: "Price not available for this fiat currency" },
-        { status: 404 }
-      );
+  useEffect(() => {
+    fetchPrice();
+    const interval = setInterval(fetchPrice, 10000); // Reduced to 10s for demo
+    return () => clearInterval(interval);
+  }, [fetchPrice]);
+
+  useEffect(() => {
+    if (selectedChain && tokens[selectedChain]?.length > 0) {
+      setSelectedToken(tokens[selectedChain][0].id);
+    } else {
+      setSelectedToken("");
     }
+  }, [selectedChain]);
 
-    // Calculate fiat_amount in USD
-    const fiatInUsd = validatedData.fiat_amount / fiatPerUsd;
-
-    // Chainlink feeds on Starknet mainnet
-    const chainlinkFeeds: Record<string, string> = {
-      strk: "0x02d8f6b8c2af9c4e91838c638f91cd0576698fd40ec8de22bf8582e9d613c0ee",
-      eth: "0x03042f2f43635eec2c0418ff45e77c42af55cbc764c167692b8ca4777476c2e",
-      usdc: "0x033b091a8e0ed928c739d9a9b4e6c8e82661d93b1310e6b3b8cae5f31f05a0e",
-    };
-
-    const decimals = 8; // Standard for these feeds
-
-    // Starknet provider
-    const starknetProvider = new RpcProvider({
-      nodeUrl: constants.NetworkName.SN_MAIN,
-    });
-
-    // Fetch token/USD rates from Chainlink
-    const tokenRates: Record<string, string> = {};
-    const convertedAmount: Record<string, string> = {};
-
-    for (const t of Object.keys(chainlinkFeeds)) {
-      const feedAddress = chainlinkFeeds[t as keyof typeof chainlinkFeeds];
-
-      const callResult = await starknetProvider.callContract({
-        contractAddress: feedAddress,
-        entrypoint: "latest_round_data",
+  const handlePaidClick = async () => {
+    if (!isConnected || !account) {
+      toast.error("Please connect wallet first");
+      return;
+    }
+    setIsPolling(true);
+    try {
+      const isConfirmed = await verify_payment({
+        payment_ref: invoiceData.paymentRef,
+        contract_address: "0x...contract_address", // Replace with actual address
+        wallet: { isConnected, account, address: account?.address || "" },
       });
-
-      // Parse the answer (index 1 in result array, scaled by 10^8)
-      const answer = BigInt(callResult.result[1]);
-      const price = Number(answer) / 10 ** decimals;
-
-      // Validate price
-      if (price <= 0) {
-        throw new Error(`Invalid price for ${t.toUpperCase()}/USD`);
+      if (isConfirmed) {
+        setIsPaid(true);
+        onPaymentConfirmed?.(invoiceData.paymentRef);
+        if (invoiceData.secondaryEndpoint) {
+          await fetch(invoiceData.secondaryEndpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              event: "payment_confirmed",
+              payment_ref: invoiceData.paymentRef,
+              status: "paid",
+              timestamp: new Date().toISOString(),
+            }),
+          });
+          window.location.href = invoiceData.secondaryEndpoint;
+        } else {
+          router.push(`/success?ref=${invoiceData.paymentRef}`);
+        }
       }
-
-      tokenRates[`${t.toUpperCase()}/USD`] = price.toFixed(2);
-      convertedAmount[t.toUpperCase()] = (fiatInUsd / price).toFixed(
-        t === "eth" ? 6 : 2
-      );
+    } catch (err) {
+      setError("Failed to verify payment");
+    } finally {
+      setIsPolling(false);
     }
+  };
 
-    // Payment currency and final amount
-    const paymentCurrency = validatedData.token.toUpperCase();
-    const finalAmount = convertedAmount[paymentCurrency];
+  const currentTokenData = tokens[selectedChain]?.find((t) => t.id === selectedToken);
 
-    // Structured response
-    const responseData = {
-      data: {
-        amount_fiat: validatedData.fiat_amount.toString(),
-        converted_amount: convertedAmount,
-        conversion_rate: {
-          source: {
-            fiat: "CoinMarketCap",
-            crypto: "Chainlink",
-          },
-          fiat: validatedData.fiat_currency,
-          usd_rate: fiatPerUsd.toFixed(2),
-          token_rates: tokenRates,
-        },
-        payment_currency: paymentCurrency,
-        final_amount: finalAmount,
-      },
-    };
+  const copyLink = async () => {
+    await navigator.clipboard.writeText(invoiceData.payUrl);
+    setCopied(true);
+    toast.success("Payment link copied!");
+    setTimeout(() => setCopied(false), 2000);
+  };
 
-    return NextResponse.json(responseData);
-  } catch (error) {
-    console.error("Price fetch error:", error);
-    if (error instanceof z.ZodError) {
-      return NextResponse.json(
-        {
-          error: "Validation failed",
-          details: error.errors.map((err) => ({
-            field: err.path.join("."),
-            message: err.message,
-          })),
-        },
-        { status: 400 }
-      );
-    }
-    return NextResponse.json(
-      { error: "Internal server error: " + (error instanceof Error ? error.message : String(error)) },
-      { status: 500 }
-    );
-  }
+  return (
+    <div className="relative min-h-[calc(100vh-4rem)] flex flex-col">
+      <DialogClose className="absolute top-4 right-4 p-2 rounded-full bg-gray-100 hover:bg-gray-200">
+        <X className="w-4 h-4" aria-hidden="true" />
+        <span className="sr-only">Close</span>
+      </DialogClose>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 p-4 sm:p-6 lg:p-8 flex-grow">
+        <div className="col-span-1 lg:col-span-2 p-4 sm:p-6 lg:p-8">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">
+            Pay Invoice
+          </h2>
+          <div className="flex items-center mb-4 sm:mb-6">
+            <div className="bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg w-12 h-12 flex items-center justify-center text-lg sm:text-xl">
+              {invoiceData.merchantLogo ? (
+                <img
+                  src={invoiceData.merchantLogo}
+                  alt="Business logo"
+                  className="w-full h-full object-cover rounded-lg"
+                />
+              ) : (
+                <span className="text-white">{invoiceData.merchantName[0]}</span>
+              )}
+            </div>
+            <div className="ml-3">
+              <h3 className="font-semibold text-gray-900 text-sm sm:text-base">
+                {invoiceData.merchantName}
+              </h3>
+              <p className="text-xs text-gray-500">{invoiceData.invoiceId}</p>
+            </div>
+          </div>
+
+          <div className="bg-gray-50 rounded-xl p-4 sm:p-6 mb-4 sm:mb-6">
+            <div className="flex justify-between items-center mb-2 sm:mb-3">
+              <span className="text-gray-600 text-sm sm:text-base">Amount</span>
+              <span className="text-sm sm:text-base font-bold text-gray-900">
+                {invoiceData.amountFiat}
+              </span>
+            </div>
+            {invoiceData.description && (
+              <p className="text-xs sm:text-sm text-gray-600">{invoiceData.description}</p>
+            )}
+          </div>
+
+          <div className="space-y-4">
+            {isMobile ? (
+              <Button
+                variant="default"
+                size="sm"
+                className="w-full h-8 sm:h-9 bg-gradient-to-r from-green-600 to-blue-600 text-xs sm:text-sm"
+                asChild
+              >
+                <Link href={`/pay?ref=${invoiceData.paymentRef}&redirect=${encodeURIComponent(invoiceData.secondaryEndpoint || "")}`}>
+                  <ExternalLink className="w-3 h-3 mr-1" aria-hidden="true" />
+                  Open in Wallet
+                </Link>
+              </Button>
+            ) : (
+              <>
+                <div className="flex justify-center my-4">
+                  <QRCode value={invoiceData.payUrl} size={200} />
+                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={copyLink}
+                  className="w-full bg-transparent border-gray-200 h-8 sm:h-9 text-xs sm:text-sm"
+                >
+                  {copied ? (
+                    <>
+                      <Check className="w-3 h-3 mr-1" aria-hidden="true" />
+                      Copied!
+                    </>
+                  ) : (
+                    <>
+                      <LinkIcon className="w-3 h-3 mr-1" aria-hidden="true" />
+                      Copy Payment Link
+                    </>
+                  )}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="w-full bg-transparent border-gray-200 h-8 sm:h-9 text-xs sm:text-sm"
+                  asChild
+                >
+                  <Link href={`/pay?ref=${invoiceData.paymentRef}&redirect=${encodeURIComponent(invoiceData.secondaryEndpoint || "")}`}>
+                    <ExternalLink className="w-3 h-3 mr-1" aria-hidden="true" />
+                    Open in Wallet
+                  </Link>
+                </Button>
+              </>
+            )}
+          </div>
+        </div>
+
+        <div className="col-span-1 p-4 sm:p-6 lg:p-8">
+          <h2 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4">Order Summary</h2>
+
+          <div className="flex items-center space-x-3 mb-4 sm:mb-6">
+            <div className="bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg w-12 h-12 flex items-center justify-center text-lg sm:text-xl">
+              {invoiceData.merchantLogo ? (
+                <img
+                  src={invoiceData.merchantLogo}
+                  alt="Business logo"
+                  className="w-full h-full object-cover rounded-lg"
+                />
+              ) : (
+                <span className="text-white">{invoiceData.merchantName[0]}</span>
+              )}
+            </div>
+            <div>
+              <h3 className="font-semibold text-gray-900 text-sm sm:text-base">{invoiceData.merchantName}</h3>
+              <p className="text-xs text-gray-500">{invoiceData.invoiceId}</p>
+            </div>
+          </div>
+
+          {invoiceData.description && (
+            <div className="mb-4 sm:mb-6">
+              <p className="text-sm text-gray-600">{invoiceData.description}</p>
+            </div>
+          )}
+
+          <div className="bg-gray-50 rounded-xl p-4 sm:p-6 mb-4 sm:mb-6">
+            <div className="flex justify-between items-center mb-2 sm:mb-3">
+              <span className="text-gray-600">Amount</span>
+              <span className="text-xs sm:text-sm font-bold text-gray-900">
+                {formatted.format(fiatAmount || invoiceData.amount)}
+              </span>
+            </div>
+            {currentTokenData && (
+              <div className="flex justify-between items-center text-xs sm:text-sm">
+                <span className="text-gray-600">You Pay</span>
+                <span className="font-medium text-gray-900">
+                  ≈ {isPriceLoading ? (
+                    <Loader2 className="w-3 h-3 animate-spin inline" />
+                  ) : (
+                    convertedAmounts[selectedToken.toUpperCase()] || "N/A"
+                  )} {currentTokenData.name}
+                </span>
+              </div>
+            )}
+            <div className="flex justify-between items-center text-xs sm:text-sm mt-2">
+              <span className="text-gray-600">Network</span>
+              <span className="font-medium text-gray-900">{chains.find((c) => c.id === selectedChain)?.name}</span>
+            </div>
+          </div>
+
+          <Button
+            className="w-full h-9 sm:h-10 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-sm sm:text-base font-semibold"
+            onClick={handlePaidClick}
+            disabled={isPolling || isPaid || !convertedAmounts[selectedToken.toUpperCase()]}
+            aria-label={isPaid ? "Payment confirmed" : isPolling ? "Waiting for payment confirmation" : "Confirm payment"}
+          >
+            {isPolling ? (
+              <>
+ hablando de la animación de carga
+                <Loader2 className="w-3 h-3 sm:w-4 sm:h-4 mr-2 animate-spin" aria-hidden="true" />
+                Waiting for Payment...
+              </>
+            ) : isPaid ? (
+              <>
+                <Check className="w-3 h-3 sm:w-4 sm:h-4 mr-2" aria-hidden="true" />
+                Payment Confirmed!
+              </>
+            ) : (
+              "I Have Paid"
+            )}
+          </Button>
+
+          {isPaid && (
+            <div className="mt-3 sm:mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+              <div className="flex items-center">
+                <Check className="w-3 h-3 sm:w-4 sm:h-4 text-green-600 mr-2" aria-hidden="true" />
+                <div>
+                  <p className="font-medium text-green-900 text-xs sm:text-sm">Payment Confirmed</p>
+                  <p className="text-xs text-green-700">Transaction verified on blockchain. Redirecting...</p>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="bottom-0 left-0 right-0 p-4 bg-gray-50 border-b border-gray-200 flex items-center justify-center">
+        <PaymentModeIndicator showDetails={false} />
+      </div>
+    </div>
+  );
 }

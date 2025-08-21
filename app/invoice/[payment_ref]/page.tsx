@@ -14,7 +14,7 @@ import {
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import Link from "next/link";
 
-export default function HostedPaymentPage() {
+export default function InvoicePage() {
   const params = useParams();
   const router = useRouter();
   const payment_ref = params.payment_ref as string;
@@ -67,7 +67,7 @@ export default function HostedPaymentPage() {
 
       // Check if already paid
       if (invoice.status === "paid") {
-        router.push(`/payments/success?ref=${payment_ref}`);
+        router.push(`/confirm?ref=${payment_ref}`);
         return;
       }
 
@@ -82,9 +82,11 @@ export default function HostedPaymentPage() {
         invoiceId: `IE-${invoice.payment_ref}`,
         description: invoice.description || "Payment",
         paymentRef: invoice.payment_ref,
-        hostedUrl: `${process.env.NEXT_PUBLIC_APP_URL}/pay/${payment_ref}`,
+        hostedUrl: `${process.env.NEXT_PUBLIC_APP_URL}/invoice/${payment_ref}`,
         secondaryEndpoint: invoice.secondary_endpoint,
         qrCode: invoice.qrCode,
+        payUrl: invoice.paymentUrl,
+        walletUrl: invoice.walletUrl,
         currency: invoice.currency, // Ensure currency is included
         amount: invoice.amount, // Ensure amount is included
       };
@@ -176,7 +178,7 @@ export default function HostedPaymentPage() {
               href="/"
               className="text-blue-600 hover:text-blue-700 font-medium ml-1"
             >
-              Nummus
+              EgyptFi
             </Link>
           </p>
         </div>
@@ -202,7 +204,7 @@ export default function HostedPaymentPage() {
               <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-sm">N</span>
               </div>
-              <span className="font-semibold text-gray-900">Nummus Pay</span>
+              <span className="font-semibold text-gray-900">EgyptFi Pay</span>
             </div>
             <div className="text-sm text-gray-500">Secure Payment</div>
           </div>

@@ -76,7 +76,8 @@ export async function POST(request: NextRequest) {
     const client = await pool.connect()
     try {
       const existingInvoice = await client.query(
-        'SELECT id FROM invoices WHERE merchant_id = $1 AND payment_ref = $2',
+        `SELECT *, m.business_name, m.business_logo, m.business_email, m.webhook FROM invoices i
+            JOIN merchants m ON i.merchant_id = m.id WHERE i.merchant_id = $1 AND i.payment_ref = $2`,
         [authResult.merchant!.id, payment_ref]
       )
 
@@ -87,23 +88,28 @@ export async function POST(request: NextRequest) {
         )
       }
 
+      var new_secondary_endpoint = ""
+      if (!secondary_endpoint || secondary_endpoint == "") {
+        new_secondary_endpoint = existingInvoice.rows[0].webhook
+      } else {
+         new_secondary_endpoint = secondary_endpoint
+      }
+
       // Create the hosted payment URL
-      const hostedUrl = `${process.env.NEXT_PUBLIC_APP_URL}/pay/${payment_ref}`
+      const hostedUrl = `${process.env.NEXT_PUBLIC_APP_URL}/invoice/${payment_ref}`
+      const paymentUrl = `${process.env.NEXT_PUBLIC_APP_URL}/pay?ref=${payment_ref}`
       
       // Generate QR code for the hosted URL
-      const qrCode = await generateQRCode(hostedUrl)
+      const qrCode = await generateQRCode(paymentUrl)
       
       // Calculate expiry time (24 hours from now)
-      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000)
-
-      console.log("LOCAL AMOUNT", local_amount);
-      
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000) 
 
       // Insert new invoice into database using your existing schema
       const result = await client.query(
         `INSERT INTO invoices 
-          (merchant_id, payment_ref, local_amount, local_currency, description, chains, secondary_endpoint, qr_url, status, created_at) 
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, 'pending', NOW()) 
+          (merchant_id, payment_ref, local_amount, local_currency, description, chains, secondary_endpoint, qr_url, payment_endpoint, status, created_at) 
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, 'pending', NOW()) 
          RETURNING *`,
         [
           authResult.merchant!.id,
@@ -112,8 +118,9 @@ export async function POST(request: NextRequest) {
           local_currency,
           description || null,
           chain || 'starknet',
-          secondary_endpoint || null,
+          new_secondary_endpoint || null,
           qrCode,
+          paymentUrl
         ]
       )
 
@@ -152,8 +159,7 @@ export async function POST(request: NextRequest) {
       client.release()
     }
 
-  } catch (error) {
-    console.error('Payment initiate error:', error)
+  } catch (error: any) { 
     
     if (error instanceof z.ZodError) {
       return NextResponse.json(
@@ -225,6 +231,9 @@ export async function GET(request: NextRequest) {
           created_at: invoice.created_at,
           paid_at: invoice.paid_at,
           tx_hash: invoice.tx_hash,
+          paymentUrl: invoice.payment_endpoint,
+          walletUrl: `${invoice.payment_endpoint}&redirect=${invoice.secondary_endpoint}`,
+          secondaryEndpoint: invoice.secondary_endpoint,
           qrCode
         }
       })

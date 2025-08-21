@@ -113,7 +113,7 @@ export default function PricingPage() {
               <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-sm">N</span>
               </div>
-              <span className="text-xl font-bold text-gray-900">Nummus</span>
+              <span className="text-xl font-bold text-gray-900">EgyptFi</span>
             </div>
           </div>
           <Button
@@ -327,7 +327,7 @@ export default function PricingPage() {
         {/* How We Make Money */}
         <Card className="mb-16 shadow-lg border-0">
           <CardHeader>
-            <CardTitle className="text-center text-2xl">How Nummus Makes Money</CardTitle>
+            <CardTitle className="text-center text-2xl">How EgyptFi Makes Money</CardTitle>
             <p className="text-center text-gray-600">Transparent revenue model with no hidden fees</p>
           </CardHeader>
           <CardContent>

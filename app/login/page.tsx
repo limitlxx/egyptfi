@@ -224,7 +224,7 @@ export default function LoginPage() {
               <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
                 <span className="text-white font-bold text-lg">N</span>
               </div>
-              <span className="text-2xl font-bold text-gray-900">Nummus</span>
+              <span className="text-2xl font-bold text-gray-900">EgyptFi</span>
             </div>
 
             <CardTitle className="text-2xl font-bold text-gray-900">Welcome back</CardTitle>

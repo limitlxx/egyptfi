@@ -1,28 +1,23 @@
-// hooks/useMerchantRegistration.ts
-import { useState, useCallback } from "react";
-import { useProvider } from "@starknet-react/core";
+import { useState, useCallback, useEffect, useRef } from 'react';
+import { useProvider } from '@starknet-react/core';
 import MerchantRegistrationService, {
   MerchantRegistrationData,
   RegistrationResult,
   ContractRegistrationData,
-} from "@/services/merchantRegistrationService";
-import { useRegisterMerchantCalls } from "./useRegisterMerchantCalls";
-import { usePaymaster } from "./usePayMaster";
-import toast from "react-hot-toast";
+} from '@/services/merchantRegistrationService';
+import { useRegisterMerchantCalls } from './useRegisterMerchantCalls';
+import { usePaymaster } from './usePayMaster';
+import toast from 'react-hot-toast';
+import { Call } from 'starknet';
 
 interface MerchantRegistrationState {
   isRegistering: boolean;
   isContractRegistering: boolean;
   isVerifying: boolean;
-  registrationStep:
-    | "idle"
-    | "database"
-    | "contract"
-    | "verification"
-    | "complete";
+  registrationStep: 'idle' | 'database' | 'contract' | 'verification' | 'complete';
   dbResult: RegistrationResult | null;
   contractData: ContractRegistrationData | null;
-  pendingMerchantData: MerchantRegistrationData | null; // Store original data for contract-first flow
+  pendingMerchantData: MerchantRegistrationData | null;
   error: string | null;
 }
 
@@ -40,7 +35,7 @@ export const useMerchantRegistration = (): UseMerchantRegistrationResult => {
     isRegistering: false,
     isContractRegistering: false,
     isVerifying: false,
-    registrationStep: "idle",
+    registrationStep: 'idle',
     dbResult: null,
     contractData: null,
     pendingMerchantData: null,
@@ -48,32 +43,36 @@ export const useMerchantRegistration = (): UseMerchantRegistrationResult => {
   });
 
   const { provider } = useProvider();
+  const callsRef = useRef<Call[] | undefined>(undefined);
 
-  // Prepare contract registration calls
-  // console.log("Add Merchant Contract Call");
-
-  const { calls, isReady } = useRegisterMerchantCalls({
+  const { calls, isReady, contractData: preparedContractData } = useRegisterMerchantCalls({
     merchantData: state.pendingMerchantData,
     walletAddress: state.contractData?.withdrawalAddress,
     enabled: !!(state.contractData && state.pendingMerchantData),
   });
 
-  // Handle paymaster transaction
+  useEffect(() => {
+    callsRef.current = calls;
+    console.log('Updated callsRef:', { calls, isReady, merchantData: state.pendingMerchantData, walletAddress: state.contractData?.withdrawalAddress });
+  }, [calls, isReady, state.pendingMerchantData, state.contractData]);
+
   const {
     executeTransaction,
     isLoading: isTransactionLoading,
     isSuccess: isTransactionSuccess,
     transactionHash,
     txError,
+    errorEstimate,
+    errorSend,
   } = usePaymaster({
     calls,
     enabled: isReady,
     onSuccess: (hash: string) => {
-      console.log("Contract registration transaction successful:", hash);
+      console.log('Contract registration transaction successful:', hash);
       handleContractRegistrationSuccess(hash);
     },
     onError: (error: any) => {
-      console.error("Contract registration transaction failed:", error);
+      console.error('Contract registration transaction failed:', error);
       handleContractRegistrationError(error);
     },
   });
@@ -84,52 +83,46 @@ export const useMerchantRegistration = (): UseMerchantRegistrationResult => {
         ...prev,
         isContractRegistering: false,
         isVerifying: true,
-        registrationStep: "verification",
+        registrationStep: 'verification',
       }));
 
-      toast.success("Contract registration successful! Creating account...", {
-        id: "registration",
+      toast.success('Contract registration successful! Creating account...', {
+        id: 'registration',
       });
 
       try {
-        // Step 1: Verify the contract registration was successful
-        const isVerified =
-          await MerchantRegistrationService.verifyContractRegistration(
-            state.contractData!.withdrawalAddress,
-            provider
-          );
-
-        if (!isVerified) {
-          throw new Error(
-            "Contract registration could not be verified on blockchain"
-          );
+        if (!state.contractData || !state.pendingMerchantData) {
+          throw new Error('Missing contract or merchant data for verification');
         }
 
-        // Step 2: Now register in database with contract transaction hash
+        const isVerified = await MerchantRegistrationService.verifyContractRegistration(
+          state.contractData.withdrawalAddress,
+          provider
+        );
+
+        if (!isVerified) {
+          throw new Error('Contract registration could not be verified on blockchain');
+        }
+
         setState((prev) => ({
           ...prev,
-          registrationStep: "database",
+          registrationStep: 'database',
         }));
 
-        toast.loading("Creating account in database...", {
-          id: "registration",
+        toast.loading('Creating account in database...', {
+          id: 'registration',
         });
 
-        // Add transaction hash to merchant data
         const merchantDataWithTx = {
-          ...state.pendingMerchantData!,
+          ...state.pendingMerchantData,
           transaction_hash: hash,
         };
 
-        const dbResult = await MerchantRegistrationService.registerInDatabase(
-          merchantDataWithTx
-        );
+        const dbResult = await MerchantRegistrationService.registerInDatabase(merchantDataWithTx);
 
         if (!dbResult.success) {
-          // Contract succeeded but database failed - this is a critical error
-          // We should log this for manual intervention
           console.error(
-            "CRITICAL: Contract registration succeeded but database registration failed",
+            'CRITICAL: Contract registration succeeded but database registration failed',
             {
               transactionHash: hash,
               contractData: state.contractData,
@@ -137,58 +130,33 @@ export const useMerchantRegistration = (): UseMerchantRegistrationResult => {
               dbError: dbResult.error,
             }
           );
-
-          throw new Error(
-            `Database registration failed after successful contract registration. Transaction: ${hash}. Please contact support.`
-          );
+          throw new Error(dbResult.error || 'Database registration failed');
         }
 
-        // Step 3: Store merchant data and API keys
         MerchantRegistrationService.storeMerchantData(dbResult.merchant!);
         if (dbResult.apiKeys) {
           MerchantRegistrationService.storeApiKeys(dbResult.apiKeys);
         }
 
-        // Step 4: Update merchant with contract status
-        await MerchantRegistrationService.updateMerchantContractStatus(
-          dbResult.merchant!.id,
-          {
-            transactionHash: hash,
-            contractData: state.contractData,
-          }
-        );
-
         setState((prev) => ({
           ...prev,
           isVerifying: false,
-          registrationStep: "complete",
+          registrationStep: 'complete',
           dbResult,
         }));
 
-        toast.success("Registration complete! Redirecting to dashboard...", {
-          id: "registration",
-        });
-        return true;
+        toast.success('Account created successfully!', { id: 'registration' });
       } catch (error) {
-        console.error("Registration error after contract success:", error);
-
         setState((prev) => ({
           ...prev,
           isVerifying: false,
-          error:
-            error instanceof Error
-              ? error.message
-              : "Registration failed after contract success",
-          registrationStep: "idle",
+          error: error instanceof Error ? error.message : 'Verification or database registration failed',
+          registrationStep: 'idle',
         }));
-
         toast.error(
-          error instanceof Error
-            ? error.message
-            : "Registration failed after contract success",
-          { id: "registration" }
+          error instanceof Error ? error.message : 'Registration failed after contract success',
+          { id: 'registration' }
         );
-        return false;
       }
     },
     [state.contractData, state.pendingMerchantData, provider]
@@ -198,11 +166,14 @@ export const useMerchantRegistration = (): UseMerchantRegistrationResult => {
     setState((prev) => ({
       ...prev,
       isContractRegistering: false,
-      error:
-        error instanceof Error ? error.message : "Contract registration failed",
-      registrationStep: "idle",
+      error: error instanceof Error ? error.message : 'Contract registration failed',
+      registrationStep: 'idle',
     }));
-    toast.error("Contract registration failed");
+    if (error instanceof Error && error.message.includes('User rejected the transaction')) {
+      toast.error('Please approve the transaction to complete registration', { id: 'registration' });
+    } else {
+      toast.error('Contract registration failed', { id: 'registration' });
+    }
   }, []);
 
   const registerMerchant = useCallback(
@@ -211,60 +182,76 @@ export const useMerchantRegistration = (): UseMerchantRegistrationResult => {
       walletAddress?: string,
       isDeployed?: boolean
     ): Promise<boolean> => {
+      console.log('registerMerchant called with:', { data, walletAddress, isDeployed });
+
       setState((prev) => ({
         ...prev,
         isRegistering: true,
         error: null,
+        registrationStep: 'idle',
       }));
 
       try {
-        // Check if contract registration is required
-        const requiresContractRegistration =
-          data.authMethod === "wallet" && walletAddress && isDeployed;
+        if (data.authMethod === 'wallet' && (!walletAddress || !isDeployed)) {
+          throw new Error('Wallet address and deployment status required for wallet auth');
+        }
+
+        // Check if merchant is already registered
+        const merchantCheck = await MerchantRegistrationService.verifyContractRegistration(walletAddress!, provider);
+        if (merchantCheck) {
+          throw new Error('Merchant already registered on the blockchain');
+        }
+
+        const requiresContractRegistration = data.authMethod === 'wallet' && walletAddress && isDeployed;
 
         if (requiresContractRegistration) {
-          // CONTRACT-FIRST FLOW: Contract → Verification → Database
-
-          // Step 1: Store pending merchant data and prepare contract data
-          const contractData = MerchantRegistrationService.prepareContractData(
-            data,
-            walletAddress
-          );
+          const contractData = MerchantRegistrationService.prepareContractData(data, walletAddress);
 
           setState((prev) => ({
             ...prev,
-            registrationStep: "contract",
+            registrationStep: 'contract',
             isContractRegistering: true,
             contractData,
-            pendingMerchantData: data, // Store for later database registration
+            pendingMerchantData: data,
           }));
 
-          toast.loading("Registering on blockchain...", { id: "registration" });
+          await new Promise((resolve) => setTimeout(resolve, 200));
 
-          // Step 2: Execute contract registration first
-          await executeTransaction();
+          console.log('After state update:', { calls: callsRef.current, isReady, contractData, merchantData: data });
 
-          // The contract success will trigger handleContractRegistrationSuccess
-          // which will then handle database registration
-          return true;
-        } else {
-          // DATABASE-ONLY FLOW: For non-wallet or non-deployed accounts
-          setState((prev) => ({
-            ...prev,
-            registrationStep: "database",
-          }));
-
-          toast.loading("Creating account...", { id: "registration" });
-
-          const dbResult = await MerchantRegistrationService.registerInDatabase(
-            data
-          );
-
-          if (!dbResult.success) {
-            throw new Error(dbResult.error || "Database registration failed");
+          let transactionCalls = callsRef.current;
+          if (!isReady && data && walletAddress) {
+            console.warn('isReady is false, recomputing calls as fallback');
+            const { calls: fallbackCalls } = useRegisterMerchantCalls({
+              merchantData: data,
+              walletAddress,
+              enabled: true,
+            });
+            transactionCalls = fallbackCalls;
+            console.log('Fallback calls:', transactionCalls);
           }
 
-          // Store merchant data and API keys
+          if (!transactionCalls || transactionCalls.length === 0) {
+            throw new Error(`Transaction calls not ready: isReady=${isReady}, calls=${JSON.stringify(transactionCalls)}`);
+          }
+
+          await executeTransaction(transactionCalls);
+
+          return true;
+        } else {
+          setState((prev) => ({
+            ...prev,
+            registrationStep: 'database',
+          }));
+
+          toast.loading('Creating account...', { id: 'registration' });
+
+          const dbResult = await MerchantRegistrationService.registerInDatabase(data);
+
+          if (!dbResult.success) {
+            throw new Error(dbResult.error || 'Database registration failed');
+          }
+
           MerchantRegistrationService.storeMerchantData(dbResult.merchant!);
           if (dbResult.apiKeys) {
             MerchantRegistrationService.storeApiKeys(dbResult.apiKeys);
@@ -273,55 +260,46 @@ export const useMerchantRegistration = (): UseMerchantRegistrationResult => {
           setState((prev) => ({
             ...prev,
             isRegistering: false,
-            registrationStep: "complete",
+            registrationStep: 'complete',
             dbResult,
           }));
 
-          if (data.authMethod === "wallet" && walletAddress && !isDeployed) {
-            toast.success(
-              "Account created! (Blockchain registration skipped - wallet not deployed)",
-              { id: "registration" }
-            );
-          } else {
-            toast.success("Account created successfully!", {
-              id: "registration",
-            });
-          }
-
+          toast.success('Account created successfully!', { id: 'registration' });
           return true;
         }
       } catch (error) {
-        console.error("Registration error:", error);
-
+        console.error('Registration error:', error);
         setState((prev) => ({
           ...prev,
           isRegistering: false,
           isContractRegistering: false,
-          error: error instanceof Error ? error.message : "Registration failed",
-          registrationStep: "idle",
+          error: error instanceof Error ? error.message : 'Registration failed',
+          registrationStep: 'idle',
         }));
-
-        toast.error(
-          error instanceof Error ? error.message : "Registration failed",
-          { id: "registration" }
-        );
+        if (error instanceof Error && error.message.includes('User rejected the transaction')) {
+          toast.error('Please approve the transaction to complete registration', { id: 'registration' });
+        } else {
+          toast.error(error instanceof Error ? error.message : 'Registration failed', { id: 'registration' });
+        }
         return false;
       }
     },
-    [executeTransaction]
+    [executeTransaction, provider]
   );
 
   const resetRegistration = useCallback(() => {
+    console.log('resetRegistration called');
     setState({
       isRegistering: false,
       isContractRegistering: false,
       isVerifying: false,
-      registrationStep: "idle",
+      registrationStep: 'idle',
       dbResult: null,
       contractData: null,
       pendingMerchantData: null,
       error: null,
     });
+    callsRef.current = undefined;
   }, []);
 
   return {

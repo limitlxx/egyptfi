@@ -48,6 +48,8 @@ interface InvoiceData {
   secondaryEndpoint?: string
   currency: string
   amount: number
+  payUrl: string
+  walletUrl: string
 }
 
 interface InvoiceContentProps {
@@ -129,8 +131,7 @@ export function InvoiceContent({ invoiceData, onPaymentConfirmed }: InvoiceConte
         throw new Error(`Failed to fetch price: ${response.statusText}`);
       }
 
-      const result = await response.json();
-      console.log("Price data", result.data);
+      const result = await response.json(); 
       
       if (!result.data?.converted_amount) {
         throw new Error("Invalid price data received");
@@ -203,7 +204,7 @@ export function InvoiceContent({ invoiceData, onPaymentConfirmed }: InvoiceConte
             }
 
             setTimeout(() => {
-              router.push(`/payment/success?ref=${invoiceData.paymentRef}`)
+              router.push(`/confirm?ref=${invoiceData.paymentRef}`)
             }, 2000)
           }
         } catch (error) {
@@ -218,7 +219,7 @@ export function InvoiceContent({ invoiceData, onPaymentConfirmed }: InvoiceConte
 
   const copyLink = async () => {
     try {
-      await navigator.clipboard.writeText(invoiceData.hostedUrl)
+      await navigator.clipboard.writeText(invoiceData.payUrl)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch (error) {
@@ -354,10 +355,10 @@ export function InvoiceContent({ invoiceData, onPaymentConfirmed }: InvoiceConte
               className="w-full bg-transparent border-gray-200 h-8 sm:h-9 text-xs sm:text-sm"
               asChild
             >
-              <Link href={`/wallet/connect?ref=${invoiceData.paymentRef}`} aria-label="Open payment in wallet">
-                <ExternalLink className="w-3 h-3 mr-1" aria-hidden="true" />
-                Open in Wallet
-              </Link>
+              <Link href={invoiceData.walletUrl || `/pay?ref=${invoiceData.paymentRef}&redirect=${encodeURIComponent(invoiceData.secondaryEndpoint || "")}`}>
+                    <ExternalLink className="w-3 h-3 mr-1" aria-hidden="true" />
+                    Open in Wallet
+                  </Link>
             </Button>
           </div>
         </div>
@@ -402,7 +403,7 @@ export function InvoiceContent({ invoiceData, onPaymentConfirmed }: InvoiceConte
           {/* Amount Details */}
           <div className="bg-gray-50 rounded-xl p-4 sm:p-6 mb-4 sm:mb-6">
             <div className="flex justify-between items-center mb-2 sm:mb-3">
-              <span className="text-gray-600">Amount  <br/><strong> {formatted.format(fiatAmount)} </strong></span>
+              <span className="text-gray-600">Amount  <br/><strong> {formatted.format(fiatAmount ?? 0)} </strong></span>
               {/* <span className="text-xs sm:text-sm font-bold text-gray-900"></span> */}
             </div>
             {currentTokenData && (
