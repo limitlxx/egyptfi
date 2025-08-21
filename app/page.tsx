@@ -1,4 +1,5 @@
 "use client"
+
 import {
   ArrowRight,
   Check,
@@ -21,18 +22,41 @@ import { Badge } from "@/components/ui/badge"
 import Link from "next/link"
 import { YieldWaitlist } from "@/components/yield-waitlist"
 import { ShoppingCart } from "@/components/shopping-cart"
-import { useState } from "react"
-import { metadata } from "./layout"
+import { useEffect, useState } from 'react';
+
+const taglines = [
+  "Seamless Crypto Transactions",
+  "Easy to Integrate APIs",
+  "Accept Crypto with Zero Friction",
+  "Refundable. Gas-free. Developer-friendly",
+];
 
 export default function HomePage() {
    const [isInitiating, setIsInitiating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [qrCode, setQrCode] = useState<string | null>(null)
 
+   const [currentIndex, setCurrentIndex] = useState(0);
+  const [fade, setFade] = useState(true);
+ 
+
+   useEffect(() => {
+    const interval = setInterval(() => {
+      setFade(false);
+
+      setTimeout(() => {
+        setCurrentIndex((prev) => (prev + 1) % taglines.length);
+        setFade(true);
+      }, 300); // wait for fade-out before switching
+    }, 4000); // change every 4s
+
+    return () => clearInterval(interval);
+  }, []);
+
    const cartItems = [
-    { name: "Cappuccino", description: "Large • Extra shot", icon: "☕", price: "₦2,500", quantity: 1 },
-    { name: "Croissant", description: "Butter croissant", icon: "🥐", price: "₦1,500", quantity: 1 },
-    { name: "Iced Latte", description: "Medium • Oat milk", icon: "🧊", price: "₦1,000", quantity: 1 },
+    { name: "Rice", description: "Jollof RIce", icon: "☕", price: "₦8,500", quantity: 1 },
+    { name: "Chicken", description: "Large laps", icon: "🥐", price: "₦1,500", quantity: 1 },
+    { name: "Drink", description: "Cocacola", icon: "🧊", price: "₦1,000", quantity: 1 },
   ]
 
   const handleCheckout = async () => {
@@ -51,9 +75,9 @@ export default function HomePage() {
         },
         body: JSON.stringify({
           payment_ref: `order-${Date.now()}`,
-          local_amount: 5000,
+          local_amount: 11000,
           local_currency: "NGN",
-          description: "Coffee purchase",
+          description: "TheBuidl Kitchen, Kaduna",
           chain: "starknet",
           secondary_endpoint: "http://localhost:3000/confirm",
           email: "emixxshow17@gmail.com",
@@ -125,21 +149,29 @@ export default function HomePage() {
       {/* Hero Section */}
       <section className="py-20 px-4">
         <div className="container mx-auto text-center max-w-4xl">
-          <div className="inline-flex items-center px-4 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-medium mb-8">
+           <div className="inline-flex items-center px-4 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-medium mb-8">
             <Zap className="w-4 h-4 mr-2" />
-            Accept Crypto. Get Stablecoins. Globally.
+            Crypto payments without the complexity.
           </div>
 
-          <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
+          {/* <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6 leading-tight">
             Accept Crypto Instantly —{" "}
             <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
               QR, Wallet, API
             </span>
-          </h1>
+          </h1> */}
 
-          <p className="text-xl text-gray-600 mb-10 max-w-2xl mx-auto leading-relaxed">
-            Let your users pay in ETH, DAI, or USDC and receive USDC on StarkNet automatically. No gas fees for
-            customers, real-time conversion, multi-chain support.
+          <h1
+            className={`bg-gradient-to-r from-blue-600 to-purple-600  bg-clip-text text-transparent text-4xl md:text-5xl font-semibold text-center transition-opacity duration-300 ${
+              fade ? 'opacity-100' : 'opacity-0'
+            }`}
+          >
+            {taglines[currentIndex]}
+          </h1><br />
+
+         <p className="text-xl text-gray-600 mb-10 max-w-2xl mx-auto leading-relaxed">
+            Let your users pay in ETH, STRK, or USDC and receive USDC on StarkNet automatically. No gas fees for
+            customers, real-time conversion, multi-chain support and refundable transactions.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-4 justify-center items-center">
@@ -155,8 +187,8 @@ export default function HomePage() {
             </Button> */}
             <Button variant="outline" size="lg" className="px-8 py-3 text-lg bg-transparent">
               {/* <Link href="/demo/invoice"> */}
-              View Demo
-              <ArrowRight className="ml-2 w-5 h-5" />
+              Launch Demo Below
+              {/* <ArrowRight className="ml-2 w-5 h-5" /> */}
               {/* </Link> */}
             </Button>
           </div>
@@ -180,9 +212,9 @@ export default function HomePage() {
               merchantName="Coffee Shop Lagos"
               merchantLogo="☕"
               items={cartItems}
-              subtotal="₦5,000"
+              subtotal="₦11,000"
               tax="₦0"
-              total="₦5,000"
+              total="₦11,000"
             />
             <Button
               className="w-full max-w-2xl mx-auto mt-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
@@ -206,10 +238,11 @@ export default function HomePage() {
       </section>
 
       {/* Features Grid */}
+     {/* Features Grid */}
       <section className="py-20 px-4 bg-white">
         <div className="container mx-auto max-w-6xl">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Why Choose EgyptFi?</h2>
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Why Choose Nummus?</h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
               Built for the future of payments with enterprise-grade security and developer-first approach
             </p>
@@ -234,10 +267,9 @@ export default function HomePage() {
                 <div className="w-12 h-12 bg-gradient-to-br from-green-500 to-blue-500 rounded-lg flex items-center justify-center mb-4">
                   <DollarSign className="w-6 h-6 text-white" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">Real-time Token-to-Fiat Conversion</h3>
+                <h3 className="text-xl font-semibold text-gray-900 mb-3">Real-time Crypto Conversion with Stablecoin Settlement</h3>
                 <p className="text-gray-600">
-                  Live exchange rates with oracle-powered pricing. Always know the exact value in your local currency.
-                </p>
+                  We convert crypto payments into stablecoins instantly — matched precisely to your fiat price at the time of checkout.                 </p>
               </CardContent>
             </Card>
 
@@ -258,9 +290,10 @@ export default function HomePage() {
                 <div className="w-12 h-12 bg-gradient-to-br from-yellow-500 to-orange-500 rounded-lg flex items-center justify-center mb-4">
                   <Zap className="w-6 h-6 text-white" />
                 </div>
-                <h3 className="text-xl font-semibold text-gray-900 mb-3">Instant USDC Settlements</h3>
+                <h3 className="text-xl font-semibold text-gray-900 mb-3">Refundable Transactions</h3>
                 <p className="text-gray-600">
-                  Receive stable value immediately. All payments automatically converted to USDC on StarkNet.
+                  Supports secure, trackable refund handling for all transactions — enabling safer crypto payments for merchants and customers.
+
                 </p>
               </CardContent>
             </Card>
@@ -365,7 +398,7 @@ export default function HomePage() {
                 Yield Farming
               </div>
               <h2 className="mt-4 text-3xl md:text-4xl font-bold text-gray-900">
-                Earn yield on idle USDC — directly from EgyptFi
+                Earn yield on idle USDC — directly from Nummus
               </h2>
               <p className="mt-3 text-gray-600">
                 Allocate unused balances to on-chain strategies and earn passive yield without leaving your dashboard.

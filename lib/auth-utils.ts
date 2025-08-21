@@ -3,12 +3,12 @@ interface MerchantInfo {
   id: string;
   businessName: string;
   businessEmail: string;
-  walletAddress: string; 
-  defaultCurrency: string
-  businessLogo: string
+  walletAddress: string;
+  defaultCurrency: string;
+  businessLogo: string;
   createdAt: string;
-  webhookUrl: string
-  phone: string
+  webhookUrl: string;
+  phone: string;
 }
 
 interface ApiKeys {
@@ -17,25 +17,34 @@ interface ApiKeys {
 }
 
 export class AuthManager {
+  private static isBrowser(): boolean {
+    return typeof window !== "undefined" && typeof localStorage !== "undefined";
+  }
+
   static getMerchantInfo(): MerchantInfo | null {
+    if (!this.isBrowser()) return null;
     const merchant = localStorage.getItem("merchant");
     return merchant ? JSON.parse(merchant) : null;
   }
 
   static setMerchantInfo(merchant: MerchantInfo): void {
+    if (!this.isBrowser()) return;
     localStorage.setItem("merchant", JSON.stringify(merchant));
   }
 
   static getApiKeys(environment: "testnet" | "mainnet"): ApiKeys | null {
+    if (!this.isBrowser()) return null;
     const keys = localStorage.getItem(`${environment}_keys`);
     return keys ? JSON.parse(keys) : null;
   }
 
   static setApiKeys(environment: "testnet" | "mainnet", keys: ApiKeys): void {
+    if (!this.isBrowser()) return;
     localStorage.setItem(`${environment}_keys`, JSON.stringify(keys));
   }
 
   static getCurrentEnvironment(): "testnet" | "mainnet" {
+    if (!this.isBrowser()) return "testnet";
     return (
       (localStorage.getItem("current_environment") as "testnet" | "mainnet") ||
       "testnet"
@@ -43,6 +52,7 @@ export class AuthManager {
   }
 
   static setCurrentEnvironment(environment: "testnet" | "mainnet"): void {
+    if (!this.isBrowser()) return;
     localStorage.setItem("current_environment", environment);
   }
 
@@ -51,14 +61,8 @@ export class AuthManager {
     const currentEnv = this.getCurrentEnvironment();
     const keys = this.getApiKeys(currentEnv);
 
-    console.log("Keys", keys);
-    console.log("Env", currentEnv);
-    console.log("Merchant", merchant);
-
     if (!merchant || !keys?.publicKey) {
-      console.error(
-        "Authentication failed: Missing merchant info or public key"
-      );
+      console.error("Authentication failed: Missing merchant info or public key");
       return false;
     }
 
@@ -73,9 +77,7 @@ export class AuthManager {
       });
 
       if (response.status === 401) {
-        console.warn(
-          "Public key verification returned 401 - key may be invalid"
-        );
+        console.warn("Public key verification returned 401 - key may be invalid");
         return false;
       }
 
@@ -95,6 +97,7 @@ export class AuthManager {
   }
 
   static clearAuth(): void {
+    if (!this.isBrowser()) return;
     localStorage.removeItem("merchant");
     localStorage.removeItem("testnet_keys");
     localStorage.removeItem("mainnet_keys");
@@ -125,8 +128,6 @@ export class AuthManager {
       ...options,
       headers,
     });
-
-    console.log("Request response status:", response);
 
     if (response.status === 401) {
       console.warn("Request returned 401 - API key may be invalid");

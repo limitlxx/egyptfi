@@ -103,7 +103,11 @@ export async function POST(request: NextRequest) {
       const qrCode = await generateQRCode(paymentUrl)
       
       // Calculate expiry time (24 hours from now)
-      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000) 
+      const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000)  
+
+      const feeRate = 0.0108;   // 1.08%
+
+      const total_amount = local_amount + local_amount * feeRate;
 
       // Insert new invoice into database using your existing schema
       const result = await client.query(
@@ -114,7 +118,7 @@ export async function POST(request: NextRequest) {
         [
           authResult.merchant!.id,
           payment_ref,
-          local_amount,
+          total_amount,
           local_currency,
           description || null,
           chain || 'starknet',
