@@ -21,69 +21,7 @@ export default function PricingPage() {
 
   const fees = calculateFees(monthlyVolume[0])
 
-  const plans = [
-    {
-      name: "Starter",
-      description: "Perfect for small businesses and startups",
-      price: "Free",
-      monthlyPrice: 0,
-      annualPrice: 0,
-      features: [
-        "Up to $5,000 monthly volume",
-        "0.5% transaction fee",
-        "Basic payment links",
-        "Email support",
-        "Standard settlement (24h)",
-        "Basic analytics",
-      ],
-      limitations: ["Limited to 100 transactions/month", "Standard support only"],
-      cta: "Get Started Free",
-      popular: false,
-    },
-    {
-      name: "Growth",
-      description: "For growing businesses with higher volume",
-      price: isAnnual ? "$29/mo" : "$39/mo",
-      monthlyPrice: 39,
-      annualPrice: 29,
-      features: [
-        "Up to $50,000 monthly volume",
-        "0.4% transaction fee",
-        "Custom payment pages",
-        "Priority email support",
-        "Instant settlement",
-        "Advanced analytics",
-        "Webhook notifications",
-        "API access",
-      ],
-      limitations: [],
-      cta: "Start Growth Plan",
-      popular: true,
-    },
-    {
-      name: "Scale",
-      description: "For established businesses with high volume",
-      price: isAnnual ? "$99/mo" : "$129/mo",
-      monthlyPrice: 129,
-      annualPrice: 99,
-      features: [
-        "Up to $500,000 monthly volume",
-        "0.3% transaction fee",
-        "White-label payment pages",
-        "Phone & email support",
-        "Instant settlement",
-        "Real-time analytics",
-        "Advanced webhooks",
-        "Full API access",
-        "Custom integrations",
-        "Dedicated account manager",
-      ],
-      limitations: [],
-      cta: "Start Scale Plan",
-      popular: false,
-    },
-  ]
-
+  
   const enterpriseFeatures = [
     "Custom transaction fees (negotiable)",
     "White-label licensing",
@@ -139,34 +77,14 @@ export default function PricingPage() {
           <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-8">
             Pay only for what you use. No hidden fees, no setup costs. Start free and scale as you grow.
           </p>
-
-          {/* Annual/Monthly Toggle */}
-          <div className="flex items-center justify-center space-x-4 mb-8">
-            <span className={`text-sm ${!isAnnual ? "text-gray-900 font-medium" : "text-gray-500"}`}>Monthly</span>
-            <button
-              onClick={() => setIsAnnual(!isAnnual)}
-              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
-                isAnnual ? "bg-blue-600" : "bg-gray-200"
-              }`}
-            >
-              <span
-                className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                  isAnnual ? "translate-x-6" : "translate-x-1"
-                }`}
-              />
-            </button>
-            <span className={`text-sm ${isAnnual ? "text-gray-900 font-medium" : "text-gray-500"}`}>
-              Annual
-              <Badge className="ml-2 bg-green-100 text-green-800">Save 25%</Badge>
-            </span>
-          </div>
+ 
         </div>
 
         {/* Pricing Calculator */}
         <Card className="mb-16 shadow-lg border-0">
           <CardHeader>
             <CardTitle className="text-center">Pricing Calculator</CardTitle>
-            <p className="text-center text-gray-600">See how much you'll pay based on your monthly volume</p>
+            {/* <p className="text-center text-gray-600">See how much you'll pay based on your monthly volume</p> */}
           </CardHeader>
           <CardContent>
             <div className="max-w-2xl mx-auto">
@@ -207,73 +125,7 @@ export default function PricingPage() {
             </div>
           </CardContent>
         </Card>
-
-        {/* Pricing Plans */}
-        <div className="grid md:grid-cols-3 gap-8 mb-16">
-          {plans.map((plan, index) => (
-            <Card
-              key={index}
-              className={`relative shadow-lg border-0 ${
-                plan.popular ? "ring-2 ring-blue-500 transform scale-105" : ""
-              }`}
-            >
-              {plan.popular && (
-                <div className="absolute -top-4 left-1/2 transform -translate-x-1/2">
-                  <Badge className="bg-blue-600 text-white px-4 py-1">Most Popular</Badge>
-                </div>
-              )}
-              <CardHeader className="text-center pb-4">
-                <div className="w-12 h-12 bg-gradient-to-br from-blue-500 to-purple-500 rounded-lg flex items-center justify-center mx-auto mb-4">
-                  {index === 0 && <Zap className="w-6 h-6 text-white" />}
-                  {index === 1 && <Building2 className="w-6 h-6 text-white" />}
-                  {index === 2 && <Crown className="w-6 h-6 text-white" />}
-                </div>
-                <CardTitle className="text-xl font-bold text-gray-900">{plan.name}</CardTitle>
-                <p className="text-gray-600 text-sm">{plan.description}</p>
-                <div className="mt-4">
-                  <span className="text-3xl font-bold text-gray-900">{plan.price}</span>
-                  {plan.monthlyPrice > 0 && <span className="text-gray-500 text-sm">/month</span>}
-                </div>
-                {isAnnual && plan.monthlyPrice > 0 && (
-                  <p className="text-sm text-green-600">Save ${(plan.monthlyPrice - plan.annualPrice) * 12}/year</p>
-                )}
-              </CardHeader>
-              <CardContent>
-                <ul className="space-y-3 mb-6">
-                  {plan.features.map((feature, featureIndex) => (
-                    <li key={featureIndex} className="flex items-start">
-                      <Check className="w-4 h-4 text-green-500 mr-3 mt-0.5 flex-shrink-0" />
-                      <span className="text-sm text-gray-700">{feature}</span>
-                    </li>
-                  ))}
-                </ul>
-                {plan.limitations.length > 0 && (
-                  <div className="mb-6">
-                    <p className="text-xs text-gray-500 mb-2">Limitations:</p>
-                    <ul className="space-y-1">
-                      {plan.limitations.map((limitation, limitIndex) => (
-                        <li key={limitIndex} className="text-xs text-gray-500">
-                          • {limitation}
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                )}
-                <Button
-                  className={`w-full ${
-                    plan.popular
-                      ? "bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                      : "bg-gray-900 hover:bg-gray-800"
-                  }`}
-                  asChild
-                >
-                  <Link href="/signup">{plan.cta}</Link>
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-
+ 
         {/* Enterprise Section */}
         <Card className="mb-16 shadow-lg border-0 bg-gradient-to-r from-gray-900 to-gray-800 text-white">
           <CardContent className="p-12">
@@ -441,7 +293,7 @@ export default function PricingPage() {
                   <div>
                     <h3 className="text-xl font-semibold mb-4">Custom Plan Pricing</h3>
                     <p className="text-gray-600 mb-4">
-                      High-volume merchants get custom pricing similar to Paystack's enterprise model.
+                      High-volume merchants get custom pricing.
                     </p>
                     <div className="space-y-4">
                       <div className="border rounded-lg p-4">

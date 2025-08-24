@@ -13,4 +13,4 @@ export const myProvider = new RpcProvider({
 });
 
 export const EGYPT_SEPOLIA_CONTRACT_ADDRESS =
-  "0x02680191ae87ed05ee564c8e468495c760ba1764065de451fe51bb097e64d062";
+  "0x04bb1a742ac72a9a72beebe1f608c508fce6dfa9250b869018b6e157dccb46e8";

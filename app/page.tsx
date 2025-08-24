@@ -125,12 +125,12 @@ export default function HomePage() {
             <Link href="/pricing" className="text-gray-600 hover:text-gray-900 transition-colors">
               Pricing
             </Link>
-            <Link href="/blog" className="text-gray-600 hover:text-gray-900 transition-colors">
+            {/* <Link href="/blog" className="text-gray-600 hover:text-gray-900 transition-colors">
               Blog
             </Link>
             <Link href="/contact" className="text-gray-600 hover:text-gray-900 transition-colors">
               Contact
-            </Link>
+            </Link> */}
           </nav>
           <div className="flex items-center space-x-3">
             <Button variant="outline" className="bg-transparent" asChild>
@@ -242,7 +242,7 @@ export default function HomePage() {
       <section className="py-20 px-4 bg-white">
         <div className="container mx-auto max-w-6xl">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Why Choose Nummus?</h2>
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Why Choose EgyptFi?</h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
               Built for the future of payments with enterprise-grade security and developer-first approach
             </p>
@@ -398,7 +398,7 @@ export default function HomePage() {
                 Yield Farming
               </div>
               <h2 className="mt-4 text-3xl md:text-4xl font-bold text-gray-900">
-                Earn yield on idle USDC — directly from Nummus
+                Earn yield on idle USDC — directly from EgyptFi
               </h2>
               <p className="mt-3 text-gray-600">
                 Allocate unused balances to on-chain strategies and earn passive yield without leaving your dashboard.
@@ -451,10 +451,10 @@ export default function HomePage() {
                 The future of crypto payments. Accept crypto, get stablecoins, globally.
               </p>
               <div className="flex space-x-4">
-                <Link href="#" className="text-gray-400 hover:text-white transition-colors">
+                <Link href="https://x.com/egyptfi_" className="text-gray-400 hover:text-white transition-colors">
                   <Twitter className="w-5 h-5" />
                 </Link>
-                <Link href="#" className="text-gray-400 hover:text-white transition-colors">
+                <Link href="mail:x@egyptfi.online" className="text-gray-400 hover:text-white transition-colors">
                   <Send className="w-5 h-5" />
                 </Link>
               </div>

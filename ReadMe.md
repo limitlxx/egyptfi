@@ -3,10 +3,15 @@
 **EgyptFi** is a Starknet-based multi-chain payment gateway that enables businesses to accept crypto payments and receive settlements in stablecoins like **USDC**.
 With support for **no-code** and **low-code tools**, **developer-friendly APIs**, **gasless transactions**, and **refund support**, Egyptfi makes crypto payments simple, scalable, and secure.
 
-> [Website](https://egyptfi.online)
+> Demo [Website](https://egyptfi.online)
 
-> [@egyptfi_](https://x.com/egyptfi_)
+> Foolow us [@egyptfi_](https://x.com/egyptfi_)
 ---
+
+### Contract Address
+> 0x04bb1a742ac72a9a72beebe1f608c508fce6dfa9250b869018b6e157dccb46e8
+
+https://voyager.online/contract/0x04bb1a742ac72a9a72beebe1f608c508fce6dfa9250b869018b6e157dccb46e8#writeContract
 
 ## ⚙️ Technologies Used
 
@@ -46,6 +51,7 @@ With support for **no-code** and **low-code tools**, **developer-friendly APIs**
 ```bash
 git clone https://github.com/your-org/egyptfi.git
 cd egyptfi
+setup .env file
 npm install
 npm run dev
 ```
