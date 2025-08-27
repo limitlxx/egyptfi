@@ -93,7 +93,7 @@ export default function DashboardPage() {
       status: "confirmed",
       txHash: "0x1234567890abcdef...",
       date: "2025-01-15 09:35:00",
-      hostedUrl: "https://pay.nummus.xyz/pay_abc123",
+      hostedUrl: "https://pay.Egyptfi.xyz/pay_abc123",
     },
     {
       ref: "pay_def456",
@@ -105,7 +105,7 @@ export default function DashboardPage() {
       status: "pending",
       txHash: "",
       date: "2025-01-15 10:15:00",
-      hostedUrl: "https://pay.nummus.xyz/pay_def456",
+      hostedUrl: "https://pay.Egyptfi.xyz/pay_def456",
     },
     {
       ref: "pay_ghi789",
@@ -117,7 +117,7 @@ export default function DashboardPage() {
       status: "confirmed",
       txHash: "0xabcdef1234567890...",
       date: "2025-01-14 16:22:00",
-      hostedUrl: "https://pay.nummus.xyz/pay_ghi789",
+      hostedUrl: "https://pay.Egyptfi.xyz/pay_ghi789",
     },
   ]
 
@@ -188,9 +188,9 @@ export default function DashboardPage() {
           <div className="flex items-center space-x-4">
             <Link href="/" className="flex items-center space-x-2">
               <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">N</span>
+                <span className="text-white font-bold text-sm">eFi</span>
               </div>
-              <span className="text-xl font-bold text-gray-900">Nummus</span>
+              <span className="text-xl font-bold text-gray-900">Egyptfi</span>
             </Link>
             <div className="hidden md:flex items-center space-x-2 text-sm text-gray-500">
               <span>/</span>
@@ -854,7 +854,7 @@ export default function DashboardPage() {
                         className="absolute top-2 right-2 text-gray-400 hover:text-white"
                         onClick={() =>
                           copyToClipboard(
-                            `curl -X POST https://api.nummus.xyz/api/payment/initiate \\
+                            `curl -X POST https://api.Egyptfi.xyz/api/payment/initiate \\
 -H "Authorization: Bearer ${initialMerchantData.testApiKey}" \\
 -H "Content-Type: application/json" \\
 -d '{
@@ -869,7 +869,7 @@ export default function DashboardPage() {
                         {copiedItem === "curl-example" ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                       </Button>
                       <pre className="text-green-400 text-sm overflow-x-auto">
-                        {`curl -X POST https://api.nummus.xyz/api/payment/initiate \\
+                        {`curl -X POST https://api.Egyptfi.xyz/api/payment/initiate \\
 -H "Authorization: Bearer ${initialMerchantData.testApiKey}" \\
 -H "Content-Type: application/json" \\
 -d '{
@@ -888,7 +888,7 @@ export default function DashboardPage() {
                         className="absolute top-2 right-2 text-gray-400 hover:text-white"
                         onClick={() =>
                           copyToClipboard(
-                            `const response = await fetch('https://api.nummus.xyz/api/payment/initiate', {
+                            `const response = await fetch('https://api.Egyptfi.xyz/api/payment/initiate', {
 method: 'POST',
 headers: {
 'Authorization': 'Bearer ${initialMerchantData.testApiKey}',
@@ -910,7 +910,7 @@ console.log(payment.hosted_url);`,
                         {copiedItem === "js-example" ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                       </Button>
                       <pre className="text-green-400 text-sm overflow-x-auto">
-                        {`const response = await fetch('https://api.nummus.xyz/api/payment/initiate', {
+                        {`const response = await fetch('https://api.Egyptfi.xyz/api/payment/initiate', {
 method: 'POST',
 headers: {
 'Authorization': 'Bearer ${initialMerchantData.testApiKey}',
@@ -939,7 +939,7 @@ console.log(payment.hosted_url);`}
                             `import requests
 
 response = requests.post(
-'https://api.nummus.xyz/api/payment/initiate',
+'https://api.Egyptfi.xyz/api/payment/initiate',
 headers={
     'Authorization': 'Bearer ${initialMerchantData.testApiKey}',
     'Content-Type': 'application/json',
@@ -963,7 +963,7 @@ print(payment['hosted_url'])`,
                         {`import requests
 
 response = requests.post(
-'https://api.nummus.xyz/api/payment/initiate',
+'https://api.Egyptfi.xyz/api/payment/initiate',
 headers={
     'Authorization': 'Bearer ${initialMerchantData.testApiKey}',
     'Content-Type': 'application/json',
@@ -1106,7 +1106,7 @@ print(payment['hosted_url'])`}
                       <h4 className="font-semibold text-yellow-900 mb-2">Withdrawal Information</h4>
                       <ul className="text-sm text-yellow-800 space-y-1">
                         <li>• Minimum withdrawal: 1 USDC</li>
-                        <li>• Gas fees are sponsored by Nummus</li>
+                        <li>• Gas fees are sponsored by Egyptfi</li>
                         <li>• Processing time: ~30 seconds on StarkNet</li>
                         <li>• Withdrawals are processed instantly</li>
                       </ul>

@@ -83,7 +83,7 @@ npm run dev
 ### ➕ Create Invoice (POST request)
 
 ```js
-const response = await fetch('https://api.nummus.xyz/api/payment/initiate', {
+const response = await fetch('https://api.Egyptfi.xyz/api/payment/initiate', {
   method: 'POST',
   headers: {
     'Authorization': 'Bearer YOUR_API_KEY',
@@ -106,7 +106,7 @@ console.log(payment.hosted_url);
 ```json
 {
   "payment_ref": "pay_abc123",
-  "hosted_url": "https://pay.nummus.xyz/pay_abc123",
+  "hosted_url": "https://pay.Egyptfi.xyz/pay_abc123",
   "qr_code": "data:image/png;base64,...",
   "expires_at": "2024-01-15T10:30:00Z"
 }
@@ -117,7 +117,7 @@ console.log(payment.hosted_url);
 ### 🔍 Fetch Invoice Metadata (GET request)
 
 ```js
-const response = await fetch('https://api.nummus.xyz/api/payment/pay_abc123', {
+const response = await fetch('https://api.Egyptfi.xyz/api/payment/pay_abc123', {
   headers: {
     'Authorization': 'Bearer YOUR_API_KEY',
   }
@@ -145,13 +145,6 @@ console.log(invoice.crypto_amounts);
   "expires_at": "2024-01-15T10:30:00Z"
 }
 ```
-
----
-
-## 📸 Screenshots / Demo
-
-Include relevant screenshots or a link to a short demo video here. This helps users visualize the flow.
-
 ---
 
 ## 🧠 Challenges & Learnings

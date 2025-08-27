@@ -138,7 +138,7 @@ export default function SuccessPage() {
                 <Link href="/demo/invoice">Try Another Payment</Link>
               </Button>
               <Button className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600" asChild>
-                <Link href="/">Explore Nummus</Link>
+                <Link href="/">Explore Egyptfi</Link>
               </Button>
             </div>
           </CardContent>
@@ -150,7 +150,7 @@ export default function SuccessPage() {
           <p className="text-sm text-gray-500 mt-2">
             Powered by{" "}
             <Link href="/" className="text-blue-600 hover:text-blue-700 font-medium">
-              Nummus
+              Egyptfi
             </Link>
           </p>
         </div>

@@ -79,7 +79,7 @@ export function InvoiceContent() {
   }, [selectedChain])
 
   const copyLink = async () => {
-    const mockPaymentLink = `https://pay.nummus.xyz/invoice/${invoiceData.invoiceId}`
+    const mockPaymentLink = `https://pay.Egyptfi.xyz/invoice/${invoiceData.invoiceId}`
     await navigator.clipboard.writeText(mockPaymentLink)
     setCopied(true)
     setTimeout(() => setCopied(false), 2000)

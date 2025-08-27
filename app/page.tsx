@@ -54,9 +54,9 @@ export default function HomePage() {
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-2">
             <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-              <span className="text-white font-bold text-sm">N</span>
+              <span className="text-white font-bold text-sm">eFi</span>
             </div>
-            <span className="text-xl font-bold text-gray-900">Nummus</span>
+            <span className="text-xl font-bold text-gray-900">Egyptfi</span>
           </div>
           <nav className="hidden md:flex items-center space-x-8">
             <Link href="/docs" className="text-gray-600 hover:text-gray-900 transition-colors">
@@ -227,7 +227,7 @@ export default function HomePage() {
       <section className="py-20 px-4 bg-white">
         <div className="container mx-auto max-w-6xl">
           <div className="text-center mb-16">
-            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Why Choose Nummus?</h2>
+            <h2 className="text-3xl md:text-4xl font-bold text-gray-900 mb-4">Why Choose Egyptfi?</h2>
             <p className="text-xl text-gray-600 max-w-2xl mx-auto">
               Built for the future of payments with enterprise-grade security and developer-first approach
             </p>
@@ -383,7 +383,7 @@ export default function HomePage() {
                 Yield Farming
               </div>
               <h2 className="mt-4 text-3xl md:text-4xl font-bold text-gray-900">
-                Earn yield on idle USDC — directly from Nummus
+                Earn yield on idle USDC — directly from Egyptfi
               </h2>
               <p className="mt-3 text-gray-600">
                 Allocate unused balances to on-chain strategies and earn passive yield without leaving your dashboard.
@@ -428,9 +428,9 @@ export default function HomePage() {
             <div>
               <div className="flex items-center space-x-2 mb-6">
                 <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">N</span>
+                  <span className="text-white font-bold text-sm">eFi</span>
                 </div>
-                <span className="text-xl font-bold">Nummus</span>
+                <span className="text-xl font-bold">Egyptfi</span>
               </div>
               <p className="text-gray-400 mb-6">
                 The future of crypto payments. Crypto payments without the complexity.
@@ -525,7 +525,7 @@ export default function HomePage() {
           </div>
 
           <div className="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center">
-            <p className="text-gray-400 text-sm">© 2024 Nummus. All rights reserved.</p>
+            <p className="text-gray-400 text-sm">© 2024 Egyptfi. All rights reserved.</p>
             <div className="flex space-x-6 mt-4 md:mt-0">
               <Link href="/terms" className="text-gray-400 hover:text-white text-sm transition-colors">
                 Terms of Service
