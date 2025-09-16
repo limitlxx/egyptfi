@@ -13,7 +13,7 @@ With support for **no-code** and **low-code tools**, **developer-friendly APIs**
 > 0x04bb1a742ac72a9a72beebe1f608c508fce6dfa9250b869018b6e157dccb46e8
 
 #### SEPOLIA
-> 0x02680191ae87ed05ee564c8e468495c760ba1764065de451fe51bb097e64d062
+> 0x0654d1ab73d517086e44028ba82647e46157657f4c77616ffd3c6cba589240a2
 
 ## ⚙️ Technologies Used
 
