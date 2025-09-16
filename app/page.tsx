@@ -23,6 +23,7 @@ import Link from "next/link"
 import { YieldWaitlist } from "@/components/yield-waitlist"
 import { ShoppingCart } from "@/components/shopping-cart"
 import { useEffect, useState } from 'react';
+import Image from "next/image"
 
 const taglines = [
   "Seamless Crypto Transactions",
@@ -54,9 +55,9 @@ export default function HomePage() {
   }, []);
 
    const cartItems = [
-    { name: "Rice", description: "Jollof RIce", icon: "☕", price: "₦8,500", quantity: 1 },
-    { name: "Chicken", description: "Large laps", icon: "🥐", price: "₦1,500", quantity: 1 },
-    { name: "Drink", description: "Cocacola", icon: "🧊", price: "₦1,000", quantity: 1 },
+    { name: "Rice", description: "Jollof RIce", icon: "☕", price: "₦500", quantity: 1 },
+    { name: "Chicken", description: "Large laps", icon: "🥐", price: "₦300", quantity: 1 },
+    { name: "Drink", description: "Cocacola", icon: "🧊", price: "₦200", quantity: 1 },
   ]
 
   const handleCheckout = async () => {
@@ -69,17 +70,17 @@ export default function HomePage() {
         method: 'POST',
         headers: {
           'X-API-Key': 'pk_test_e20af044678ed83d9d1b151f93403e90', // Mock API key for demo
-          'X-Wallet-Address': '0x065982b15Bc87AbdAa2DA7DB5F2164792b6c2e497bd80f4b7ace9E799Be4Beb0', // Mock wallet address
+          'X-Wallet-Address': '0x065982b15bc87abdaa2da7db5f2164792b6c2e497bd80f4b7ace9e799be4beb0', // Mock wallet address
           'X-Environment': 'testnet',
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           payment_ref: `order-${Date.now()}`,
-          local_amount: 11000,
+          local_amount: 100,
           local_currency: "NGN",
           description: "TheBuidl Kitchen, Kaduna",
           chain: "starknet",
-          secondary_endpoint: "http://localhost:3000/confirm",
+          secondary_endpoint: "https://egyptfi.online/confirm",
           email: "emixxshow17@gmail.com",
           // metadata: [{
           //   "cancel_action": "http://localhost:3000"
@@ -113,10 +114,18 @@ export default function HomePage() {
       <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+            {/* <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
               <span className="text-white font-bold text-sm">eFi</span>
             </div>
-            <span className="text-xl font-bold text-gray-900">EgyptFi</span>
+            <span className="text-xl font-bold text-gray-900">EgyptFi</span> */}
+            <Image
+              src="/egyptfi.jpeg"
+              alt="Egyptfi Official Logo"
+              width={150}
+              height={150}  
+              priority
+              className="rounded-full"
+            />
           </div>
           <nav className="hidden md:flex items-center space-x-8">
             <Link href="/docs" className="text-gray-600 hover:text-gray-900 transition-colors">
@@ -136,8 +145,7 @@ export default function HomePage() {
             <Button variant="outline" className="bg-transparent" asChild>
               <Link href="/login">Sign In</Link>
             </Button>
-            <Button
-              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+            <Button 
               asChild
             >
               <Link href="/signup">Get Started</Link>
@@ -209,12 +217,12 @@ export default function HomePage() {
 
           <div className="mt-8 relative">
             <ShoppingCart
-              merchantName="Coffee Shop Lagos"
-              merchantLogo="☕"
+              merchantName="TheBuidl Kitchen, Kaduna"
+              merchantLogo="./product.png"
               items={cartItems}
-              subtotal="₦11,000"
+              subtotal="₦1,000"
               tax="₦0"
-              total="₦11,000"
+              total="₦1,000"
             />
             <Button
               className="w-full max-w-2xl mx-auto mt-4 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
@@ -442,10 +450,14 @@ export default function HomePage() {
           <div className="grid md:grid-cols-4 gap-8 mb-12">
             <div>
               <div className="flex items-center space-x-2 mb-6">
-                <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-                  <span className="text-white font-bold text-sm">N</span>
-                </div>
-                <span className="text-xl font-bold">EgyptFi</span>
+                <Image
+              src="/egyptfi.jpeg"
+              alt="Egyptfi Official Logo"
+              width={150}
+              height={150}  
+              priority
+              className="rounded-full"
+            />
               </div>
               <p className="text-gray-400 mb-6">
                 The future of crypto payments. Accept crypto, get stablecoins, globally.

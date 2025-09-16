@@ -90,17 +90,22 @@ npm run dev
 ### ➕ Create Invoice (POST request)
 
 ```js
-const response = await fetch('https://api.nummus.xyz/api/payment/initiate', {
+const response = await fetch('https://egyptfi.online/api/payment/initiate', {
   method: 'POST',
-  headers: {
-    'Authorization': 'Bearer YOUR_API_KEY',
+  headers: { 
+    'X-API-Key': 'pk_test_key', 
+    'X-Wallet-Address': '0x065982b15Bc87AbdAa2DA7DB5F2164792b6c2e497bd80f4b7ace9E799Be4Beb0', 
+    'X-Environment': 'testnet', 
     'Content-Type': 'application/json',
   },
-  body: JSON.stringify({
-    amount: 5000,
-    currency: 'NGN',
-    description: 'Premium Coffee Blend x2',
-    webhook_url: 'https://yoursite.com/webhook'
+  body: JSON.stringify({ 
+    payment_ref: `order-${Date.now()}`,
+    local_amount: 11000,
+    local_currency: "NGN",
+    description: "TheBuidl Kitchen, Kaduna",
+    chain: "starknet",
+    secondary_endpoint: "http://localhost:3000/confirm",
+    email: "name@xyz.com",
   })
 });
 
@@ -112,8 +117,8 @@ console.log(payment.hosted_url);
 
 ```json
 {
-  "payment_ref": "pay_abc123",
-  "hosted_url": "https://pay.nummus.xyz/pay_abc123",
+  "reference": "pay_abc123",
+  "authorised_url": "https://egyptfi.online/invoice/payment_ref",
   "qr_code": "data:image/png;base64,...",
   "expires_at": "2024-01-15T10:30:00Z"
 }
@@ -124,10 +129,13 @@ console.log(payment.hosted_url);
 ### 🔍 Fetch Invoice Metadata (GET request)
 
 ```js
-const response = await fetch('https://api.nummus.xyz/api/payment/pay_abc123', {
-  headers: {
-    'Authorization': 'Bearer YOUR_API_KEY',
-  }
+const response = await fetch('https://egyptfi.online/api/payment/pay_abc123', {
+  headers: { 
+    'X-API-Key': 'pk_test_key', 
+    'X-Wallet-Address': '0x065982b15Bc87AbdAa2DA7DB5F2164792b6c2e497bd80f4b7ace9E799Be4Beb0', 
+    'X-Environment': 'testnet', 
+    'Content-Type': 'application/json',
+  },
 });
 
 const invoice = await response.json();

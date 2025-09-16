@@ -25,7 +25,6 @@ interface PaymentData {
   chain?: string;
 }
 
-
 interface Payment {
   status: string;
   [key: string]: any; // if there are other dynamic fields
@@ -38,6 +37,8 @@ export async function prepare_payment_call({
   token_address,
   contract_address = EGYPT_SEPOLIA_CONTRACT_ADDRESS,
   userAddress, // Renamed from caller to clarify
+  merchant_address, // Added merchant address for create_payment
+  description = "", // Optional description, defaults to empty string
   usdc_address = "0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8",
 }: {
   payment_ref: string;
@@ -45,8 +46,23 @@ export async function prepare_payment_call({
   token_address: string;
   contract_address: string;
   userAddress: string; // User's connected wallet address
+  merchant_address: string; // Merchant's contract address
+  description?: string; // Optional description for the payment
   usdc_address?: string;
 }): Promise<Call[]> {
+  // Create payment call
+  const createPaymentCall: Call = {
+    contractAddress: contract_address,
+    entrypoint: "create_payment",
+    calldata: [
+      merchant_address, // merchant
+      amount.toString(), // amount (u256 low)
+      "0", // amount (u256 high)
+      payment_ref, // reference
+      description || "", // description (empty string if not provided)
+    ],
+  };
+
   if (token_address === usdc_address) {
     // Direct USDC payment: approve + process_payment
     const approveCall: Call = {
@@ -59,7 +75,7 @@ export async function prepare_payment_call({
       entrypoint: "process_payment",
       calldata: [payment_ref],
     };
-    return [approveCall, processCall];
+    return [createPaymentCall, approveCall, processCall];
   } else {
     // Swap to USDC via API
     const response = await fetch("/api/swap", {
@@ -92,7 +108,7 @@ export async function prepare_payment_call({
       calldata: [payment_ref],
     };
 
-    return [approveUsdcCall, processCall];
+    return [createPaymentCall, approveUsdcCall, processCall];
   }
 }
 
@@ -105,8 +121,6 @@ export async function get_payment(payment_ref: string): Promise<PaymentData> {
   const result = await response.json();
   return result.data;
 }
-
-
 
 // Verify payment status (unchanged)
 export async function verify_payment({

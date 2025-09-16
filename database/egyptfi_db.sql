@@ -2,12 +2,12 @@
 -- PostgreSQL database dump
 --
 
-\restrict tkAXxd02XdQRyIYP1oAAW0wIdX1399RxDuJHq6t2r3C2AeA3a63V3raB3QIDKGa
+\restrict tSBzMaWukLZ5hsvXb896fKtgbxoaWmqj5xfs7h8MudgJIXDAVNORspRtoiYRsZ1
 
 -- Dumped from database version 17.6 (Ubuntu 17.6-1.pgdg25.04+1)
 -- Dumped by pg_dump version 17.6 (Ubuntu 17.6-1.pgdg25.04+1)
 
--- Started on 2025-08-22 23:58:06 WAT
+-- Started on 2025-09-16 01:01:45 WAT
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -20,6 +20,234 @@ SET check_function_bodies = false;
 SET xmloption = content;
 SET client_min_messages = warning;
 SET row_security = off;
+
+--
+-- TOC entry 223 (class 1255 OID 74644)
+-- Name: update_updated_at_column(); Type: FUNCTION; Schema: public; Owner: postgres
+--
+
+CREATE FUNCTION public.update_updated_at_column() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+   NEW.updated_at = NOW();
+   RETURN NEW;
+END;
+$$;
+
+
+ALTER FUNCTION public.update_updated_at_column() OWNER TO postgres;
+
+SET default_tablespace = '';
+
+SET default_table_access_method = heap;
+
+--
+-- TOC entry 218 (class 1259 OID 74601)
+-- Name: api_keys; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.api_keys (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    merchant_id uuid NOT NULL,
+    secret_key text NOT NULL,
+    public_key text NOT NULL,
+    created_at timestamp without time zone DEFAULT now()
+);
+
+
+ALTER TABLE public.api_keys OWNER TO postgres;
+
+--
+-- TOC entry 220 (class 1259 OID 74630)
+-- Name: invoices; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.invoices (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    merchant_id uuid NOT NULL,
+    payment_ref text NOT NULL,
+    secondary_ref text,
+    access_code text,
+    status text NOT NULL,
+    local_amount numeric(18,8) NOT NULL,
+    usdc_amount numeric(18,8),
+    token_amount numeric(18,8),
+    payment_token text,
+    local_currency text,
+    chains text,
+    receipt_number text,
+    secondary_endpoint text,
+    paid_at timestamp without time zone,
+    ip_address text,
+    metadata jsonb,
+    channel text,
+    created_at timestamp without time zone DEFAULT now(),
+    description text,
+    "txHash" text,
+    environment character varying,
+    qr_url text,
+    payment_endpoint text
+);
+
+
+ALTER TABLE public.invoices OWNER TO postgres;
+
+--
+-- TOC entry 222 (class 1259 OID 74715)
+-- Name: merchant_activity_logs; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.merchant_activity_logs (
+    id integer NOT NULL,
+    merchant_id uuid NOT NULL,
+    activity_type character varying(100) NOT NULL,
+    description text,
+    metadata jsonb,
+    created_at timestamp without time zone DEFAULT CURRENT_TIMESTAMP
+);
+
+
+ALTER TABLE public.merchant_activity_logs OWNER TO postgres;
+
+--
+-- TOC entry 3520 (class 0 OID 0)
+-- Dependencies: 222
+-- Name: TABLE merchant_activity_logs; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON TABLE public.merchant_activity_logs IS 'Audit trail for merchant activities including contract registrations';
+
+
+--
+-- TOC entry 3521 (class 0 OID 0)
+-- Dependencies: 222
+-- Name: COLUMN merchant_activity_logs.activity_type; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON COLUMN public.merchant_activity_logs.activity_type IS 'Type of activity (e.g., CONTRACT_STATUS_UPDATE, REGISTRATION, etc.)';
+
+
+--
+-- TOC entry 3522 (class 0 OID 0)
+-- Dependencies: 222
+-- Name: COLUMN merchant_activity_logs.metadata; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON COLUMN public.merchant_activity_logs.metadata IS 'Additional data about the activity in JSON format';
+
+
+--
+-- TOC entry 221 (class 1259 OID 74714)
+-- Name: merchant_activity_logs_id_seq; Type: SEQUENCE; Schema: public; Owner: postgres
+--
+
+CREATE SEQUENCE public.merchant_activity_logs_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+ALTER SEQUENCE public.merchant_activity_logs_id_seq OWNER TO postgres;
+
+--
+-- TOC entry 3523 (class 0 OID 0)
+-- Dependencies: 221
+-- Name: merchant_activity_logs_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: postgres
+--
+
+ALTER SEQUENCE public.merchant_activity_logs_id_seq OWNED BY public.merchant_activity_logs.id;
+
+
+--
+-- TOC entry 217 (class 1259 OID 74590)
+-- Name: merchants; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.merchants (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    wallet_address text NOT NULL,
+    business_name text NOT NULL,
+    business_logo text,
+    business_email text NOT NULL,
+    webhook text,
+    local_currency text NOT NULL,
+    supported_currencies text[] DEFAULT '{}'::text[],
+    metadata jsonb,
+    created_at timestamp without time zone DEFAULT now(),
+    updated_at timestamp without time zone DEFAULT now(),
+    business_type character varying,
+    monthly_volume character varying,
+    contract_registered boolean DEFAULT false,
+    contract_transaction_hash character varying(255),
+    contract_registration_data jsonb,
+    contract_updated_at timestamp without time zone,
+    is_verified boolean,
+    phone character varying
+);
+
+
+ALTER TABLE public.merchants OWNER TO postgres;
+
+--
+-- TOC entry 3524 (class 0 OID 0)
+-- Dependencies: 217
+-- Name: COLUMN merchants.contract_registered; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON COLUMN public.merchants.contract_registered IS 'Whether the merchant is registered on the smart contract';
+
+
+--
+-- TOC entry 3525 (class 0 OID 0)
+-- Dependencies: 217
+-- Name: COLUMN merchants.contract_transaction_hash; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON COLUMN public.merchants.contract_transaction_hash IS 'Transaction hash of the contract registration';
+
+
+--
+-- TOC entry 3526 (class 0 OID 0)
+-- Dependencies: 217
+-- Name: COLUMN merchants.contract_updated_at; Type: COMMENT; Schema: public; Owner: postgres
+--
+
+COMMENT ON COLUMN public.merchants.contract_updated_at IS 'Timestamp when contract status was last updated';
+
+
+--
+-- TOC entry 219 (class 1259 OID 74615)
+-- Name: transactions; Type: TABLE; Schema: public; Owner: postgres
+--
+
+CREATE TABLE public.transactions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    merchant_id uuid NOT NULL,
+    currency_amount numeric(18,8) NOT NULL,
+    wallet_amount numeric(18,8) NOT NULL,
+    alt_amount numeric(18,8),
+    to_address text NOT NULL,
+    status text NOT NULL,
+    "timestamp" timestamp without time zone DEFAULT now(),
+    created_at timestamp without time zone DEFAULT now(),
+    "gasSponsored" character varying,
+    "txHash" text
+);
+
+
+ALTER TABLE public.transactions OWNER TO postgres;
+
+--
+-- TOC entry 3337 (class 2604 OID 82936)
+-- Name: merchant_activity_logs id; Type: DEFAULT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.merchant_activity_logs ALTER COLUMN id SET DEFAULT nextval('public.merchant_activity_logs_id_seq'::regclass);
+
 
 --
 -- TOC entry 3510 (class 0 OID 74601)
@@ -54,6 +282,11 @@ bc042c20-1dd3-4cdf-866f-173a64fca35a	1d6f8c15-b645-4d5e-86f2-270fd365e32e	order-
 3e428999-c108-43cb-8610-d37c2a88dc9f	1d6f8c15-b645-4d5e-86f2-270fd365e32e	order-1755870745070	\N	\N	pending	11118.80000000	\N	\N	\N	NGN	starknet	\N	http://localhost:3000/confirm	\N	\N	\N	\N	2025-08-22 14:52:25.946728	TheBuidl Kitchen, Kaduna	\N	\N	data:image/png;base64,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	https://9a01e76ef399.ngrok-free.app/pay?ref=order-1755870745070
 c8864d2c-496a-4be7-9e88-cfc6a45db27b	1d6f8c15-b645-4d5e-86f2-270fd365e32e	order-1755872641452	\N	\N	pending	11118.80000000	\N	\N	\N	NGN	starknet	\N	http://localhost:3000/confirm	\N	\N	\N	\N	2025-08-22 15:24:04.622915	TheBuidl Kitchen, Kaduna	\N	\N	data:image/png;base64,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	https://9a01e76ef399.ngrok-free.app/pay?ref=order-1755872641452
 060ee9c5-f98f-44c9-9d02-0c33f73c2c82	1d6f8c15-b645-4d5e-86f2-270fd365e32e	order-1755872697334	\N	\N	pending	11118.80000000	\N	\N	\N	NGN	starknet	\N	http://localhost:3000/confirm	\N	\N	\N	\N	2025-08-22 15:24:57.647865	TheBuidl Kitchen, Kaduna	\N	\N	data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAASwAAAEsCAYAAAB5fY51AAAAAklEQVR4AewaftIAAAktSURBVO3BwZEci44EwUhY669y7lNgMYdicRr84Z7+B0k6YJCkIwZJOmKQpCMGSTpikKQjBkk6YpCkIwZJOmKQpCMGSTpikKQjBkk6YpCkIwZJOmKQpCMGSTriwx+QhH9ZW96WhCfasknCE215KglvasubkrBpy1NJ+Je15YlBko4YJOmIQZKOGCTpiEGSjhgk6YhBko748Be05Zsl4du1ZZOENyVh05an2vKbkrBpyyYJm7Y81ZZvloQ3DZJ0xCBJRwySdMQgSUcMknTEIElHDJJ0xIcvkIQ3teVtSdi0ZdOWTRI2bdkkYdOWJ5LwVBI2bXlTW65Lwpva8psGSTpikKQjBkk6YpCkIwZJOmKQpCMGSTrig/4ntGWThLe15U1J0L9tkKQjBkk6YpCkIwZJOmKQpCMGSTpikKQjPuiEtmyS8ERbNknYtOUnSXiiLZu2/KYk6F2DJB0xSNIRgyQdMUjSEYMkHTFI0hGDJB3x4Qu05V+XhE1b3tSWTRKeSMJTbXkiCZu2bJKwacu3a8u/bJCkIwZJOmKQpCMGSTpikKQjBkk6YpCkIz78BUn4X9eWTRI2bflNbdkk4Sdt2SRh05b/dUn4XzZI0hGDJB0xSNIRgyQdMUjSEYMkHTFI0hEf/oC26Jm2bJLwm5KwactTbXmiLZskfLu26P83SNIRgyQdMUjSEYMkHTFI0hGDJB0xSNIRgyQd8eEPSMKmLZskfLO2/KQtmyRs2rJpyxNJ+G1J2LTliSRs2rJJwm9Lwjdry28aJOmIQZKOGCTpiEGSjhgk6YhBko4YJOmID39AWzZJ2LTliSQ80Za3tWWThE1bNknYtOVNSfhJW55IwqYtmyQ8kYRNW97WlieS8KYkbNryxCBJRwySdMQgSUcMknTEIElHDJJ0xCBJR3z4A5KwacsmCZu2vCkJm7Y8lYRNWzZJ+E1JeFsSNm15U1ueSMJvS8KmLZskbJKwacubBkk6YpCkIwZJOmKQpCMGSTpikKQjBkk64sMf0JZNEjZteaItmyRs2rJJwk/a8qa2vCkJv60tvykJm7Zs2rJJwm9LwhNt+U2DJB0xSNIRgyQdMUjSEYMkHTFI0hGDJB3x4Q9IwpuSsGnLE0nYtOXbJWHTlk1bNknYtOWpJGza8qa2bJLwRFt+koRNEt7Ulk0SNm150yBJRwySdMQgSUcMknTEIElHDJJ0xCBJR6T/4WVJ2LRlk4RNWzZJ2LRlk4SftOWJJDzRlk0Sfltb3pSEN7Vlk4Sn2rJJwmVteWKQpCMGSTpikKQjBkk6YpCkIwZJOmKQpCPS//CyJDzRljclYdOWp5KwacsTSdi05dsl4Ym2fLMkvK0tmyS8qS1vGiTpiEGSjhgk6YhBko4YJOmIQZKOGCTpiPQ/PJSE39SWTRI2bdkk4am2fLMkbNqyScJP2rJJwjdry3VJeKItv2mQpCMGSTpikKQjBkk6YpCkIwZJOmKQpCM+HNCWJ9qyScLbkvBEW75ZW36ShE1bNkl4oi2bJDyRhKfasknCm9ryRBI2bXlikKQjBkk6YpCkIwZJOmKQpCMGSTpikKQjBkk6Iv0PL0vCpi1PJGHTlieS8JO2vCkJT7TlTUn4bW15IglPtOWpJDzRlk0SnmjLJgmbtjwxSNIRgyQdMUjSEYMkHTFI0hGDJB0xSNIRH/6AJGza8kQSNm15IgmbtjyVhCfa8qYkPNGWnyRh05Zv1pa3teWJJGzasknCJgmbtrxpkKQjBkk6YpCkIwZJOmKQpCMGSTpikKQjPvwBbXkiCZu2PJGETVs2SXiqLZskfLO2vC0Jm7a8qS1PJGHTlp8kYdOWJ5LwRFs2Sdi05YlBko4YJOmIQZKOGCTpiEGSjhgk6YhBko748BckYdOWTRI2bXkiCU+1ZZOETVvelIRNWzZJeKotb0rCm9qyacsmCd+uLU+05U2DJB0xSNIRgyQdMUjSEYMkHTFI0hGDJB3x4Q9IwhNJeFNbnkjCU215IglPtGWThCfa8lQSNm3ZtGWThE1bNknYtOWptmySsGnLE0nYtGWThE1bnhgk6YhBko4YJOmIQZKOGCTpiEGSjhgk6YgPf0FbnkjCJgnfLglPtOWbJeEnbXlTEp5IwqYtb0vCb2rLJgmbtrxpkKQjBkk6YpCkIwZJOmKQpCMGSTpikKQjPvwD2vKmJPy2JGza8kRbNknYtOWptjzRlk0SNm3ZJOFfl4RNW37TIElHDJJ0xCBJRwySdMQgSUcMknTEIElHfPgHJGHTlk0SNm35SRI2bdkkYdOWJ5LwpiQ81ZYnkrBpy78uCZu2bNqyScKmLW8aJOmIQZKOGCTpiEGSjhgk6YhBko4YJOmID39AW97Ulje15dsl4Ym2bJKwacsmCT9pyxNJ2LRlk4Qn2rJJwqYtb0vCE0l4IgmbtjwxSNIRgyQdMUjSEYMkHTFI0hGDJB0xSNIRgyQd8eEPSMK/rC0/actvassTbdkk4W1J2LRlk4Qn2rJJwtuSsGnLN2vLmwZJOmKQpCMGSTpikKQjBkk6YpCkIwZJOuLDX9CWb5aEp5KwacsTbdkkYdOWJ9qyScJTbdkkYdOWTRI2SfhtbbksCZu2PDFI0hGDJB0xSNIRgyQdMUjSEYMkHTFI0hEfvkAS3tSWf11bNknYtOWJtjyVhE1b3tSWJ5KwScJvS8KmLZsk/KZBko4YJOmIQZKOGCTpiEGSjhgk6YhBko74oK/QlieSsGnLJgm/rS1PJGHTlk0SnmjLJgk/acsmCb+pLZskvGmQpCMGSTpikKQjBkk6YpCkIwZJOmKQpCM+6K9IwqYtT7Rlk4RNW35bEp5oyxNteSIJm7b8JAlPtGWThE0SNm3ZtOVNgyQdMUjSEYMkHTFI0hGDJB0xSNIRgyQd8eELtOW6tmySsEnCZUn4SVs2bdkkYZOEJ9qyScLb2rJJwiYJm7ZskvDNBkk6YpCkIwZJOmKQpCMGSTpikKQjBkk64sNfkIR/XRI2bXkiCZu2fLsk/Ka2vKkt3y4JTyRh05Y3DZJ0xCBJRwySdMQgSUcMknTEIElHDJJ0RPofJOmAQZKOGCTpiEGSjhgk6YhBko4YJOmIQZKOGCTpiEGSjhgk6YhBko4YJOmIQZKOGCTpiEGSjvg/Y9ssaUiJcHkAAAAASUVORK5CYII=	http://localhost:3000/pay?ref=order-1755872697334
+bc9a571e-78b8-4fb5-8fa2-1005b5ddb8b4	1d6f8c15-b645-4d5e-86f2-270fd365e32e	order-1756037953353	\N	\N	pending	11118.80000000	\N	\N	\N	NGN	starknet	\N	http://localhost:3000/confirm	\N	\N	\N	\N	2025-08-24 13:19:17.328461	TheBuidl Kitchen, Kaduna	\N	\N	data:image/png;base64,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	http://localhost:3000/pay?ref=order-1756037953353
+b27666cc-c419-4453-8576-8b9a3fb52591	1d6f8c15-b645-4d5e-86f2-270fd365e32e	order-1756039910096	\N	\N	pending	11118.80000000	\N	\N	\N	NGN	starknet	\N	http://localhost:3000/confirm	\N	\N	\N	\N	2025-08-24 13:51:50.353097	TheBuidl Kitchen, Kaduna	\N	\N	data:image/png;base64,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	http://localhost:3000/pay?ref=order-1756039910096
+0edbf94f-e458-493b-a12c-3c5cbc1cd82d	1d6f8c15-b645-4d5e-86f2-270fd365e32e	order-1756061346247	\N	\N	pending	11118.80000000	\N	\N	\N	NGN	starknet	\N	http://localhost:3000/confirm	\N	\N	\N	\N	2025-08-24 19:49:08.515997	TheBuidl Kitchen, Kaduna	\N	\N	data:image/png;base64,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	http://localhost:3000/pay?ref=order-1756061346247
+085aa980-602d-4329-ac1a-1f0a2a2a0c6d	1d6f8c15-b645-4d5e-86f2-270fd365e32e	order-1756062252246	\N	\N	pending	11118.80000000	\N	\N	\N	NGN	starknet	\N	http://localhost:3000/confirm	\N	\N	\N	\N	2025-08-24 20:04:12.333576	TheBuidl Kitchen, Kaduna	\N	\N	data:image/png;base64,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	http://localhost:3000/pay?ref=order-1756062252246
+afdf14aa-e7aa-467a-9e9c-f5562fc7a788	1d6f8c15-b645-4d5e-86f2-270fd365e32e	order-1756067805779	\N	\N	pending	101.08000000	\N	\N	\N	NGN	starknet	\N	https://egyptfi.online/confirm	\N	\N	\N	\N	2025-08-24 21:36:47.796538	TheBuidl Kitchen, Kaduna	\N	\N	data:image/png;base64,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	http://localhost:3000/pay?ref=order-1756067805779
 \.
 
 
@@ -523,6 +756,8 @@ COPY public.merchant_activity_logs (id, merchant_id, activity_type, description,
 457	1d6f8c15-b645-4d5e-86f2-270fd365e32e	login	Successful wallet-based login	\N	2025-08-21 11:54:55.411865
 458	1d6f8c15-b645-4d5e-86f2-270fd365e32e	login	Successful wallet-based login	\N	2025-08-22 15:18:02.341654
 459	1d6f8c15-b645-4d5e-86f2-270fd365e32e	login	Successful wallet-based login	\N	2025-08-22 15:22:19.035028
+460	1d6f8c15-b645-4d5e-86f2-270fd365e32e	login	Successful wallet-based login	\N	2025-09-03 16:32:02.812015
+461	1d6f8c15-b645-4d5e-86f2-270fd365e32e	login	Successful wallet-based login	\N	2025-09-03 16:32:02.812538
 \.
 
 
@@ -548,19 +783,174 @@ COPY public.transactions (id, merchant_id, currency_amount, wallet_amount, alt_a
 
 
 --
--- TOC entry 3528 (class 0 OID 0)
+-- TOC entry 3527 (class 0 OID 0)
 -- Dependencies: 221
 -- Name: merchant_activity_logs_id_seq; Type: SEQUENCE SET; Schema: public; Owner: postgres
 --
 
-SELECT pg_catalog.setval('public.merchant_activity_logs_id_seq', 459, true);
+SELECT pg_catalog.setval('public.merchant_activity_logs_id_seq', 461, true);
 
 
--- Completed on 2025-08-22 23:58:07 WAT
+--
+-- TOC entry 3349 (class 2606 OID 74609)
+-- Name: api_keys api_keys_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.api_keys
+    ADD CONSTRAINT api_keys_pkey PRIMARY KEY (id);
+
+
+--
+-- TOC entry 3353 (class 2606 OID 74638)
+-- Name: invoices invoices_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.invoices
+    ADD CONSTRAINT invoices_pkey PRIMARY KEY (id);
+
+
+--
+-- TOC entry 3358 (class 2606 OID 74723)
+-- Name: merchant_activity_logs merchant_activity_logs_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.merchant_activity_logs
+    ADD CONSTRAINT merchant_activity_logs_pkey PRIMARY KEY (id);
+
+
+--
+-- TOC entry 3343 (class 2606 OID 74600)
+-- Name: merchants merchants_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.merchants
+    ADD CONSTRAINT merchants_pkey PRIMARY KEY (id);
+
+
+--
+-- TOC entry 3351 (class 2606 OID 74624)
+-- Name: transactions transactions_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.transactions
+    ADD CONSTRAINT transactions_pkey PRIMARY KEY (id);
+
+
+--
+-- TOC entry 3345 (class 2606 OID 82905)
+-- Name: merchants unique_business_email; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.merchants
+    ADD CONSTRAINT unique_business_email UNIQUE (business_email);
+
+
+--
+-- TOC entry 3347 (class 2606 OID 82903)
+-- Name: merchants unique_wallet_address; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.merchants
+    ADD CONSTRAINT unique_wallet_address UNIQUE (wallet_address);
+
+
+--
+-- TOC entry 3354 (class 1259 OID 74730)
+-- Name: idx_merchant_activity_logs_activity_type; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_merchant_activity_logs_activity_type ON public.merchant_activity_logs USING btree (activity_type);
+
+
+--
+-- TOC entry 3355 (class 1259 OID 74731)
+-- Name: idx_merchant_activity_logs_created_at; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_merchant_activity_logs_created_at ON public.merchant_activity_logs USING btree (created_at);
+
+
+--
+-- TOC entry 3356 (class 1259 OID 74729)
+-- Name: idx_merchant_activity_logs_merchant_id; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_merchant_activity_logs_merchant_id ON public.merchant_activity_logs USING btree (merchant_id);
+
+
+--
+-- TOC entry 3339 (class 1259 OID 74712)
+-- Name: idx_merchants_contract_registered; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_merchants_contract_registered ON public.merchants USING btree (contract_registered);
+
+
+--
+-- TOC entry 3340 (class 1259 OID 74713)
+-- Name: idx_merchants_contract_tx_hash; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_merchants_contract_tx_hash ON public.merchants USING btree (contract_transaction_hash);
+
+
+--
+-- TOC entry 3341 (class 1259 OID 74711)
+-- Name: idx_merchants_wallet_address; Type: INDEX; Schema: public; Owner: postgres
+--
+
+CREATE INDEX idx_merchants_wallet_address ON public.merchants USING btree (wallet_address);
+
+
+--
+-- TOC entry 3363 (class 2620 OID 74645)
+-- Name: merchants update_merchant_updated_at; Type: TRIGGER; Schema: public; Owner: postgres
+--
+
+CREATE TRIGGER update_merchant_updated_at BEFORE UPDATE ON public.merchants FOR EACH ROW EXECUTE FUNCTION public.update_updated_at_column();
+
+
+--
+-- TOC entry 3359 (class 2606 OID 74610)
+-- Name: api_keys api_keys_merchant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.api_keys
+    ADD CONSTRAINT api_keys_merchant_id_fkey FOREIGN KEY (merchant_id) REFERENCES public.merchants(id) ON DELETE CASCADE;
+
+
+--
+-- TOC entry 3361 (class 2606 OID 74639)
+-- Name: invoices invoices_merchant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.invoices
+    ADD CONSTRAINT invoices_merchant_id_fkey FOREIGN KEY (merchant_id) REFERENCES public.merchants(id) ON DELETE CASCADE;
+
+
+--
+-- TOC entry 3362 (class 2606 OID 74724)
+-- Name: merchant_activity_logs merchant_activity_logs_merchant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.merchant_activity_logs
+    ADD CONSTRAINT merchant_activity_logs_merchant_id_fkey FOREIGN KEY (merchant_id) REFERENCES public.merchants(id) ON DELETE CASCADE;
+
+
+--
+-- TOC entry 3360 (class 2606 OID 74625)
+-- Name: transactions transactions_merchant_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.transactions
+    ADD CONSTRAINT transactions_merchant_id_fkey FOREIGN KEY (merchant_id) REFERENCES public.merchants(id) ON DELETE CASCADE;
+
+
+-- Completed on 2025-09-16 01:01:48 WAT
 
 --
 -- PostgreSQL database dump complete
 --
 
-\unrestrict tkAXxd02XdQRyIYP1oAAW0wIdX1399RxDuJHq6t2r3C2AeA3a63V3raB3QIDKGa
+\unrestrict tSBzMaWukLZ5hsvXb896fKtgbxoaWmqj5xfs7h8MudgJIXDAVNORspRtoiYRsZ1
 

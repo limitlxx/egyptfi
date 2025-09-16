@@ -19,6 +19,7 @@ import { useMerchantRegistration } from "@/hooks/useMerchantRegistration"
 import { MerchantRegistrationData } from "@/services/merchantRegistrationService"
 import { useGlobalNetworkStatus } from "@/components/NetworkStatusProvider"
 import { PaymentModeIndicator } from "@/components/PaymentModeIndicator"
+import Image from "next/image"
 
 interface MerchantData {
   business_name: string
@@ -429,10 +430,14 @@ export default function SignupPage() {
               </Link>
             </Button>
             <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">eFi</span>
-              </div>
-              <span className="text-xl font-bold text-gray-900">EgyptFi</span>
+               <Image
+                                          src="/egyptfi.jpeg"
+                                          alt="Egyptfi Official Logo"
+                                          width={150}
+                                          height={150}  
+                                          priority
+                                          className="rounded-full"
+                                        />
             </div>
           </div>
           <div className="text-sm text-gray-500 flex items-center gap-4">

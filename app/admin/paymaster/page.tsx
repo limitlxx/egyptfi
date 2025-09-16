@@ -15,6 +15,7 @@ import {
   CreditCard
 } from "lucide-react";
 import { usePaymasterCredits } from "@/hooks/usePaymasterCredits";
+import { feltToInt } from '@/lib/felt252-utils';
 
 export default function PaymasterAdminPage() {
   const { 
@@ -135,7 +136,10 @@ export default function PaymasterAdminPage() {
                   <DollarSign className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{formatEth(activity.remainingCredits)} ETH</div>
+                  {/* <div className="text-2xl font-bold">{formatEth(activity.remainingCredits)} ETH</div> */}
+
+                  <div className="text-2xl font-bold">{(feltToInt(BigInt(activity.remainingCredits)))} ETH</div>
+                  {(feltToInt(BigInt(activity.remainingCredits)))}
                   <p className="text-xs text-muted-foreground">
                     {hasCredits ? "Sufficient for sponsored transactions" : "Low - consider recharging"}
                   </p>
@@ -148,7 +152,7 @@ export default function PaymasterAdminPage() {
                   <Zap className="h-4 w-4 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
-                  <div className="text-2xl font-bold">{formatStrk(activity.remainingStrkCredits)} STRK</div>
+                  <div className="text-2xl font-bold">{feltToInt(BigInt(activity.remainingStrkCredits))} STRK</div>
                   <p className="text-xs text-muted-foreground">
                     {hasStrkCredits ? "Sufficient for sponsored transactions" : "Low - consider recharging"}
                   </p>

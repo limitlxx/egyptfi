@@ -1,6 +1,6 @@
 import { Abi } from "starknet";
 
-export const EGYPTFI_ABI: Abi =  [
+export const EGYPTFI_ABI: Abi = [
   {
     "type": "impl",
     "name": "UpgradeableImpl",
@@ -59,99 +59,11 @@ export const EGYPTFI_ABI: Abi =  [
   },
   {
     "type": "struct",
-    "name": "safebox::i129",
-    "members": [
-      {
-        "name": "mag",
-        "type": "core::integer::u128"
-      },
-      {
-        "name": "sign",
-        "type": "core::bool"
-      }
-    ]
-  },
-  {
-    "type": "struct",
-    "name": "safebox::SwapParameters",
-    "members": [
-      {
-        "name": "amount",
-        "type": "safebox::i129"
-      },
-      {
-        "name": "is_token1",
-        "type": "core::bool"
-      },
-      {
-        "name": "sqrt_ratio_limit",
-        "type": "core::integer::u256"
-      },
-      {
-        "name": "skip_ahead",
-        "type": "core::integer::u128"
-      }
-    ]
-  },
-  {
-    "type": "struct",
-    "name": "safebox::PoolKey",
-    "members": [
-      {
-        "name": "token0",
-        "type": "core::starknet::contract_address::ContractAddress"
-      },
-      {
-        "name": "token1",
-        "type": "core::starknet::contract_address::ContractAddress"
-      },
-      {
-        "name": "fee",
-        "type": "core::integer::u128"
-      },
-      {
-        "name": "tick_spacing",
-        "type": "core::integer::u128"
-      },
-      {
-        "name": "extension",
-        "type": "core::starknet::contract_address::ContractAddress"
-      }
-    ]
-  },
-  {
-    "type": "struct",
-    "name": "safebox::SwapData",
-    "members": [
-      {
-        "name": "params",
-        "type": "safebox::SwapParameters"
-      },
-      {
-        "name": "pool_key",
-        "type": "safebox::PoolKey"
-      },
-      {
-        "name": "caller",
-        "type": "core::starknet::contract_address::ContractAddress"
-      }
-    ]
-  },
-  {
-    "type": "struct",
     "name": "safebox::Merchant",
     "members": [
       {
         "name": "is_active",
         "type": "core::bool"
-      },
-      {
-        "name": "name",
-        "type": "core::felt252"
-      },
-      {
-        "name": "email",
-        "type": "core::felt252"
       },
       {
         "name": "usdc_balance",
@@ -218,10 +130,6 @@ export const EGYPTFI_ABI: Abi =  [
         "type": "core::starknet::contract_address::ContractAddress"
       },
       {
-        "name": "token_paid",
-        "type": "core::starknet::contract_address::ContractAddress"
-      },
-      {
         "name": "amount_paid",
         "type": "core::integer::u256"
       },
@@ -255,14 +163,6 @@ export const EGYPTFI_ABI: Abi =  [
         "type": "function",
         "name": "register_merchant",
         "inputs": [
-          {
-            "name": "name",
-            "type": "core::felt252"
-          },
-          {
-            "name": "email",
-            "type": "core::felt252"
-          },
           {
             "name": "withdrawal_address",
             "type": "core::starknet::contract_address::ContractAddress"
@@ -303,10 +203,6 @@ export const EGYPTFI_ABI: Abi =  [
             "type": "core::starknet::contract_address::ContractAddress"
           },
           {
-            "name": "token",
-            "type": "core::starknet::contract_address::ContractAddress"
-          },
-          {
             "name": "amount",
             "type": "core::integer::u256"
           },
@@ -333,10 +229,6 @@ export const EGYPTFI_ABI: Abi =  [
           {
             "name": "payment_id",
             "type": "core::felt252"
-          },
-          {
-            "name": "swap_data",
-            "type": "safebox::SwapData"
           }
         ],
         "outputs": [],
@@ -444,30 +336,6 @@ export const EGYPTFI_ABI: Abi =  [
       },
       {
         "type": "function",
-        "name": "add_supported_token",
-        "inputs": [
-          {
-            "name": "token",
-            "type": "core::starknet::contract_address::ContractAddress"
-          }
-        ],
-        "outputs": [],
-        "state_mutability": "external"
-      },
-      {
-        "type": "function",
-        "name": "remove_supported_token",
-        "inputs": [
-          {
-            "name": "token",
-            "type": "core::starknet::contract_address::ContractAddress"
-          }
-        ],
-        "outputs": [],
-        "state_mutability": "external"
-      },
-      {
-        "type": "function",
         "name": "toggle_emergency_pause",
         "inputs": [],
         "outputs": [],
@@ -496,22 +364,6 @@ export const EGYPTFI_ABI: Abi =  [
         ],
         "outputs": [],
         "state_mutability": "external"
-      },
-      {
-        "type": "function",
-        "name": "is_token_supported",
-        "inputs": [
-          {
-            "name": "token",
-            "type": "core::starknet::contract_address::ContractAddress"
-          }
-        ],
-        "outputs": [
-          {
-            "type": "core::bool"
-          }
-        ],
-        "state_mutability": "view"
       },
       {
         "type": "function",
@@ -596,10 +448,6 @@ export const EGYPTFI_ABI: Abi =  [
       },
       {
         "name": "usdc_token",
-        "type": "core::starknet::contract_address::ContractAddress"
-      },
-      {
-        "name": "autoswappr_contract",
         "type": "core::starknet::contract_address::ContractAddress"
       },
       {
@@ -708,16 +556,6 @@ export const EGYPTFI_ABI: Abi =  [
         "kind": "data"
       },
       {
-        "name": "name",
-        "type": "core::felt252",
-        "kind": "data"
-      },
-      {
-        "name": "email",
-        "type": "core::felt252",
-        "kind": "data"
-      },
-      {
         "name": "timestamp",
         "type": "core::integer::u64",
         "kind": "data"
@@ -763,11 +601,6 @@ export const EGYPTFI_ABI: Abi =  [
       },
       {
         "name": "customer",
-        "type": "core::starknet::contract_address::ContractAddress",
-        "kind": "data"
-      },
-      {
-        "name": "token",
         "type": "core::starknet::contract_address::ContractAddress",
         "kind": "data"
       },
@@ -876,40 +709,6 @@ export const EGYPTFI_ABI: Abi =  [
   },
   {
     "type": "event",
-    "name": "safebox::EgyptFi::TokenSupported",
-    "kind": "struct",
-    "members": [
-      {
-        "name": "token",
-        "type": "core::starknet::contract_address::ContractAddress",
-        "kind": "data"
-      },
-      {
-        "name": "timestamp",
-        "type": "core::integer::u64",
-        "kind": "data"
-      }
-    ]
-  },
-  {
-    "type": "event",
-    "name": "safebox::EgyptFi::TokenUnsupported",
-    "kind": "struct",
-    "members": [
-      {
-        "name": "token",
-        "type": "core::starknet::contract_address::ContractAddress",
-        "kind": "data"
-      },
-      {
-        "name": "timestamp",
-        "type": "core::integer::u64",
-        "kind": "data"
-      }
-    ]
-  },
-  {
-    "type": "event",
     "name": "safebox::EgyptFi::EmergencyPauseToggled",
     "kind": "struct",
     "members": [
@@ -973,16 +772,6 @@ export const EGYPTFI_ABI: Abi =  [
       {
         "name": "WithdrawalMade",
         "type": "safebox::EgyptFi::WithdrawalMade",
-        "kind": "nested"
-      },
-      {
-        "name": "TokenSupported",
-        "type": "safebox::EgyptFi::TokenSupported",
-        "kind": "nested"
-      },
-      {
-        "name": "TokenUnsupported",
-        "type": "safebox::EgyptFi::TokenUnsupported",
         "kind": "nested"
       },
       {

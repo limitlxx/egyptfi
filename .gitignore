@@ -29,6 +29,11 @@ next-env.d.ts
 # contract
 contract/api.txt
 contract/signer.json
+contract/src/crossEgypt.cairo
+contract/src/egyptv1.cairo
+
+kiro
+debug-jwt.js
 
 # kiro
 /kiro
