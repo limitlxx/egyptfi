@@ -9,9 +9,11 @@ With support for **no-code** and **low-code tools**, **developer-friendly APIs**
 ---
 
 ### Contract Address
+#### MAINNET
 > 0x04bb1a742ac72a9a72beebe1f608c508fce6dfa9250b869018b6e157dccb46e8
 
-https://voyager.online/contract/0x04bb1a742ac72a9a72beebe1f608c508fce6dfa9250b869018b6e157dccb46e8#writeContract
+#### SEPOLIA
+> 0x02680191ae87ed05ee564c8e468495c760ba1764065de451fe51bb097e64d062
 
 ## ⚙️ Technologies Used
 
@@ -49,7 +51,7 @@ https://voyager.online/contract/0x04bb1a742ac72a9a72beebe1f608c508fce6dfa9250b86
 > Step-by-step instructions to run the project locally:
 
 ```bash
-git clone https://github.com/your-org/egyptfi.git
+git clone https://github.com/limitlxx/egyptfi.git
 cd egyptfi
 setup .env file
 npm install
