@@ -1,29 +1,37 @@
-import type { Metadata } from 'next'
-import { GeistSans } from 'geist/font/sans'
-import { GeistMono } from 'geist/font/mono'
-import './globals.css'
+import type { Metadata } from "next";
+import "./globals.css";
 import { Toaster } from "react-hot-toast";
 import { Providers } from "@/components/providers";
 import { NetworkStatusProvider } from "@/components/NetworkStatusProvider";
 
 export const metadata: Metadata = {
-  title: 'EgyptFi',
-  description: 'Created with Limitlxx'
-}
+  title: "EgyptFi",
+  description: "The Future of Decentralized Finance for Merchants",
+};
 
 export default function RootLayout({
   children,
 }: Readonly<{
-  children: React.ReactNode
+  children: React.ReactNode;
 }>) {
   return (
-    <html lang="en">
+    <html lang="en" suppressHydrationWarning={true}>
       <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link
+          rel="preconnect"
+          href="https://fonts.gstatic.com"
+          crossOrigin="anonymous"
+        />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Lexend:wght@100;200;300;400;500;600;700;800;900&family=Lato:wght@100;300;400;700;900&display=swap"
+          rel="stylesheet"
+        />
         <style>{`
 html {
-  font-family: ${GeistSans.style.fontFamily};
-  --font-sans: ${GeistSans.variable};
-  --font-mono: ${GeistMono.variable};
+  font-family: 'Lato', sans-serif;
+  --font-heading: 'Lexend', sans-serif;
+  --font-body: 'Lato', sans-serif;
 }
         `}</style>
       </head>
@@ -36,5 +44,5 @@ html {
         </NetworkStatusProvider>
       </body>
     </html>
-  )
+  );
 }

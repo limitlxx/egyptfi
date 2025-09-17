@@ -1,5 +1,4 @@
 import { Card } from "@/components/ui/card"
-import Image from "next/image"
 
 interface CartItem {
   name: string
@@ -24,15 +23,7 @@ export function ShoppingCart({ merchantName, merchantLogo, items, subtotal, tax,
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center space-x-3">
           <div className="w-10 h-10 bg-gradient-to-br from-green-400 to-blue-500 rounded-lg flex items-center justify-center">
-            {/* <span className="text-white font-bold">{merchantLogo}</span> */}
-            <Image
-            src="/product.png"
-            alt="Egyptfi Official Logo"
-            width={150}
-            height={150}  
-            priority
-            className="rounded-full"
-          />
+            <span className="text-white font-bold">{merchantLogo}</span>
           </div>
           <div>
             <h3 className="font-semibold text-gray-900">{merchantName}</h3>
@@ -41,7 +32,7 @@ export function ShoppingCart({ merchantName, merchantLogo, items, subtotal, tax,
         </div>
         <div className="text-right">
           <p className="text-2xl font-bold text-gray-900">{total}</p>
-          {/* <p className="text-sm text-gray-500">≈ 3.2 USDC</p> */}
+          <p className="text-sm text-gray-500">≈ 3.2 USDC</p>
         </div>
       </div>
 

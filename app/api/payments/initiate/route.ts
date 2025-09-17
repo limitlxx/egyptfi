@@ -201,7 +201,7 @@ export async function GET(request: NextRequest) {
     const client = await pool.connect()
     try {
       const result = await client.query(
-        `SELECT *, m.business_name, m.business_logo, m.business_email, m.webhook, m.wallet_address m FROM invoices i
+        `SELECT *, m.business_name, m.business_logo, m.business_email, m.webhook FROM invoices i
             JOIN merchants m ON i.merchant_id = m.id
             WHERE i.payment_ref = $1`,
         [payment_ref]
@@ -238,7 +238,6 @@ export async function GET(request: NextRequest) {
           paymentUrl: invoice.payment_endpoint,
           walletUrl: `${invoice.payment_endpoint}&redirect=${invoice.secondary_endpoint}`,
           secondaryEndpoint: invoice.secondary_endpoint,
-          merchant_address: invoice.wallet_address,
           qrCode
         }
       })

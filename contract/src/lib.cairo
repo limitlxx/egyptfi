@@ -6,7 +6,7 @@ pub trait IEgyptFi<TContractState> {
     fn register_merchant(
         ref self: TContractState,
         withdrawal_address: ContractAddress,
-        metadata_hash: felt252,
+        fee_percentage: u16,
     );
     fn update_merchant_withdrawal_address(
         ref self: TContractState,
@@ -60,7 +60,7 @@ pub trait IEgyptFi<TContractState> {
         total_payments_received: u256,
         total_payments_count: u64,
         withdrawal_address: ContractAddress,
-        metadata_hash: felt252, // in basis points (10000 = 100%)
+        fee_percentage: u16, // in basis points (10000 = 100%)
         joined_timestamp: u64,
     }
 
@@ -126,7 +126,7 @@ mod EgyptFi {
         payments: Map<felt252, Payment>,
         merchant_payments: Map<(ContractAddress, u64), felt252>,
         merchant_payment_count: Map<ContractAddress, u64>,
-        setKycProof: Map<ContractAddress, felt252>,
+
         usdc_token: ContractAddress,
         platform_fee_percentage: u16,
         platform_fee_collector: ContractAddress,
@@ -277,7 +277,7 @@ mod EgyptFi {
     fn register_merchant(
         ref self: ContractState, 
         withdrawal_address: ContractAddress,
-        metadata_hash: felt252,
+        fee_percentage: u16,
     ) {
         self.reentrancy_guard.start();
         let caller = get_caller_address();
@@ -289,7 +289,7 @@ mod EgyptFi {
             total_payments_received: 0,
             total_payments_count: 0,
             withdrawal_address,
-            metadata_hash,
+            fee_percentage,
             joined_timestamp: get_block_timestamp(),
         };
         self.merchants.write(caller, new_merchant);

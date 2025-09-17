@@ -22,9 +22,6 @@ export default function PaymentPage() {
   const redirect_to = searchParams.get("redirect");
   const { isConnected, address } = useWallet();
 
-  console.log("ADrres", address);
-  
-
   const [invoiceData, setInvoiceData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -147,14 +144,10 @@ export default function PaymentPage() {
       const paymentCalls = await prepare_payment_call({
         payment_ref,
         amount: Number(convertedAmount) || invoiceData?.amount || 0,
-        token_address: selectedTokenData.address,
+        token_address: selectedTokenData?.address || "",
         contract_address: EGYPT_SEPOLIA_CONTRACT_ADDRESS,
-        userAddress: address,
-        merchant_address: invoiceData.merchant_address,
-        description: invoiceData.description || "",
+        userAddress: address, // Pass connected wallet address
       });
-      console.log();
-      
       await executeTransaction(paymentCalls);
     } catch (err) {
       toast.error(`Payment failed: ${err}`);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, useRef } from "react";
 import {
   ArrowLeft,
   Copy,
@@ -16,9 +16,97 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import Link from "next/link";
+import Image from "next/image";
+import { gsap } from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import PrismBackground from "@/components/prism-background";
+
+if (typeof window !== "undefined") {
+  gsap.registerPlugin(ScrollTrigger);
+}
 
 export default function DocsPage() {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
+  const pageRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
+  const heroRef = useRef<HTMLDivElement>(null);
+  const quickStartRef = useRef<HTMLDivElement>(null);
+  const authRef = useRef<HTMLDivElement>(null);
+  const endpointsRef = useRef<HTMLDivElement>(null);
+  const webhooksRef = useRef<HTMLDivElement>(null);
+  const rateLimitsRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!pageRef.current) return;
+
+    const tl = gsap.timeline();
+
+    // Animate header
+    tl.fromTo(
+      headerRef.current,
+      {
+        opacity: 0,
+        y: -20,
+      },
+      {
+        opacity: 1,
+        y: 0,
+        duration: 0.8,
+        ease: "power2.out",
+      }
+    );
+
+    // Animate hero section
+    tl.fromTo(
+      heroRef.current,
+      {
+        opacity: 0,
+        y: 50,
+      },
+      {
+        opacity: 1,
+        y: 0,
+        duration: 1,
+        ease: "power2.out",
+      },
+      "-=0.5"
+    );
+
+    // Animate sections with ScrollTrigger
+    const sections = [
+      quickStartRef,
+      authRef,
+      endpointsRef,
+      webhooksRef,
+      rateLimitsRef,
+    ];
+
+    sections.forEach((sectionRef, index) => {
+      gsap.fromTo(
+        sectionRef.current,
+        {
+          opacity: 0,
+          y: 30,
+        },
+        {
+          opacity: 1,
+          y: 0,
+          duration: 0.8,
+          ease: "power2.out",
+          scrollTrigger: {
+            trigger: sectionRef.current,
+            start: "top 80%",
+            end: "bottom 20%",
+            toggleActions: "play none none reverse",
+          },
+        }
+      );
+    });
+
+    return () => {
+      ScrollTrigger.getAll().forEach((trigger) => trigger.kill());
+    };
+  }, []);
 
   const copyCode = async (code: string, id: string) => {
     await navigator.clipboard.writeText(code);
@@ -330,9 +418,36 @@ confirmation = response.json()`,
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+    <div ref={pageRef} className="min-h-screen bg-background relative">
+      {/* Background Animation */}
+      <div
+        style={{
+          width: "100%",
+          height: "100vh",
+          position: "fixed",
+          top: 0,
+          left: 0,
+          pointerEvents: "none",
+        }}
+      >
+        <PrismBackground
+          animationType="3drotate"
+          timeScale={0.5}
+          height={3.5}
+          baseWidth={4.5}
+          scale={3.6}
+          hueShift={0.125}
+          colorFrequency={0.8}
+          noise={0.2}
+          glow={0.5}
+        />
+      </div>
+
       {/* Header */}
-      <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
+      <header
+        ref={headerRef}
+        className="border-b border-border bg-background/80 backdrop-blur-md sticky top-0 z-50"
+      >
         <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-4">
             <Button variant="ghost" size="sm" asChild>
@@ -341,16 +456,8 @@ confirmation = response.json()`,
                 Back to Home
               </Link>
             </Button>
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">N</span>
-              </div>
-              <span className="text-xl font-bold text-gray-900">
-                EgyptFi API
-              </span>
-            </div>
           </div>
-          <Button className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700">
+          <Button className="bg-primary hover:bg-primary/90">
             Get API Key
           </Button>
         </div>
@@ -358,31 +465,32 @@ confirmation = response.json()`,
 
       <div className="container mx-auto px-4 py-12 max-w-6xl">
         {/* Hero Section */}
-        <div className="text-center mb-16">
-          <div className="inline-flex items-center px-4 py-2 bg-blue-100 text-blue-800 rounded-full text-sm font-medium mb-6">
+        <div ref={heroRef} className="text-center mb-16">
+          <div className="inline-flex items-center px-4 py-2 bg-primary/10 text-primary rounded-full text-sm font-medium mb-6">
             <Book className="w-4 h-4 mr-2" />
             API Documentation
           </div>
-          <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-6">
+          <h1 className="text-4xl md:text-5xl font-bold text-foreground mb-6">
             Build with{" "}
-            <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-primary to-yellow-600 bg-clip-text text-transparent">
               EgyptFi API
             </span>
           </h1>
-          <p className="text-xl text-gray-600 max-w-3xl mx-auto mb-8">
+          <p className="text-xl text-muted-foreground max-w-3xl mx-auto mb-8">
             Integrate crypto payments into your application with our RESTful
             API. Accept payments across multiple blockchains and receive USDC
             settlements automatically.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <Button
-              size="lg"
-              className="bg-gradient-to-r from-blue-600 to-purple-600"
-            >
+            <Button size="lg" className="bg-primary hover:bg-primary/90">
               <Play className="w-4 h-4 mr-2" />
               Try in Playground
             </Button>
-            <Button variant="outline" size="lg" className="bg-transparent">
+            <Button
+              variant="outline"
+              size="lg"
+              className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
+            >
               <Code className="w-4 h-4 mr-2" />
               View Examples
             </Button>
@@ -390,39 +498,48 @@ confirmation = response.json()`,
         </div>
 
         {/* Quick Start */}
-        <Card className="mb-12 shadow-lg border-0">
+        <Card
+          ref={quickStartRef}
+          className="mb-12 shadow-lg border-border/50 bg-card/50 backdrop-blur-sm"
+        >
           <CardHeader>
             <CardTitle className="flex items-center">
-              <Zap className="w-5 h-5 mr-2 text-blue-600" />
+              <Zap className="w-5 h-5 mr-2 text-primary" />
               Quick Start
             </CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid md:grid-cols-3 gap-6">
               <div className="text-center">
-                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <span className="text-blue-600 font-bold">1</span>
+                <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-primary font-bold">1</span>
                 </div>
-                <h3 className="font-semibold mb-2">Get API Key</h3>
-                <p className="text-sm text-gray-600">
+                <h3 className="font-semibold mb-2 text-foreground">
+                  Get API Key
+                </h3>
+                <p className="text-sm text-muted-foreground">
                   Sign up and get your API key from the merchant dashboard
                 </p>
               </div>
               <div className="text-center">
-                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <span className="text-blue-600 font-bold">2</span>
+                <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-primary font-bold">2</span>
                 </div>
-                <h3 className="font-semibold mb-2">Create Payment</h3>
-                <p className="text-sm text-gray-600">
+                <h3 className="font-semibold mb-2 text-foreground">
+                  Create Payment
+                </h3>
+                <p className="text-sm text-muted-foreground">
                   Use the initiate endpoint to create a new payment invoice
                 </p>
               </div>
               <div className="text-center">
-                <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <span className="text-blue-600 font-bold">3</span>
+                <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <span className="text-primary font-bold">3</span>
                 </div>
-                <h3 className="font-semibold mb-2">Handle Webhooks</h3>
-                <p className="text-sm text-gray-600">
+                <h3 className="font-semibold mb-2 text-foreground">
+                  Handle Webhooks
+                </h3>
+                <p className="text-sm text-muted-foreground">
                   Receive real-time payment confirmations via webhooks
                 </p>
               </div>
@@ -431,23 +548,26 @@ confirmation = response.json()`,
         </Card>
 
         {/* Authentication */}
-        <Card className="mb-12 shadow-lg border-0">
+        <Card
+          ref={authRef}
+          className="mb-12 shadow-lg border-border/50 bg-card/50 backdrop-blur-sm"
+        >
           <CardHeader>
             <CardTitle className="flex items-center">
-              <Shield className="w-5 h-5 mr-2 text-green-600" />
+              <Shield className="w-5 h-5 mr-2 text-primary" />
               Authentication
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-gray-600 mb-4">
+            <p className="text-muted-foreground mb-4">
               All API requests require authentication using your API key in the
               Authorization header:
             </p>
-            <div className="bg-gray-900 rounded-lg p-4 relative">
+            <div className="bg-muted rounded-lg p-4 relative">
               <Button
                 variant="ghost"
                 size="sm"
-                className="absolute top-2 right-2 text-gray-400 hover:text-white"
+                className="absolute top-2 right-2 text-muted-foreground hover:text-foreground"
                 onClick={() =>
                   copyCode("Authorization: Bearer YOUR_API_KEY", "auth")
                 }
@@ -458,12 +578,12 @@ confirmation = response.json()`,
                   <Copy className="w-4 h-4" />
                 )}
               </Button>
-              <code className="text-green-400 text-sm">
+              <code className="text-foreground text-sm">
                 Authorization: Bearer YOUR_API_KEY
               </code>
             </div>
-            <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-              <p className="text-sm text-yellow-800">
+            <div className="mt-4 p-4 bg-primary/5 border border-primary/20 rounded-lg">
+              <p className="text-sm text-foreground">
                 <strong>Security Note:</strong> Never expose your API key in
                 client-side code. Always make API calls from your server.
               </p>
@@ -472,29 +592,34 @@ confirmation = response.json()`,
         </Card>
 
         {/* API Endpoints */}
-        <div className="space-y-8">
-          <h2 className="text-3xl font-bold text-gray-900 mb-8">
+        <div ref={endpointsRef} className="space-y-8">
+          <h2 className="text-3xl font-bold text-foreground mb-8">
             API Endpoints
           </h2>
 
           {endpoints.map((endpoint, index) => (
-            <Card key={index} className="shadow-lg border-0">
+            <Card
+              key={index}
+              className="shadow-lg border-border/50 bg-card/50 backdrop-blur-sm"
+            >
               <CardHeader>
                 <div className="flex items-center space-x-3">
                   <Badge
                     className={`${
                       endpoint.method === "POST"
-                        ? "bg-green-100 text-green-800"
-                        : "bg-blue-100 text-blue-800"
+                        ? "bg-primary/10 text-primary"
+                        : "bg-secondary text-secondary-foreground"
                     }`}
                   >
                     {endpoint.method}
                   </Badge>
-                  <code className="text-lg font-mono bg-gray-100 px-3 py-1 rounded">
+                  <code className="text-lg font-mono bg-muted px-3 py-1 rounded text-foreground">
                     {endpoint.endpoint}
                   </code>
                 </div>
-                <p className="text-gray-600 mt-2">{endpoint.description}</p>
+                <p className="text-muted-foreground mt-2">
+                  {endpoint.description}
+                </p>
               </CardHeader>
               <CardContent>
                 <Tabs defaultValue="parameters" className="w-full">
@@ -529,7 +654,7 @@ confirmation = response.json()`,
                             {endpoint.params.map((param, paramIndex) => (
                               <tr key={paramIndex} className="border-b">
                                 <td className="py-2">
-                                  <code className="bg-gray-100 px-2 py-1 rounded text-xs">
+                                  <code className="bg-primary text-black px-2 py-1 rounded text-xs">
                                     {param.name}
                                   </code>
                                 </td>
@@ -561,12 +686,12 @@ confirmation = response.json()`,
                   </TabsContent>
 
                   <TabsContent value="response" className="mt-6">
-                    <div className="bg-gray-900 rounded-lg p-4 relative">
+                    <div className="bg-muted rounded-lg p-4 relative">
                       {/* Copy button */}
                       <Button
                         variant="ghost"
                         size="sm"
-                        className="absolute top-2 right-2 text-gray-400 hover:text-white"
+                        className="absolute top-2 right-2 text-muted-foreground hover:text-foreground"
                         onClick={() =>
                           copyCode(
                             JSON.stringify(endpoint.response, null, 2),
@@ -582,7 +707,7 @@ confirmation = response.json()`,
                       </Button>
 
                       {/* Response block */}
-                      <pre className="text-green-400 text-sm overflow-x-auto whitespace-pre-wrap break-words">
+                      <pre className="text-foreground text-sm overflow-x-auto whitespace-pre-wrap break-words">
                         <code>
                           {JSON.stringify(endpoint.response, null, 2)}
                         </code>
@@ -600,11 +725,11 @@ confirmation = response.json()`,
 
                       {["curl", "javascript", "python"].map((lang) => (
                         <TabsContent key={lang} value={lang} className="mt-4">
-                          <div className="bg-gray-900 rounded-lg p-4 relative">
+                          <div className="bg-muted rounded-lg p-4 relative">
                             <Button
                               variant="ghost"
                               size="sm"
-                              className="absolute top-2 right-2 text-gray-400 hover:text-white"
+                              className="absolute top-2 right-2 text-muted-foreground hover:text-foreground"
                               onClick={() => {
                                 const codeKey = endpoint.endpoint.includes(
                                   "initiate"
@@ -613,10 +738,12 @@ confirmation = response.json()`,
                                   : endpoint.endpoint.includes(":ref")
                                   ? "fetch"
                                   : "confirm";
-                                // copyCode(
-                                //   codeExamples[lang][codeKey],
-                                //   `${lang}-${index}`
-                                // );
+                                copyCode(
+                                  codeExamples[
+                                    lang as keyof typeof codeExamples
+                                  ][codeKey as keyof typeof codeExamples.curl],
+                                  `${lang}-${index}`
+                                );
                               }}
                             >
                               {copiedCode === `${lang}-${index}` ? (
@@ -625,7 +752,7 @@ confirmation = response.json()`,
                                 <Copy className="w-4 h-4" />
                               )}
                             </Button>
-                            <pre className="text-green-400 text-sm overflow-x-auto">
+                            <pre className="text-foreground text-sm overflow-x-auto">
                               {endpoint.endpoint.includes("initiate")
                                 ? codeExamples[
                                     lang as keyof typeof codeExamples
@@ -645,16 +772,16 @@ confirmation = response.json()`,
                   </TabsContent>
 
                   <TabsContent value="try" className="mt-6">
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 text-center">
-                      <Code className="w-12 h-12 text-blue-600 mx-auto mb-4" />
-                      <h3 className="font-semibold text-blue-900 mb-2">
+                    <div className="bg-primary/5 border border-primary/20 rounded-lg p-6 text-center">
+                      <Code className="w-12 h-12 text-primary mx-auto mb-4" />
+                      <h3 className="font-semibold text-foreground mb-2">
                         Interactive API Playground
                       </h3>
-                      <p className="text-blue-700 mb-4">
+                      <p className="text-muted-foreground mb-4">
                         Test this endpoint with real parameters in our
                         interactive playground
                       </p>
-                      <Button className="bg-blue-600 hover:bg-blue-700">
+                      <Button className="bg-primary hover:bg-primary/90">
                         <Play className="w-4 h-4 mr-2" />
                         Open in Playground
                       </Button>
@@ -667,43 +794,54 @@ confirmation = response.json()`,
         </div>
 
         {/* Webhooks Section */}
-        <Card className="mt-12 shadow-lg border-0">
+        <Card
+          ref={webhooksRef}
+          className="mt-12 shadow-lg border-border/50 bg-card/50 backdrop-blur-sm"
+        >
           <CardHeader>
             <CardTitle>Webhooks</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-gray-600 mb-4">
+            <p className="text-muted-foreground mb-4">
               EgyptFi sends webhook notifications to your specified URL when
               payment events occur. Configure your webhook URL in the merchant
               dashboard or when creating a payment.
             </p>
 
-            <div className="bg-gray-50 rounded-lg p-4 mb-4">
-              <h4 className="font-semibold mb-2">Webhook Events</h4>
+            <div className="bg-muted/50 rounded-lg p-4 mb-4">
+              <h4 className="font-semibold mb-2 text-foreground">
+                Webhook Events
+              </h4>
               <ul className="space-y-2 text-sm">
                 <li className="flex items-center">
                   <Badge variant="secondary" className="mr-2">
                     payment.confirmed
                   </Badge>
-                  Payment has been confirmed on blockchain
+                  <span className="text-muted-foreground">
+                    Payment has been confirmed on blockchain
+                  </span>
                 </li>
                 <li className="flex items-center">
                   <Badge variant="secondary" className="mr-2">
                     payment.settled
                   </Badge>
-                  USDC has been settled to merchant wallet
+                  <span className="text-muted-foreground">
+                    USDC has been settled to merchant wallet
+                  </span>
                 </li>
                 <li className="flex items-center">
                   <Badge variant="secondary" className="mr-2">
                     payment.failed
                   </Badge>
-                  Payment failed or expired
+                  <span className="text-muted-foreground">
+                    Payment failed or expired
+                  </span>
                 </li>
               </ul>
             </div>
 
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-              <p className="text-sm text-yellow-800">
+            <div className="bg-primary/5 border border-primary/20 rounded-lg p-4">
+              <p className="text-sm text-foreground">
                 <strong>Security:</strong> Always verify webhook signatures
                 using the provided secret key to ensure authenticity.
               </p>
@@ -712,27 +850,34 @@ confirmation = response.json()`,
         </Card>
 
         {/* Rate Limits */}
-        <Card className="mt-8 shadow-lg border-0">
+        <Card
+          ref={rateLimitsRef}
+          className="mt-8 shadow-lg border-border/50 bg-card/50 backdrop-blur-sm"
+        >
           <CardHeader>
             <CardTitle>Rate Limits</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid md:grid-cols-3 gap-6">
               <div className="text-center">
-                <div className="text-2xl font-bold text-blue-600 mb-2">100</div>
-                <p className="text-sm text-gray-600">Requests per minute</p>
+                <div className="text-2xl font-bold text-primary mb-2">100</div>
+                <p className="text-sm text-muted-foreground">
+                  Requests per minute
+                </p>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-green-600 mb-2">
-                  1000
-                </div>
-                <p className="text-sm text-gray-600">Requests per hour</p>
+                <div className="text-2xl font-bold text-primary mb-2">1000</div>
+                <p className="text-sm text-muted-foreground">
+                  Requests per hour
+                </p>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-purple-600 mb-2">
+                <div className="text-2xl font-bold text-primary mb-2">
                   10000
                 </div>
-                <p className="text-sm text-gray-600">Requests per day</p>
+                <p className="text-sm text-muted-foreground">
+                  Requests per day
+                </p>
               </div>
             </div>
           </CardContent>

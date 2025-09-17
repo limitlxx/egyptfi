@@ -13,7 +13,6 @@ import {
   RefreshCw,
   Info
 } from "lucide-react";
-import { feltToInt } from "@/lib/felt252-utils";
 
 interface PaymentModeIndicatorProps {
   className?: string;
@@ -110,12 +109,12 @@ export function   PaymentModeIndicator({ className = "", showDetails = true }: P
         <div className="mt-3 text-xs text-gray-600 space-y-1">
           <div className="flex justify-between">
             <span>ETH Credits:</span>
-            <span className="font-mono">{feltToInt(BigInt(activity.remainingCredits))} ETH</span>
+            <span className="font-mono">{parseFloat(activity.remainingCredits).toFixed(6)} ETH</span>
           </div>
           <div className="flex justify-between">
             <span>STRK Credits:</span>
-            <span className="font-mono">{feltToInt(BigInt(activity.remainingStrkCredits))} STRK</span>
-          </div>  
+            <span className="font-mono">{parseFloat(activity.remainingStrkCredits).toFixed(2)} STRK</span>
+          </div>
           <div className="flex justify-between">
             <span>Total Transactions:</span>
             <span>{activity.txCount}</span>

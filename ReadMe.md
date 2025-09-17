@@ -9,11 +9,9 @@ With support for **no-code** and **low-code tools**, **developer-friendly APIs**
 ---
 
 ### Contract Address
-#### MAINNET
 > 0x04bb1a742ac72a9a72beebe1f608c508fce6dfa9250b869018b6e157dccb46e8
 
-#### SEPOLIA
-> 0x0654d1ab73d517086e44028ba82647e46157657f4c77616ffd3c6cba589240a2
+https://voyager.online/contract/0x04bb1a742ac72a9a72beebe1f608c508fce6dfa9250b869018b6e157dccb46e8#writeContract
 
 ## ⚙️ Technologies Used
 
@@ -51,7 +49,7 @@ With support for **no-code** and **low-code tools**, **developer-friendly APIs**
 > Step-by-step instructions to run the project locally:
 
 ```bash
-git clone https://github.com/limitlxx/egyptfi.git
+git clone https://github.com/your-org/egyptfi.git
 cd egyptfi
 setup .env file
 npm install
@@ -92,22 +90,17 @@ npm run dev
 ### ➕ Create Invoice (POST request)
 
 ```js
-const response = await fetch('https://egyptfi.online/api/payment/initiate', {
+const response = await fetch('https://api.nummus.xyz/api/payment/initiate', {
   method: 'POST',
-  headers: { 
-    'X-API-Key': 'pk_test_key', 
-    'X-Wallet-Address': '0x065982b15Bc87AbdAa2DA7DB5F2164792b6c2e497bd80f4b7ace9E799Be4Beb0', 
-    'X-Environment': 'testnet', 
+  headers: {
+    'Authorization': 'Bearer YOUR_API_KEY',
     'Content-Type': 'application/json',
   },
-  body: JSON.stringify({ 
-    payment_ref: `order-${Date.now()}`,
-    local_amount: 11000,
-    local_currency: "NGN",
-    description: "TheBuidl Kitchen, Kaduna",
-    chain: "starknet",
-    secondary_endpoint: "http://localhost:3000/confirm",
-    email: "name@xyz.com",
+  body: JSON.stringify({
+    amount: 5000,
+    currency: 'NGN',
+    description: 'Premium Coffee Blend x2',
+    webhook_url: 'https://yoursite.com/webhook'
   })
 });
 
@@ -119,8 +112,8 @@ console.log(payment.hosted_url);
 
 ```json
 {
-  "reference": "pay_abc123",
-  "authorised_url": "https://egyptfi.online/invoice/payment_ref",
+  "payment_ref": "pay_abc123",
+  "hosted_url": "https://pay.nummus.xyz/pay_abc123",
   "qr_code": "data:image/png;base64,...",
   "expires_at": "2024-01-15T10:30:00Z"
 }
@@ -131,13 +124,10 @@ console.log(payment.hosted_url);
 ### 🔍 Fetch Invoice Metadata (GET request)
 
 ```js
-const response = await fetch('https://egyptfi.online/api/payment/pay_abc123', {
-  headers: { 
-    'X-API-Key': 'pk_test_key', 
-    'X-Wallet-Address': '0x065982b15Bc87AbdAa2DA7DB5F2164792b6c2e497bd80f4b7ace9E799Be4Beb0', 
-    'X-Environment': 'testnet', 
-    'Content-Type': 'application/json',
-  },
+const response = await fetch('https://api.nummus.xyz/api/payment/pay_abc123', {
+  headers: {
+    'Authorization': 'Bearer YOUR_API_KEY',
+  }
 });
 
 const invoice = await response.json();
