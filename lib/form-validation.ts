@@ -5,7 +5,70 @@ export interface ValidationResult {
   errors: string[];
 }
 
+export interface SimplifiedRegistrationRequest {
+  business_email: string;
+  pin: string;
+}
+
 export class FormValidator {
+  // Validate email format and uniqueness (uniqueness check done in API)
+  static validateEmail(email: string): ValidationResult {
+    const errors: string[] = [];
+    const trimmedEmail = email.trim();
+
+    if (!trimmedEmail) {
+      errors.push('Email is required');
+    } else {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(trimmedEmail)) {
+        errors.push('Invalid email format');
+      }
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors
+    };
+  }
+
+  // Validate PIN strength (4-8 digits, configurable pattern)
+  static validatePin(pin: string): ValidationResult {
+    const errors: string[] = [];
+    
+    if (!pin) {
+      errors.push('PIN is required');
+    } else {
+      // Default pattern: 4-8 digits (configurable via environment)
+      const pinPattern = process.env.PIN_VALIDATION_REGEX || '^[0-9]{4,8}$';
+      const pinRegex = new RegExp(pinPattern);
+      
+      if (!pinRegex.test(pin)) {
+        errors.push('PIN must be 4-8 digits');
+      }
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors
+    };
+  }
+
+  // Validate simplified registration data
+  static validateSimplifiedRegistration(data: SimplifiedRegistrationRequest): ValidationResult {
+    const allErrors: string[] = [];
+
+    const emailValidation = this.validateEmail(data.business_email);
+    const pinValidation = this.validatePin(data.pin);
+
+    allErrors.push(...emailValidation.errors);
+    allErrors.push(...pinValidation.errors);
+
+    return {
+      isValid: allErrors.length === 0,
+      errors: allErrors
+    };
+  }
+
   // Validate business name
   static validateBusinessName(name: string): ValidationResult {
     const errors: string[] = [];
@@ -78,9 +141,6 @@ export class FormValidator {
     if (file.size > maxSize) {
       errors.push('Image size must be less than 5MB');
     }
-
-    // Check image dimensions (optional - you might want to add this)
-    // This would require reading the image, which is more complex in the browser
 
     return {
       isValid: errors.length === 0,
