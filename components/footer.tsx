@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Button } from "@/components/ui/button";
@@ -15,9 +15,85 @@ import {
   ExternalLink,
   Heart,
 } from "lucide-react";
+import { gsap } from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+
+if (typeof window !== "undefined") {
+  gsap.registerPlugin(ScrollTrigger);
+}
 
 export const Footer: React.FC = () => {
+  const footerRef = useRef<HTMLElement>(null);
+  const mainContentRef = useRef<HTMLDivElement>(null);
+  const newsletterRef = useRef<HTMLDivElement>(null);
+  const bottomSectionRef = useRef<HTMLDivElement>(null);
+
   const currentYear = new Date().getFullYear();
+
+  useEffect(() => {
+    if (!footerRef.current) return;
+
+    const tl = gsap.timeline({
+      scrollTrigger: {
+        trigger: footerRef.current,
+        start: "top 90%",
+        end: "bottom 10%",
+        toggleActions: "play none none reverse",
+      },
+    });
+
+    // Animate main footer content with stagger
+    tl.fromTo(
+      mainContentRef.current?.children || [],
+      {
+        opacity: 0,
+        y: 30,
+      },
+      {
+        opacity: 1,
+        y: 0,
+        duration: 0.8,
+        stagger: 0.1,
+        ease: "power2.out",
+      }
+    );
+
+    // Animate newsletter section
+    tl.fromTo(
+      newsletterRef.current,
+      {
+        opacity: 0,
+        y: 20,
+      },
+      {
+        opacity: 1,
+        y: 0,
+        duration: 0.6,
+        ease: "power2.out",
+      },
+      "-=0.4"
+    );
+
+    // Animate bottom section
+    tl.fromTo(
+      bottomSectionRef.current,
+      {
+        opacity: 0,
+        y: 20,
+      },
+      {
+        opacity: 1,
+        y: 0,
+        duration: 0.6,
+        ease: "power2.out",
+      },
+      "-=0.3"
+    );
+
+    return () => {
+      ScrollTrigger.getAll().forEach((trigger) => trigger.kill());
+    };
+  }, []);
 
   const footerLinks = {
     product: [
@@ -78,10 +154,10 @@ export const Footer: React.FC = () => {
   ];
 
   return (
-    <footer className="bg-background border-t border-border">
+    <footer ref={footerRef} className="bg-background border-t border-border">
       <div className="container mx-auto px-4 sm:px-6 lg:px-8">
         {/* Main Footer Content */}
-        <div className="py-12">
+        <div ref={mainContentRef} className="py-12">
           <div className="grid grid-cols-1 items-center md:grid-cols-2 lg:grid-cols-6 gap-8">
             {/* Brand Section */}
             <div className="lg:col-span-2">
@@ -111,7 +187,7 @@ export const Footer: React.FC = () => {
               <div className="space-y-2 text-sm text-muted-foreground">
                 <div className="flex items-center gap-2">
                   <MapPin className="h-4 w-4" />
-                  <span>Lagos, Nigeria</span>
+                  <span>Kaduna, Nigeria</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Mail className="h-4 w-4" />
@@ -192,32 +268,8 @@ export const Footer: React.FC = () => {
 
         <Separator className="my-8" />
 
-        {/* Newsletter Signup */}
-        <div className="py-8">
-          <div className="max-w-md mx-auto text-center">
-            <h3 className="font-semibold text-foreground mb-2">
-              Stay in the loop
-            </h3>
-            <p className="text-muted-foreground text-sm mb-4">
-              Get updates on new features and improvements
-            </p>
-            <div className="flex gap-2">
-              <input
-                type="email"
-                placeholder="Enter your email"
-                className="flex-1 px-3 py-2 bg-muted border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
-              />
-              <Button size="sm" className="bg-primary hover:bg-primary/90">
-                Subscribe
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        <Separator className="my-8" />
-
         {/* Bottom Section */}
-        <div className="py-6">
+        <div ref={bottomSectionRef} className="py-6">
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             {/* Copyright */}
             <div className="flex items-center gap-2 text-sm text-muted-foreground">

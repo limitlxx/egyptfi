@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useEffect, useRef } from "react";
+import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ArrowRight, BookOpen } from "lucide-react";
+import { ArrowRight, Play } from "lucide-react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
@@ -18,6 +19,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onGetStarted }) => {
   const heroRef = useRef<HTMLElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
   const subtitleRef = useRef<HTMLParagraphElement>(null);
+  const demoButtonRef = useRef<HTMLButtonElement>(null);
   const buttonsRef = useRef<HTMLDivElement>(null);
   const indicatorsRef = useRef<HTMLDivElement>(null);
 
@@ -57,6 +59,24 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onGetStarted }) => {
         ease: "power2.out",
       },
       "-=0.5"
+    );
+
+    // Animate demo button
+    tl.fromTo(
+      demoButtonRef.current,
+      {
+        opacity: 0,
+        y: 20,
+        scale: 0.8,
+      },
+      {
+        opacity: 1,
+        y: 0,
+        scale: 1,
+        duration: 0.6,
+        ease: "back.out(1.7)",
+      },
+      "-=0.3"
     );
 
     // Animate buttons with stagger
@@ -136,7 +156,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onGetStarted }) => {
         {/* Main Heading */}
         <h1
           ref={titleRef}
-          className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-bold text-foreground mb-8 leading-tight"
+          className="text-4xl sm:text-5xl mt-12 md:text-6xl lg:text-7xl font-bold text-foreground mb-8 leading-tight"
         >
           The Future of{" "}
           <span className="bg-gradient-to-r from-primary to-yellow-600 bg-clip-text text-transparent">
@@ -148,7 +168,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onGetStarted }) => {
         {/* Subtitle */}
         <p
           ref={subtitleRef}
-          className="text-lg sm:text-xl md:text-2xl text-muted-foreground mb-12 max-w-3xl mx-auto leading-relaxed"
+          className="text-lg sm:text-xl md:text-2xl text-muted-foreground mb-8 max-w-3xl mx-auto leading-relaxed"
         >
           Empower your business with invisible wallets, zk-KYC compliance, yield
           farming, and instant payments on the Starknet blockchain.
@@ -171,11 +191,10 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onGetStarted }) => {
           <Button
             variant="outline"
             size="lg"
-            className="border-primary text-primary hover:bg-primary hover:text-primary-foreground px-8 py-4 text-lg font-semibold rounded-lg transition-all duration-300"
-            onClick={() => scrollToSection("features")}
+            className="border-primary text-primary px-8 py-4 text-lg font-semibold rounded-lg transition-all duration-300"
+            asChild
           >
-            <BookOpen className="mr-2 h-5 w-5" />
-            Learn More
+            <Link href="/docs">API Docs</Link>
           </Button>
         </div>
 
@@ -187,7 +206,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onGetStarted }) => {
                 <div className="w-3 h-3 bg-primary rounded-full animate-pulse shadow-lg shadow-primary/50"></div>
                 <div className="absolute inset-0 w-3 h-3 bg-primary rounded-full animate-ping opacity-30"></div>
               </div>
-              <span className="text-foreground font-semibold text-base group-hover:text-primary transition-colors duration-300 transform group-hover:scale-105 transition-transform">
+              <span className="text-foreground font-semibold text-base group-hover:text-primary duration-300 transform group-hover:scale-105 transition-transform">
                 Secure
               </span>
             </div>
@@ -203,7 +222,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onGetStarted }) => {
                   style={{ animationDelay: "0.2s" }}
                 ></div>
               </div>
-              <span className="text-foreground font-semibold text-base group-hover:text-primary transition-colors duration-300 transform group-hover:scale-105 transition-transform">
+              <span className="text-foreground font-semibold text-base group-hover:text-primary duration-300 transform group-hover:scale-105 transition-transform">
                 Fast
               </span>
             </div>
@@ -224,6 +243,20 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onGetStarted }) => {
               </span>
             </div>
           </div>
+        </div>
+        {/* Run Demo Button */}
+        <div className="mt-12 flex justify-center">
+          <Button
+            ref={demoButtonRef}
+            size="lg"
+            className="bg-primary hover:bg-primary/90 text-primary-foreground px-8 py-4 text-lg font-semibold rounded-lg shadow-lg transition-all duration-300"
+            asChild
+          >
+            <Link href="/demo">
+              <Play className="mr-2 h-5 w-5" />
+              Run Demo
+            </Link>
+          </Button>
         </div>
       </div>
 

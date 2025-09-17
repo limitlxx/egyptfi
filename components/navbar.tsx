@@ -8,18 +8,36 @@ import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Menu, Sun, Moon } from "lucide-react";
 import Image from "next/image";
 
-export const Navbar: React.FC = () => {
+interface NavbarProps {
+  onGetStarted: () => void;
+  onScrollToSection: (sectionId: string) => void;
+}
+
+export const Navbar: React.FC<NavbarProps> = ({
+  onGetStarted,
+  onScrollToSection,
+}) => {
   const [isOpen, setIsOpen] = useState(false);
   const { theme, setTheme } = useTheme();
 
   const navItems = [
-    { name: "Features", href: "#features" },
-    { name: "About", href: "#about" },
-    { name: "Get Started", href: "#get-started" },
+    { name: "Features", href: "#features", action: "scroll" },
+    { name: "About", href: "#about", action: "scroll" },
+    { name: "Get Started", href: "#get-started", action: "modal" },
   ];
 
   const toggleTheme = () => {
     setTheme(theme === "dark" ? "light" : "dark");
+  };
+
+  const handleNavClick = (item: (typeof navItems)[0]) => {
+    if (item.action === "modal") {
+      onGetStarted();
+    } else if (item.action === "scroll") {
+      const sectionId = item.href.replace("#", "");
+      onScrollToSection(sectionId);
+    }
+    setIsOpen(false); // Close mobile menu
   };
 
   return (
@@ -48,15 +66,15 @@ export const Navbar: React.FC = () => {
 
           {/* Desktop Navigation */}
           <div className="hidden md:block">
-            <div className="ml-10 flex items-baseline space-x-8">
+            <div className="flex items-baseline space-x-8">
               {navItems.map((item) => (
-                <Link
+                <button
                   key={item.name}
-                  href={item.href}
-                  className="text-foreground hover:text-primary px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200"
+                  onClick={() => handleNavClick(item)}
+                  className="text-foreground hover:text-primary px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 cursor-pointer"
                 >
                   {item.name}
-                </Link>
+                </button>
               ))}
             </div>
           </div>
@@ -91,14 +109,13 @@ export const Navbar: React.FC = () => {
                 <SheetContent side="right" className="w-[300px] sm:w-[400px]">
                   <div className="flex flex-col space-y-4 mt-8">
                     {navItems.map((item) => (
-                      <Link
+                      <button
                         key={item.name}
-                        href={item.href}
-                        className="text-foreground hover:text-primary px-3 py-2 rounded-md text-lg font-medium transition-colors duration-200"
-                        onClick={() => setIsOpen(false)}
+                        onClick={() => handleNavClick(item)}
+                        className="text-foreground hover:text-primary px-3 py-2 rounded-md text-lg font-medium transition-colors duration-200 text-left"
                       >
                         {item.name}
-                      </Link>
+                      </button>
                     ))}
                   </div>
                 </SheetContent>

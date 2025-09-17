@@ -16,6 +16,13 @@ export default function HomePage() {
     setShowSignupModal(true);
   };
 
+  const scrollToSection = (sectionId: string) => {
+    const element = document.getElementById(sectionId);
+    if (element) {
+      element.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       {/* Background Animation */}
@@ -26,23 +33,27 @@ export default function HomePage() {
           position: "fixed",
           top: 0,
           left: 0,
+          pointerEvents: "none",
         }}
       >
         <PrismBackground
           animationType="3drotate"
           timeScale={0.5}
           height={3.5}
-          baseWidth={5.5}
+          baseWidth={4.5}
           scale={3.6}
-          hueShift={0}
-          colorFrequency={1}
+          hueShift={0.125}
+          colorFrequency={0.8}
           noise={0.2}
           glow={0.5}
         />
       </div>
 
       {/* Navbar */}
-      <Navbar />
+      <Navbar
+        onGetStarted={handleGetStarted}
+        onScrollToSection={scrollToSection}
+      />
 
       {/* Hero Section */}
       <HeroSection onGetStarted={handleGetStarted} />
@@ -51,7 +62,7 @@ export default function HomePage() {
       <FeaturesSection />
 
       {/* Pre-Footer Section */}
-      <PreFooter />
+      <PreFooter onGetStarted={handleGetStarted} />
 
       {/* Footer */}
       <Footer />

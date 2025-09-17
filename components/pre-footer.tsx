@@ -1,6 +1,6 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useRef } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
@@ -12,8 +12,24 @@ import {
   Users,
   TrendingUp,
 } from "lucide-react";
+import { gsap } from "gsap";
+import { ScrollTrigger } from "gsap/ScrollTrigger";
+import { useTextReveal, useStaggerAnimation } from "@/hooks/useGsapAnimation";
 
-export const PreFooter: React.FC = () => {
+if (typeof window !== "undefined") {
+  gsap.registerPlugin(ScrollTrigger);
+}
+
+interface PreFooterProps {
+  onGetStarted: () => void;
+}
+
+export const PreFooter: React.FC<PreFooterProps> = ({ onGetStarted }) => {
+  const sectionRef = useRef<HTMLElement>(null);
+  const newsletterRef = useRef<HTMLDivElement>(null);
+  const statsRef = useRef<HTMLDivElement>(null);
+  const ctaRef = useRef<HTMLDivElement>(null);
+
   const stats = [
     {
       icon: <Users className="h-6 w-6" />,
@@ -32,11 +48,81 @@ export const PreFooter: React.FC = () => {
     },
   ];
 
+  useEffect(() => {
+    if (!sectionRef.current) return;
+
+    const tl = gsap.timeline({
+      scrollTrigger: {
+        trigger: sectionRef.current,
+        start: "top 80%",
+        end: "bottom 20%",
+        toggleActions: "play none none reverse",
+      },
+    });
+
+    // Animate newsletter section
+    tl.fromTo(
+      newsletterRef.current,
+      {
+        opacity: 0,
+        y: 50,
+      },
+      {
+        opacity: 1,
+        y: 0,
+        duration: 1,
+        ease: "power2.out",
+      }
+    );
+
+    // Animate stats cards with stagger
+    tl.fromTo(
+      statsRef.current?.children || [],
+      {
+        opacity: 0,
+        y: 30,
+        scale: 0.9,
+      },
+      {
+        opacity: 1,
+        y: 0,
+        scale: 1,
+        duration: 0.8,
+        stagger: 0.2,
+        ease: "back.out(1.7)",
+      },
+      "-=0.5"
+    );
+
+    // Animate CTA section
+    tl.fromTo(
+      ctaRef.current,
+      {
+        opacity: 0,
+        y: 30,
+      },
+      {
+        opacity: 1,
+        y: 0,
+        duration: 0.8,
+        ease: "power2.out",
+      },
+      "-=0.3"
+    );
+
+    return () => {
+      ScrollTrigger.getAll().forEach((trigger) => trigger.kill());
+    };
+  }, []);
+
   return (
-    <section className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-primary/5 to-accent/5">
+    <section
+      ref={sectionRef}
+      className="py-20 px-4 sm:px-6 lg:px-8 bg-gradient-to-br from-primary/5 to-accent/5"
+    >
       <div className="container mx-auto max-w-7xl">
         {/* Newsletter Section */}
-        <div className="text-center mb-16">
+        <div ref={newsletterRef} className="text-center mb-16">
           <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-4">
             Stay Updated with EgyptFi
           </h2>
@@ -66,7 +152,10 @@ export const PreFooter: React.FC = () => {
         </div>
 
         {/* Stats Section */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16">
+        <div
+          ref={statsRef}
+          className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-16"
+        >
           {stats.map((stat, index) => (
             <div key={index} className="text-center">
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
@@ -81,7 +170,7 @@ export const PreFooter: React.FC = () => {
         </div>
 
         {/* CTA Section */}
-        <div className="text-center">
+        <div ref={ctaRef} className="text-center">
           <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-4 py-2 rounded-full text-sm font-medium mb-6">
             <CheckCircle className="h-4 w-4" />
             Ready to get started?
@@ -96,6 +185,7 @@ export const PreFooter: React.FC = () => {
           <Button
             size="lg"
             className="bg-primary hover:bg-primary/90 text-lg px-8 py-4"
+            onClick={onGetStarted}
           >
             Start Your Free Trial
             <ArrowRight className="ml-2 h-5 w-5" />
