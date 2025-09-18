@@ -5,13 +5,13 @@ import { ChipiPayAuth } from '../../../../../lib/chipipay-auth';
 import { chipipayService } from '../../../../../services/chipipayService';
 import pool from '../../../../../lib/db';
 
-interface StakeVesuUsdcRequest {
+interface WithdrawVesuUsdcRequest {
   pin: string;
   amount: string;
-  receiverWallet: string;
+  recipient: string;
 }
 
-interface StakeVesuUsdcResponse {
+interface WithdrawVesuUsdcResponse {
   success: boolean;
   txHash?: string;
   data?: any;
@@ -31,42 +31,44 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     const merchant = authResult as MerchantAuthData;
 
     // Parse request body
-    const body: StakeVesuUsdcRequest = await request.json();
+    const body: WithdrawVesuUsdcRequest = await request.json();
     
     // Validate required fields
-    if (!body.pin || !body.amount || !body.receiverWallet) {
+    if (!body.pin || !body.amount || !body.recipient) {
       return NextResponse.json({
         success: false,
-        error: 'Missing required fields: pin, amount, receiverWallet',
+        error: 'Missing required fields: pin, amount, recipient',
         code: 'INVALID_PARAMETERS'
       }, { status: 400 });
     }
 
-    // Validate amount (must be positive number)
-    const amount = parseFloat(body.amount);
-    if (isNaN(amount) || amount <= 0) {
-      return NextResponse.json({
-        success: false,
-        error: 'Amount must be a positive number',
-        code: 'INVALID_PARAMETERS'
-      }, { status: 400 });
+    // Validate amount (must be positive number or "max" for full withdrawal)
+    if (body.amount !== 'max') {
+      const amount = parseFloat(body.amount);
+      if (isNaN(amount) || amount <= 0) {
+        return NextResponse.json({
+          success: false,
+          error: 'Amount must be a positive number or "max" for full withdrawal',
+          code: 'INVALID_PARAMETERS'
+        }, { status: 400 });
+      }
+
+      // Validate minimum withdrawal amount (VESU typically has minimum requirements)
+      const MIN_WITHDRAW_AMOUNT = 0.01; // 0.01 USDC minimum
+      if (amount < MIN_WITHDRAW_AMOUNT) {
+        return NextResponse.json({
+          success: false,
+          error: `Minimum withdrawal amount is ${MIN_WITHDRAW_AMOUNT} USDC`,
+          code: 'INVALID_PARAMETERS'
+        }, { status: 400 });
+      }
     }
 
-    // Validate minimum staking amount (VESU typically has minimum requirements)
-    const MIN_STAKE_AMOUNT = 1; // 1 USDC minimum
-    if (amount < MIN_STAKE_AMOUNT) {
+    // Validate recipient address format
+    if (!/^0x[0-9a-fA-F]{63,64}$/.test(body.recipient)) {
       return NextResponse.json({
         success: false,
-        error: `Minimum staking amount is ${MIN_STAKE_AMOUNT} USDC`,
-        code: 'INVALID_PARAMETERS'
-      }, { status: 400 });
-    }
-
-    // Validate receiver wallet address format
-    if (!/^0x[0-9a-fA-F]{63,64}$/.test(body.receiverWallet)) {
-      return NextResponse.json({
-        success: false,
-        error: 'Invalid receiver wallet address format',
+        error: 'Invalid recipient address format',
         code: 'INVALID_PARAMETERS'
       }, { status: 400 });
     }
@@ -100,68 +102,73 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       }, { status: 500 });
     }
 
-    // Execute VESU USDC staking using ChipiPay service
-    const stakeResult = await chipipayService.stakeVesuUsdc({
+    // Execute VESU USDC withdrawal using ChipiPay service
+    const withdrawResult = await chipipayService.withdrawVesuUsdc({
       privateKey: pinValidation.privateKey!,
       amount: body.amount,
-      receiverWallet: body.receiverWallet,
+      recipient: body.recipient,
       bearerToken: tokenResult.token!
     });
 
     // Log the operation in database
     await logWalletOperation({
       merchantId: merchant.merchantId,
-      operationType: 'stake_vesu_usdc',
+      operationType: 'withdraw_vesu_usdc',
       amount: body.amount,
-      recipient: body.receiverWallet,
-      txHash: stakeResult.txHash,
-      status: stakeResult.success ? 'completed' : 'failed',
-      errorMessage: stakeResult.error,
+      recipient: body.recipient,
+      txHash: withdrawResult.txHash,
+      status: withdrawResult.success ? 'completed' : 'failed',
+      errorMessage: withdrawResult.error,
       metadata: {
         protocol: 'VESU',
         asset: 'USDC',
         environment: merchant.environment,
-        stakingType: 'vesu_usdc_pool'
+        withdrawalType: 'vesu_usdc_pool',
+        isFullWithdrawal: body.amount === 'max'
       }
     });
 
-    if (!stakeResult.success) {
+    if (!withdrawResult.success) {
       // Handle VESU-specific errors with user-friendly messages
-      let userFriendlyError = stakeResult.error || 'VESU staking failed';
+      let userFriendlyError = withdrawResult.error || 'VESU withdrawal failed';
       
-      if (stakeResult.error?.includes('insufficient balance')) {
-        userFriendlyError = 'Insufficient USDC balance for staking';
-      } else if (stakeResult.error?.includes('pool capacity')) {
-        userFriendlyError = 'VESU pool has reached maximum capacity';
-      } else if (stakeResult.error?.includes('minimum amount')) {
-        userFriendlyError = `Minimum staking amount is ${MIN_STAKE_AMOUNT} USDC`;
-      } else if (stakeResult.error?.includes('contract paused')) {
-        userFriendlyError = 'VESU staking is temporarily paused';
+      if (withdrawResult.error?.includes('insufficient staked balance')) {
+        userFriendlyError = 'Insufficient staked USDC balance for withdrawal';
+      } else if (withdrawResult.error?.includes('withdrawal limit')) {
+        userFriendlyError = 'Daily withdrawal limit exceeded';
+      } else if (withdrawResult.error?.includes('minimum amount')) {
+        userFriendlyError = 'Minimum withdrawal amount is 0.01 USDC';
+      } else if (withdrawResult.error?.includes('contract paused')) {
+        userFriendlyError = 'VESU withdrawals are temporarily paused';
+      } else if (withdrawResult.error?.includes('cooldown period')) {
+        userFriendlyError = 'Withdrawal cooldown period has not elapsed';
+      } else if (withdrawResult.error?.includes('liquidity')) {
+        userFriendlyError = 'Insufficient liquidity in VESU pool for withdrawal';
       }
 
       return NextResponse.json({
         success: false,
         error: userFriendlyError,
-        code: 'VESU_STAKE_FAILED'
+        code: 'VESU_WITHDRAW_FAILED'
       }, { status: 400 });
     }
 
-    const response: StakeVesuUsdcResponse = {
+    const response: WithdrawVesuUsdcResponse = {
       success: true,
-      txHash: stakeResult.txHash,
+      txHash: withdrawResult.txHash,
       data: {
-        ...stakeResult.data,
+        ...withdrawResult.data,
         protocol: 'VESU',
         asset: 'USDC',
-        stakedAmount: body.amount,
-        receiverWallet: body.receiverWallet
+        withdrawnAmount: body.amount,
+        recipient: body.recipient
       }
     };
 
     return NextResponse.json(response);
 
   } catch (error) {
-    console.error('VESU staking endpoint error:', error);
+    console.error('VESU withdrawal endpoint error:', error);
     
     return NextResponse.json({
       success: false,
@@ -193,7 +200,7 @@ async function logWalletOperation(params: {
         params.merchantId,
         params.operationType,
         params.contractAddress,
-        params.amount ? parseFloat(params.amount) : null,
+        params.amount && params.amount !== 'max' ? parseFloat(params.amount) : null,
         params.recipient,
         params.txHash,
         params.status,
