@@ -45,6 +45,7 @@
     "@starknet-react/core": "^4.0.4",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/pg": "^8.15.5",
+    "@types/uuid": "^11.0.0",
     "autoprefixer": "^10.4.20",
     "autoswap-sdk": "^1.0.4",
     "class-variance-authority": "^0.7.1",
@@ -74,6 +75,7 @@
     "starknetkit": "^3.0.3",
     "tailwind-merge": "^2.5.5",
     "tailwindcss-animate": "^1.0.7",
+    "uuid": "^13.0.0",
     "vaul": "^0.9.9",
     "zod": "3.25.67"
   },
