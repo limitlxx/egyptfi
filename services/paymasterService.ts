@@ -26,7 +26,7 @@ export async function getSponsorActivity({
   };
 
   try {
-    const response = await fetch(`https://starknet.api.avnu.fi/paymaster/v1/sponsor-activity`, {
+    const response = await fetch(`https://sepolia.api.avnu.fi/paymaster/v1/sponsor-activity`, {
       method: "GET",
       headers: headersList,
     });

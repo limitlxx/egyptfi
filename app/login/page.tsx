@@ -12,7 +12,6 @@ import { useAccount } from "@starknet-react/core"
 import toast from "react-hot-toast"
 import { useAccountDeployment } from "@/hooks/useAccountDeployment"
 import { AuthManager } from "@/lib/auth-utils"
-import Image from "next/image"
 
 export default function LoginPage() {
   const [authMethod, setAuthMethod] = useState<"wallet" | null>(null)
@@ -222,14 +221,10 @@ export default function LoginPage() {
         <Card className="border-0 shadow-xl">
           <CardHeader className="text-center pb-6">
             <div className="flex items-center justify-center space-x-2 mb-4">
-              <Image
-                            src="/egyptfi.jpeg"
-                            alt="Egyptfi Official Logo"
-                            width={150}
-                            height={150}  
-                            priority
-                            className="rounded-full"
-                          />
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-lg">eFi</span>
+              </div>
+              <span className="text-2xl font-bold text-gray-900">EgyptFi</span>
             </div>
 
             <CardTitle className="text-2xl font-bold text-gray-900">Welcome back</CardTitle>

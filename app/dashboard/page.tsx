@@ -109,7 +109,7 @@ export default function DashboardPage() {
   const [totalBalance, setTotalAmount] = useState<number>(0);
   const [monthBalance, setMonthAmount] = useState<number>(0);
   const [successRate, setsuccessRate] = useState<number>(0);
-  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([])
+  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
 
   const [payments, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
@@ -170,6 +170,7 @@ export default function DashboardPage() {
   >("balanced");
   const [isYieldWaitlistOpen, setIsYieldWaitlistOpen] = useState(false);
   const [yieldEmail, setYieldEmail] = useState("");
+  const [showKycModal, setShowKycModal] = useState(false);
 
   const { provider } = useProvider();
 
@@ -827,6 +828,22 @@ export default function DashboardPage() {
       </header>
 
       <div className="container mx-auto px-4 py-8 max-w-7xl">
+        {/* KYC Completion CTA */}
+        <div className="mb-6">
+          <div className="bg-gradient-to-r from-primary to-yellow-600 rounded-lg p-6 text-center">
+            <h2 className="text-2xl font-bold text-white mb-2">Complete Your KYC</h2>
+            <p className="text-white/90 mb-4">
+              Verify your identity to unlock full access to all EgyptFi features and increase your transaction limits.
+            </p>
+            <Button
+              onClick={() => setShowKycModal(true)}
+              className="bg-white text-primary hover:bg-white/90 font-semibold px-8 py-3"
+            >
+              Start KYC Verification
+            </Button>
+          </div>
+        </div>
+
         <Tabs defaultValue="payments" className="w-full">
           <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="payments" className="flex items-center">
@@ -1852,6 +1869,72 @@ export default function DashboardPage() {
           isOpen={showAccountModal}
           onClose={() => setShowAccountModal(false)}
         />
+
+        {/* KYC Modal */}
+        <Dialog open={showKycModal} onOpenChange={setShowKycModal}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-center">Complete Your KYC</DialogTitle>
+            </DialogHeader>
+            <div className="space-y-6">
+              <div className="text-center">
+                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                  <Shield className="h-8 w-8 text-primary" />
+                </div>
+                <h3 className="text-lg font-semibold text-foreground mb-2">
+                  Identity Verification Required
+                </h3>
+                <p className="text-muted-foreground text-sm">
+                  To comply with regulations and unlock full platform features, we need to verify your identity.
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <div className="bg-muted/50 rounded-lg p-4">
+                  <h4 className="font-medium text-foreground mb-2">What you'll need:</h4>
+                  <ul className="text-sm text-muted-foreground space-y-1">
+                    <li>• Government-issued ID (passport, driver's license)</li>
+                    <li>• Proof of address (utility bill, bank statement)</li>
+                    <li>• Selfie with your ID</li>
+                  </ul>
+                </div>
+
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                  <h4 className="font-medium text-green-900 mb-2">Benefits of KYC:</h4>
+                  <ul className="text-sm text-green-800 space-y-1">
+                    <li>• Higher transaction limits</li>
+                    <li>• Access to advanced features</li>
+                    <li>• Enhanced security</li>
+                    <li>• Priority support</li>
+                  </ul>
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <Button
+                  variant="outline"
+                  onClick={() => setShowKycModal(false)}
+                  className="flex-1"
+                >
+                  Maybe Later
+                </Button>
+                <Button
+                  onClick={() => {
+                    // TODO: Implement KYC flow
+                    toast({
+                      title: "KYC Coming Soon",
+                      description: "KYC verification will be available soon. Stay tuned!",
+                    });
+                    setShowKycModal(false);
+                  }}
+                  className="flex-1 bg-primary hover:bg-primary/90"
+                >
+                  Start Verification
+                </Button>
+              </div>
+            </div>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
