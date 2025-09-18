@@ -58,9 +58,9 @@ export async function POST(request: NextRequest) {
     // Create new merchant
     const merchantResult = await client.query(
       `INSERT INTO merchants (
-        wallet_address, business_name, business_email, local_currency, 
-        supported_currencies, metadata
-      ) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, wallet_address, created_at`,
+        wallet_address, business_name, business_email, local_currency,
+        supported_currencies, metadata, chipi_wallet_address
+      ) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, wallet_address, created_at`,
       [
         data.wallet_address?.toLowerCase() || null,
         data.business_name,
@@ -73,7 +73,8 @@ export async function POST(request: NextRequest) {
           authMethod: data.authMethod,
           registrationDate: new Date().toISOString(),
           transaction_hash: data.transaction_hash
-        })
+        }),
+        null
       ]
     );
 
@@ -86,10 +87,22 @@ export async function POST(request: NextRequest) {
     const testnetKeys = generateApiKeys(newMerchant.id, 'testnet');
     const mainnetKeys = generateApiKeys(newMerchant.id, 'mainnet');
 
+    // Generate JWTs
+    const testnetJWT = generateJWT({
+      merchantId: newMerchant.id,
+      walletAddress: newMerchant.wallet_address || '',
+      environment: 'testnet'
+    });
+    const mainnetJWT = generateJWT({
+      merchantId: newMerchant.id,
+      walletAddress: newMerchant.wallet_address || '',
+      environment: 'mainnet'
+    });
+
     // Store API keys in database (hashed secret)
     await client.query(
-      `INSERT INTO api_keys (merchant_id, secret_key, public_key, created_at) VALUES 
-       ($1, $2, $3, NOW()), 
+      `INSERT INTO api_keys (merchant_id, secret_key, public_key, created_at) VALUES
+       ($1, $2, $3, NOW()),
        ($1, $4, $5, NOW())`,
       [
         newMerchant.id,
@@ -104,7 +117,7 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'Merchant account created successfully. Login to get JWT.',
+      message: 'Merchant account created successfully.',
       merchant: {
         id: newMerchant.id,
         business_name: data.business_name,
@@ -116,10 +129,12 @@ export async function POST(request: NextRequest) {
         testnet: {
           publicKey: testnetKeys.publicKey,
           secretKey: testnetKeys.secretKey, // Unhashed, sent only once
+          jwt: testnetJWT
         },
         mainnet: {
           publicKey: mainnetKeys.publicKey,
           secretKey: mainnetKeys.secretKey, // Unhashed, sent only once
+          jwt: mainnetJWT
         }
       }
     });

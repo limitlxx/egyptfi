@@ -12,7 +12,7 @@ import { useRouter } from "next/navigation"
 import WalletModal from "@/components/WalletModal"
 import AccountModal from "@/components/AccountModal"
 import { useAccount } from "@starknet-react/core"
-import toast from "react-hot-toast" 
+import toast from "react-hot-toast"
 import { useAccountDeployment } from "@/hooks/useAccountDeployment"
 import { useMerchantStatus } from "@/hooks/useMerchantStatus"
 import { useMerchantRegistration } from "@/hooks/useMerchantRegistration"
@@ -20,6 +20,8 @@ import { MerchantRegistrationData } from "@/services/merchantRegistrationService
 import { useGlobalNetworkStatus } from "@/components/NetworkStatusProvider"
 import { PaymentModeIndicator } from "@/components/PaymentModeIndicator"
 import Image from "next/image"
+import { useCreateWallet } from "@chipi-stack/nextjs";
+import { generateEncryptKey, createInvisibleWallet, updateMerchantWallet } from './wallet-utils';
 
 interface MerchantData {
   business_name: string
@@ -44,10 +46,14 @@ export default function SignupPage() {
     business_type: "",
     monthly_volume: ""
   })
+  const [walletCreationLoading, setWalletCreationLoading] = useState(false);
+  const [walletCreationError, setWalletCreationError] = useState<string | null>(null);
 
   const { address, isConnected } = useAccount()
   const router = useRouter()
   const networkStatus = useGlobalNetworkStatus()
+
+  const { createWalletAsync, isLoading: isWalletLoading } = useCreateWallet();
 
   // Check account deployment status
   const {
@@ -79,6 +85,7 @@ export default function SignupPage() {
     isContractRegistering,
     isVerifying,
     registrationStep,
+    dbResult,
     error: registrationError,
     registerMerchant,
     resetRegistration,
@@ -340,6 +347,12 @@ export default function SignupPage() {
       return
     }
 
+    // Create invisible wallet after registration
+    if (success && dbResult && dbResult.merchant) {
+      const { createWalletAsync } = useCreateWallet();
+      await createInvisibleWallet(dbResult, setWalletCreationLoading, setWalletCreationError, createWalletAsync);
+    }
+
     // If registration doesn't require contract registration, complete immediately
     if (registrationStep === 'complete' || (authMethod !== "wallet" || !isDeployed)) {
       setStep("complete")
@@ -372,10 +385,13 @@ export default function SignupPage() {
   // FIXED: Only disable the button during actual registration, not during wallet processing
   // Also check if we're actually in the middle of submitting (registrationStep should not be 'idle' during real registration)
   const isActuallyRegistering = isRegistrationInProgress && registrationStep !== 'idle'
-  const isCompleteSetupDisabled = isActuallyRegistering || 
+  const isCompleteSetupDisabled = isActuallyRegistering ||
     (authMethod === "wallet" && !walletProcessingComplete) ||
     (authMethod === "wallet" && deploymentCheckFailed) ||
-    !networkStatus.isOnline
+    !networkStatus.isOnline ||
+    walletCreationLoading
+
+  const isWalletCreating = walletCreationLoading || isWalletLoading;
 
   // Get current registration status message
   const getRegistrationStatusMessage = () => {
@@ -753,8 +769,33 @@ export default function SignupPage() {
                 </div>
               )}
 
-              <Button 
-                onClick={completeSignup} 
+              {/* Wallet Creation Status */}
+              {walletCreationError && (
+                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+                  <div className="flex items-center">
+                    <AlertTriangle className="w-5 h-5 text-red-600 mr-2" />
+                    <div>
+                      <p className="font-medium text-red-900">Wallet Creation Error</p>
+                      <p className="text-sm text-red-700">{walletCreationError}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {isWalletCreating && (
+                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                  <div className="flex items-center">
+                    <Loader2 className="w-5 h-5 text-green-600 mr-2 animate-spin" />
+                    <div>
+                      <p className="font-medium text-green-900">Creating Invisible Wallet</p>
+                      <p className="text-sm text-green-700">Setting up your secure payment wallet...</p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <Button
+                onClick={completeSignup}
                 disabled={isCompleteSetupDisabled}
                 className="w-full bg-gradient-to-r from-blue-600 to-purple-600"
               >
@@ -762,6 +803,11 @@ export default function SignupPage() {
                   <>
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                     {getRegistrationStatusMessage()}
+                  </>
+                ) : isWalletCreating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Creating Wallet...
                   </>
                 ) : (
                   "Complete Setup"

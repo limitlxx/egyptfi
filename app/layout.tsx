@@ -5,6 +5,7 @@ import './globals.css'
 import { Toaster } from "react-hot-toast";
 import { Providers } from "@/components/providers";
 import { NetworkStatusProvider } from "@/components/NetworkStatusProvider";
+import { ChipiProvider } from "@chipi-stack/nextjs";
 
 export const metadata: Metadata = {
   title: 'EgyptFi',
@@ -30,8 +31,10 @@ html {
       <body>
         <NetworkStatusProvider>
           <Providers>
-            {children}
-            <Toaster />
+            <ChipiProvider>
+              {children}
+              <Toaster />
+            </ChipiProvider>
           </Providers>
         </NetworkStatusProvider>
       </body>
