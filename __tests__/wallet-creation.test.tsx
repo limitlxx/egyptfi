@@ -1,5 +1,5 @@
 import { renderHook, act } from '@testing-library/react';
-import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import { useCreateWallet } from '@chipi-stack/nextjs';
 import { generateEncryptKey, createInvisibleWallet, updateMerchantWallet } from '../app/signup/wallet-utils';
 
