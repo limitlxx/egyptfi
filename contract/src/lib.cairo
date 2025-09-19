@@ -12,6 +12,10 @@ pub trait IEgyptFi<TContractState> {
         ref self: TContractState,
         new_withdrawal_address: ContractAddress
     );
+    fn update_merchant_metadata(
+        ref self: TContractState,
+        new_metadata_hash: felt252
+    );
     fn deactivate_merchant(ref self: TContractState);
     
     // Payment processing
@@ -313,6 +317,26 @@ mod EgyptFi {
         self.emit(MerchantUpdated {
             merchant: caller,
             field: 'withdrawal_address',
+            timestamp: get_block_timestamp(),
+        });
+        self.reentrancy_guard.end();
+    }
+
+    fn update_merchant_metadata(
+        ref self: ContractState,
+        new_metadata_hash: felt252
+    ) {
+        self.reentrancy_guard.start();
+        let caller = get_caller_address();
+        let mut merchant = self.merchants.read(caller);
+        assert(merchant.is_active, 'Merchant not found');
+        
+        merchant.metadata_hash = new_metadata_hash;
+        self.merchants.write(caller, merchant);
+        
+        self.emit(MerchantUpdated {
+            merchant: caller,
+            field: 'metadata_hash',
             timestamp: get_block_timestamp(),
         });
         self.reentrancy_guard.end();

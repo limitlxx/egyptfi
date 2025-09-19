@@ -23,10 +23,12 @@ export const Navbar: React.FC<NavbarProps> = ({
   const router = useRouter();
 
   const navItems = [
-    { name: "Features", href: "#features", action: "scroll" },
-    { name: "About", href: "#about", action: "scroll" },
+    // { name: "Features", href: "#features", action: "scroll" },
+    // { name: "About", href: "#about", action: "scroll" },
     { name: "Get Started", href: "#get-started", action: "modal" },
-    { name: "API Docs", href: "/docs", action: "link" },
+    { name: "Monitoring", href: "/admin/monitoring", action: "link" },
+    { name: "Docs", href: "/docs", action: "link" },
+    { name: "Pricing", href: "/pricing", action: "scroll" },
   ];
 
   const toggleTheme = () => {

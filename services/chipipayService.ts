@@ -356,11 +356,11 @@ export class ChipiPayServiceImpl implements ChipiPayService {
     code: ChipiPayErrorCodes,
     originalError: any
   ): ChipiPayError {
-    return {
+    return new ChipiPayError(
       code,
-      message: originalError.message || "Unknown error occurred",
-      details: originalError,
-    };
+      originalError.message || "Unknown error occurred",
+      originalError
+    );
   }
 
   /**

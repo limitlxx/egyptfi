@@ -398,4 +398,224 @@ describe('ChipiPayService', () => {
       });
     }, 10000); // Increase timeout for this test
   });
+
+  describe('error handling and edge cases', () => {
+    it('should handle malformed JSON response', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => {
+          throw new Error('Invalid JSON');
+        }
+      } as unknown as Response);
+
+      const mockParams: CreateWalletParams = {
+        encryptKey: 'test-pin-123',
+        externalUserId: 'user-123',
+        apiPublicKey: 'pk_test_123',
+        bearerToken: 'bearer-token-123'
+      };
+
+      await expect(service.createWallet(mockParams)).rejects.toMatchObject({
+        code: ChipiPayErrorCodes.WALLET_CREATION_FAILED,
+        message: 'Invalid JSON'
+      });
+    });
+
+    it('should handle HTTP error without JSON body', async () => {
+      mockFetch.mockResolvedValueOnce({
+        ok: false,
+        status: 500,
+        statusText: 'Internal Server Error',
+        json: async () => {
+          throw new Error('No JSON body');
+        }
+      } as unknown as Response);
+
+      const mockParams: CreateWalletParams = {
+        encryptKey: 'test-pin-123',
+        externalUserId: 'user-123',
+        apiPublicKey: 'pk_test_123',
+        bearerToken: 'bearer-token-123'
+      };
+
+      await expect(service.createWallet(mockParams)).rejects.toMatchObject({
+        code: ChipiPayErrorCodes.WALLET_CREATION_FAILED,
+        message: 'HTTP 500: Internal Server Error'
+      });
+    });
+
+    it('should handle network connectivity issues', async () => {
+      mockFetch.mockRejectedValueOnce(new Error('ECONNREFUSED'));
+
+      const mockParams: TransferParams = {
+        privateKey: 'private-key-123',
+        recipient: '0xrecipient123',
+        amount: '100',
+        bearerToken: 'bearer-token-123'
+      };
+
+      await expect(service.transfer(mockParams)).rejects.toMatchObject({
+        code: ChipiPayErrorCodes.TRANSFER_FAILED,
+        message: 'ECONNREFUSED'
+      });
+    });
+
+    it('should handle missing required parameters gracefully', async () => {
+      const mockResponse = {
+        success: false,
+        error: 'Missing required parameter: amount'
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse
+      } as Response);
+
+      const mockParams: TransferParams = {
+        privateKey: 'private-key-123',
+        recipient: '0xrecipient123',
+        amount: '', // Empty amount
+        bearerToken: 'bearer-token-123'
+      };
+
+      await expect(service.transfer(mockParams)).rejects.toMatchObject({
+        code: ChipiPayErrorCodes.TRANSFER_FAILED,
+        message: 'Missing required parameter: amount'
+      });
+    });
+
+    it('should handle service with custom base URL', () => {
+      const customService = new ChipiPayServiceImpl('https://custom-api.chipipay.com/v2');
+      expect(customService).toBeDefined();
+    });
+
+    it('should handle service with default base URL from environment', () => {
+      process.env.CHIPIPAY_URL = 'https://env-api.chipipay.com/v1';
+      const envService = new ChipiPayServiceImpl();
+      expect(envService).toBeDefined();
+      delete process.env.CHIPIPAY_URL;
+    });
+
+    it('should handle operations with optional parameters', async () => {
+      const mockResponse = {
+        success: true,
+        txHash: '0xtransfer123',
+        data: { status: 'completed' }
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse
+      } as Response);
+
+      const mockParams: TransferParams = {
+        privateKey: 'private-key-123',
+        recipient: '0xrecipient123',
+        amount: '100',
+        // contractAddress and decimals are optional
+        bearerToken: 'bearer-token-123'
+      };
+
+      const result = await service.transfer(mockParams);
+      expect(result.success).toBe(true);
+    });
+
+    it('should handle operations with all optional parameters', async () => {
+      const mockResponse = {
+        success: true,
+        txHash: '0xtransfer456',
+        data: { status: 'completed' }
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse
+      } as Response);
+
+      const mockParams: TransferParams = {
+        privateKey: 'private-key-123',
+        recipient: '0xrecipient123',
+        amount: '100',
+        contractAddress: '0xcontract123',
+        decimals: 18,
+        bearerToken: 'bearer-token-123'
+      };
+
+      const result = await service.transfer(mockParams);
+      expect(result.success).toBe(true);
+
+      // Verify all parameters were sent
+      expect(mockFetch).toHaveBeenCalledWith(
+        expect.any(String),
+        expect.objectContaining({
+          body: JSON.stringify({
+            privateKey: 'private-key-123',
+            recipient: '0xrecipient123',
+            amount: '100',
+            contractAddress: '0xcontract123',
+            decimals: 18
+          })
+        })
+      );
+    });
+
+    it('should handle response with missing transaction hash', async () => {
+      const mockResponse = {
+        success: true,
+        // txHash is missing
+        data: { status: 'completed' }
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse
+      } as Response);
+
+      const mockParams: TransferParams = {
+        privateKey: 'private-key-123',
+        recipient: '0xrecipient123',
+        amount: '100',
+        bearerToken: 'bearer-token-123'
+      };
+
+      const result = await service.transfer(mockParams);
+      expect(result.success).toBe(true);
+      expect(result.txHash).toBeUndefined();
+    });
+
+    it('should handle response with additional data fields', async () => {
+      const mockResponse = {
+        success: true,
+        txHash: '0xtransfer789',
+        data: { 
+          status: 'completed',
+          gasUsed: '21000',
+          blockNumber: 12345,
+          additionalInfo: 'extra data'
+        }
+      };
+
+      mockFetch.mockResolvedValueOnce({
+        ok: true,
+        json: async () => mockResponse
+      } as Response);
+
+      const mockParams: ApproveParams = {
+        privateKey: 'private-key-123',
+        contractAddress: '0xcontract123',
+        spender: '0xspender123',
+        amount: '1000',
+        bearerToken: 'bearer-token-123'
+      };
+
+      const result = await service.approve(mockParams);
+      expect(result.success).toBe(true);
+      expect(result.data).toEqual({
+        status: 'completed',
+        gasUsed: '21000',
+        blockNumber: 12345,
+        additionalInfo: 'extra data'
+      });
+    });
+  });
 });

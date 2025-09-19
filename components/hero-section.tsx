@@ -3,7 +3,7 @@
 import React, { useEffect, useRef } from "react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Play } from "lucide-react";
 import { gsap } from "gsap";
 import { ScrollTrigger } from "gsap/ScrollTrigger";
 
@@ -175,7 +175,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onGetStarted }) => {
             className="border-primary text-primary px-8 py-4 text-lg font-semibold rounded-lg transition-all duration-300"
             asChild
           >
-            <Link href="/demo">Run Demo</Link>
+            <Link href="/demo"><Play/> Run Demo</Link>
           </Button>
         </div>
 

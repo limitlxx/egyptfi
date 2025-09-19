@@ -9,7 +9,18 @@
     "start": "next start",
     "test": "jest",
     "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage"
+    "test:coverage": "jest --coverage",
+    "test:integration": "jest --testPathPattern=integration",
+    "test:e2e": "jest --testPathPattern=e2e",
+    "test:all": "npm run test && npm run test:integration && npm run test:e2e",
+    "migrate": "node scripts/run-migrations.js",
+    "migrate:status": "node scripts/run-migrations.js status",
+    "migrate:dry-run": "node scripts/run-migrations.js run --dry-run",
+    "validate-config": "node scripts/validate-deployment-config.js",
+    "health-check": "node scripts/health-check.js",
+    "deploy:validate": "npm run validate-config && npm run test:all && npm run build",
+    "deploy:migrate": "npm run migrate",
+    "deploy:production": "NODE_ENV=production npm run deploy:validate && npm run deploy:migrate"
   },
   "dependencies": {
     "@chipi-stack/nextjs": "^11.2.0",

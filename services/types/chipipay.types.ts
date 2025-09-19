@@ -1,8 +1,4 @@
-<<<<<<< HEAD
-// ChipiPay service types and interfaces
-=======
 // ChipiPay Service Types and Interfaces
->>>>>>> backend
 
 export interface CreateWalletParams {
   encryptKey: string;
@@ -64,13 +60,11 @@ export interface TransactionResponse {
   success: boolean;
   txHash: string;
   data?: any;
-<<<<<<< HEAD
-=======
   error?: string;
 }
 
 export interface ChipiPayError {
-  code: string;
+  code: ChipiPayErrorCodes;
   message: string;
   details?: any;
 }
@@ -82,7 +76,6 @@ export interface ChipiPayService {
   stakeVesuUsdc(params: StakeParams): Promise<TransactionResponse>;
   withdrawVesuUsdc(params: WithdrawParams): Promise<TransactionResponse>;
   callAnyContract(params: ContractCallParams): Promise<TransactionResponse>;
->>>>>>> backend
 }
 
 export enum ChipiPayErrorCodes {
@@ -93,9 +86,10 @@ export enum ChipiPayErrorCodes {
   WITHDRAW_FAILED = 'WITHDRAW_FAILED',
   CONTRACT_CALL_FAILED = 'CONTRACT_CALL_FAILED',
   NETWORK_ERROR = 'NETWORK_ERROR',
-<<<<<<< HEAD
   AUTHENTICATION_FAILED = 'AUTHENTICATION_FAILED',
-  INVALID_PARAMETERS = 'INVALID_PARAMETERS'
+  INVALID_PARAMETERS = 'INVALID_PARAMETERS',
+  AUTHENTICATION_ERROR = 'AUTHENTICATION_ERROR',
+  INSUFFICIENT_BALANCE = 'INSUFFICIENT_BALANCE'
 }
 
 export class ChipiPayError extends Error {
@@ -107,18 +101,4 @@ export class ChipiPayError extends Error {
     super(message);
     this.name = 'ChipiPayError';
   }
-}
-
-export interface ChipiPayService {
-  createWallet(params: CreateWalletParams): Promise<CreateWalletResponse>;
-  transfer(params: TransferParams): Promise<TransactionResponse>;
-  approve(params: ApproveParams): Promise<TransactionResponse>;
-  stakeVesuUsdc(params: StakeParams): Promise<TransactionResponse>;
-  withdrawVesuUsdc(params: WithdrawParams): Promise<TransactionResponse>;
-  callAnyContract(params: ContractCallParams): Promise<TransactionResponse>;
-=======
-  INVALID_PARAMETERS = 'INVALID_PARAMETERS',
-  AUTHENTICATION_ERROR = 'AUTHENTICATION_ERROR',
-  INSUFFICIENT_BALANCE = 'INSUFFICIENT_BALANCE'
->>>>>>> backend
 }

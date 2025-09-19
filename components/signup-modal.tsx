@@ -219,22 +219,18 @@ export const SignupModal: React.FC<SignupModalProps> = ({
             <div className="text-center">
               <Lock className="h-12 w-12 text-primary mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-foreground mb-2">
-                Create a PIN
+                Create PIN
               </h3>
               <p className="text-muted-foreground">
                 Choose a 6-digit PIN for your account
               </p>
             </div>
-            <div className="space-y-2">
-              <Label>PIN</Label>
+            <div className="space-y-2"> 
               {renderPinInputs(
                 signupData.pin,
                 (value) => handleInputChange("pin", value),
                 pinRefs
-              )}
-              <p className="text-sm text-muted-foreground text-center">
-                Enter your 6-digit PIN
-              </p>
+              )} 
             </div>
           </div>
         );
@@ -245,22 +241,18 @@ export const SignupModal: React.FC<SignupModalProps> = ({
             <div className="text-center">
               <CheckCircle className="h-12 w-12 text-primary mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-foreground mb-2">
-                Confirm your PIN
+                Confirm PIN
               </h3>
               <p className="text-muted-foreground">
                 Re-enter your PIN to confirm
               </p>
             </div>
-            <div className="space-y-2">
-              <Label>Confirm PIN</Label>
+            <div className="space-y-2"> 
               {renderPinInputs(
                 signupData.confirmPin,
                 (value) => handleInputChange("confirmPin", value),
                 confirmPinRefs
-              )}
-              <p className="text-sm text-muted-foreground text-center">
-                Re-enter your PIN to confirm
-              </p>
+              )} 
             </div>
           </div>
         );

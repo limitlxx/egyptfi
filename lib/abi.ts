@@ -82,8 +82,8 @@ export const EGYPTFI_ABI: Abi = [
         "type": "core::starknet::contract_address::ContractAddress"
       },
       {
-        "name": "fee_percentage",
-        "type": "core::integer::u16"
+        "name": "metadata_hash",
+        "type": "core::felt252"
       },
       {
         "name": "joined_timestamp",
@@ -168,8 +168,8 @@ export const EGYPTFI_ABI: Abi = [
             "type": "core::starknet::contract_address::ContractAddress"
           },
           {
-            "name": "fee_percentage",
-            "type": "core::integer::u16"
+            "name": "metadata_hash",
+            "type": "core::felt252"
           }
         ],
         "outputs": [],
@@ -182,6 +182,18 @@ export const EGYPTFI_ABI: Abi = [
           {
             "name": "new_withdrawal_address",
             "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "update_merchant_metadata",
+        "inputs": [
+          {
+            "name": "new_metadata_hash",
+            "type": "core::felt252"
           }
         ],
         "outputs": [],
@@ -781,4 +793,4 @@ export const EGYPTFI_ABI: Abi = [
       }
     ]
   }
-]
+];

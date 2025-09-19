@@ -166,7 +166,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         attemptsRemaining: pinValidation.attemptsRemaining
       }, { status: 401 });
     }
-
+    // error
     // Get bearer token for ChipiPay API
     const tokenResult = await ChipiPayAuth.getBearerToken(
       merchant.merchantId,

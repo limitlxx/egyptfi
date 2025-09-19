@@ -7,7 +7,7 @@ jest.mock('../../lib/db', () => ({
   connect: jest.fn(),
 }));
 
-const mockPool = pool as jest.Mocked<typeof pool>;
+const mockPool = pool as jest.Mocked<{ connect: jest.MockedFunction<any> }>;
 
 describe('WalletCrypto', () => {
   let mockClient: any;
@@ -276,6 +276,161 @@ describe('WalletCrypto', () => {
 
       const locked = WalletCrypto.isAccountLocked(merchantId);
       expect(locked).toBe(true);
+    });
+  });
+
+  describe('edge cases and error scenarios', () => {
+    it('should handle encryption with empty private key', () => {
+      expect(() => {
+        WalletCrypto.encryptPrivateKey('', '123456');
+      }).not.toThrow();
+    });
+
+    it('should handle encryption with empty PIN', () => {
+      expect(() => {
+        WalletCrypto.encryptPrivateKey('0x123', '');
+      }).not.toThrow();
+    });
+
+    it('should handle decryption with malformed base64', () => {
+      const result = WalletCrypto.decryptPrivateKey('not-base64!@#', '123456');
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Invalid PIN or corrupted data');
+    });
+
+    it('should handle decryption with truncated data', () => {
+      const validEncrypted = WalletCrypto.encryptPrivateKey('0x123', '123456');
+      const truncated = validEncrypted.substring(0, 10); // Too short
+      
+      const result = WalletCrypto.decryptPrivateKey(truncated, '123456');
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('Invalid PIN or corrupted data');
+    });
+
+    it('should handle database connection failure in PIN validation', async () => {
+      mockPool.connect.mockRejectedValue(new Error('Database connection failed'));
+
+      const result = await WalletCrypto.validatePinAndDecryptWallet('merchant-db-fail', '123456');
+      
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('PIN validation failed');
+    });
+
+    it('should handle client release failure gracefully', async () => {
+      const mockClientWithFailingRelease = {
+        query: jest.fn().mockResolvedValue({
+          rows: [{
+            wallet_encrypted_private_key: WalletCrypto.encryptPrivateKey('0x123', '123456')
+          }]
+        }),
+        release: jest.fn().mockImplementation(() => {
+          throw new Error('Release failed');
+        })
+      };
+      
+      mockPool.connect.mockResolvedValue(mockClientWithFailingRelease);
+
+      const result = await WalletCrypto.validatePinAndDecryptWallet('merchant-release-fail', '123456');
+      
+      // The release failure causes the entire operation to fail due to the catch block
+      expect(result.success).toBe(false);
+      expect(result.error).toBe('PIN validation failed');
+    });
+
+    it('should handle lockout expiry correctly', async () => {
+      const merchantId = 'merchant-lockout-expiry';
+      const wrongPin = '000000';
+      
+      // Mock Date.now to control time
+      const originalDateNow = Date.now;
+      let mockTime = 1000000000000; // Fixed timestamp
+      Date.now = jest.fn(() => mockTime);
+
+      try {
+        mockClient.query.mockResolvedValue({
+          rows: [{
+            wallet_encrypted_private_key: 'dummy_encrypted_key'
+          }]
+        });
+
+        // Exhaust all attempts to trigger lockout
+        for (let i = 0; i < 5; i++) {
+          await WalletCrypto.validatePinAndDecryptWallet(merchantId, wrongPin);
+        }
+
+        // Should be locked
+        expect(WalletCrypto.isAccountLocked(merchantId)).toBe(true);
+
+        // Advance time past lockout duration (15 minutes + 1 second)
+        mockTime += (15 * 60 * 1000) + 1000;
+
+        // Should no longer be locked
+        expect(WalletCrypto.isAccountLocked(merchantId)).toBe(false);
+        
+        // Should have full attempts available again
+        expect(WalletCrypto.getRemainingAttempts(merchantId)).toBe(5);
+      } finally {
+        Date.now = originalDateNow;
+      }
+    });
+
+    it('should handle concurrent PIN validation attempts', async () => {
+      const merchantId = 'merchant-concurrent';
+      const validPin = '123456';
+      const privateKey = '0x123abc';
+      const encryptedKey = WalletCrypto.encryptPrivateKey(privateKey, validPin);
+      
+      mockClient.query.mockResolvedValue({
+        rows: [{
+          wallet_encrypted_private_key: encryptedKey
+        }]
+      });
+
+      // Simulate concurrent validation attempts
+      const promises = Array(3).fill(null).map(() => 
+        WalletCrypto.validatePinAndDecryptWallet(merchantId, validPin)
+      );
+
+      const results = await Promise.all(promises);
+      
+      // All should succeed
+      results.forEach(result => {
+        expect(result.success).toBe(true);
+        expect(result.privateKey).toBe(privateKey);
+      });
+    });
+
+    it('should handle very long private keys', () => {
+      const longPrivateKey = '0x' + 'a'.repeat(1000); // Very long key
+      const pin = '123456';
+
+      const encrypted = WalletCrypto.encryptPrivateKey(longPrivateKey, pin);
+      const decrypted = WalletCrypto.decryptPrivateKey(encrypted, pin);
+      
+      expect(decrypted.success).toBe(true);
+      expect(decrypted.privateKey).toBe(longPrivateKey);
+    });
+
+    it('should handle special characters in private key', () => {
+      const specialKey = '0x123!@#$%^&*()_+-=[]{}|;:,.<>?';
+      const pin = '123456';
+
+      const encrypted = WalletCrypto.encryptPrivateKey(specialKey, pin);
+      const decrypted = WalletCrypto.decryptPrivateKey(encrypted, pin);
+      
+      expect(decrypted.success).toBe(true);
+      expect(decrypted.privateKey).toBe(specialKey);
+    });
+
+    it('should handle unicode characters in private key', () => {
+      const unicodeKey = '0x123αβγδε中文🚀';
+      const pin = '123456';
+
+      const encrypted = WalletCrypto.encryptPrivateKey(unicodeKey, pin);
+      const decrypted = WalletCrypto.decryptPrivateKey(encrypted, pin);
+      
+      expect(decrypted.success).toBe(true);
+      expect(decrypted.privateKey).toBe(unicodeKey);
     });
   });
 });
