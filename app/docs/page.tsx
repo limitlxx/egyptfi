@@ -482,18 +482,20 @@ confirmation = response.json()`,
             settlements automatically.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <Link target="_blank" href="https://egyptfiafrica-1289412.postman.co/workspace/EgyptFi's-Workspace~12bcd1ad-50d1-495b-8936-151fe7e7c553/collection/48602010-b1b4d9b2-c346-4302-a208-d5dc267134e0?action=share&creator=48602010">
             <Button size="lg" className="bg-primary hover:bg-primary/90">
               <Play className="w-4 h-4 mr-2" />
               Try in Playground
             </Button>
-            <Button
+            </Link>
+            {/* <Button
               variant="outline"
               size="lg"
               className="border-primary text-primary hover:bg-primary hover:text-primary-foreground"
             >
               <Code className="w-4 h-4 mr-2" />
               View Examples
-            </Button>
+            </Button> */}
           </div>
         </div>
 

@@ -33,8 +33,8 @@ contract/src/crossEgypt.cairo
 contract/src/egyptv1.cairo
 
 kiro
-.kiro
-__tests__
+/.kiro/
+/__tests__/
 debug-jwt.js
 
 # kiro

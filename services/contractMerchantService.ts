@@ -2,6 +2,8 @@
 import { Contract } from "starknet";
 import { EGYPTFI_ABI } from "@/lib/abi";
 import { EGYPT_SEPOLIA_CONTRACT_ADDRESS } from "@/lib/utils";
+import { chipipayService } from "./chipipayService";
+import { ContractCallParams } from "./types/chipipay.types";
 
 export interface ContractMerchant {
   id: string;
@@ -19,7 +21,7 @@ export interface ContractMerchant {
   withdrawal_address: string;
   fee_percentage: number;
   joined_timestamp: bigint;
-  apikeys?: APIKeyEntry[]
+  apikeys?: APIKeyEntry[];
   createdAt: string;
   // ... other db fields
 }
@@ -33,34 +35,46 @@ interface APIKeyEntry {
   jwt?: string;
 }
 
-
 export interface MerchantCheckResult {
   exists: boolean;
   merchant?: ContractMerchant;
   error?: string;
-  
+}
+
+export interface ContractRegistrationParams {
+  walletAddress: string;
+  encryptedPrivateKey: string;
+  metadataHash: string;
+  bearerToken: string;
+  encryptKey: string; // PIN to decrypt the private key
 }
 
 class ContractMerchantService {
   private contract: Contract;
+  private contractAddress: string;
 
-  constructor(provider: any) {
-    this.contract = new Contract(EGYPTFI_ABI, EGYPT_SEPOLIA_CONTRACT_ADDRESS, provider);
+  constructor(provider: any, contractAddress?: string) {
+    this.contractAddress = contractAddress || EGYPT_SEPOLIA_CONTRACT_ADDRESS;
+    this.contract = new Contract({
+      abi: EGYPTFI_ABI,
+      address: this.contractAddress,
+    });
+    this.contract.connect(provider);
   }
 
   async getMerchant(merchantAddress: string): Promise<MerchantCheckResult> {
     try {
       console.log("Checking merchant on contract:", merchantAddress);
-      
+
       const result = await this.contract.get_merchant(merchantAddress);
-      
+
       console.log("Contract response:", result);
 
       // Check if merchant exists (is_active or has been registered)
       const isActive = result.is_active;
       const hasName = result.name && result.name !== "0x0";
       const hasEmail = result.email && result.email !== "0x0";
-      
+
       const exists = isActive || hasName || hasEmail;
 
       if (exists) {
@@ -78,7 +92,7 @@ class ContractMerchantService {
           business_name: "",
           business_email: "",
           created_at: "",
-          createdAt: ""
+          createdAt: "",
         };
 
         return {
@@ -92,7 +106,7 @@ class ContractMerchantService {
       };
     } catch (error) {
       console.error("Error checking merchant on contract:", error);
-      
+
       // If the error is due to merchant not being found, return exists: false
       if (error instanceof Error && error.message.includes("not found")) {
         return {
@@ -116,6 +130,147 @@ class ContractMerchantService {
       return false;
     }
   }
+
+  // Register merchant using ChipiPay invisible wallet
+  // async registerMerchantWithChipiPay(
+  //   params: ContractRegistrationParams
+  // ): Promise<string> {
+  //   try {
+  //     console.log("Registering merchant on contract via ChipiPay:", {
+  //       walletAddress: params.walletAddress,
+  //       contractAddress: this.contractAddress,
+  //     });
+
+  //     const contractCallParams: ContractCallParams = {
+  //       privateKey: params.encryptedPrivateKey,
+  //       contractAddress: this.contractAddress,
+  //       entrypoint: "register_merchant",
+  //       calldata: [
+  //         params.walletAddress, // withdrawal_address
+  //         params.metadataHash, // metadata_hash
+  //       ],
+  //       bearerToken: params.bearerToken,
+  //       encryptKey: params.encryptKey,
+  //       walletPublicKey: params.walletAddress,
+  //     };
+
+  //     const result = await chipipayService.callAnyContract(contractCallParams);
+
+  //     if (!result.success) {
+  //       throw new Error(result.error || "Contract registration failed");
+  //     }
+
+  //     console.log("Merchant registered on contract successfully:", {
+  //       txHash: result.txHash,
+  //       walletAddress: params.walletAddress,
+  //     });
+
+  //     return result.txHash;
+  //   } catch (error) {
+  //     console.error("Error registering merchant via ChipiPay:", error);
+  //     throw new Error(
+  //       `Failed to register merchant on contract: ${
+  //         error instanceof Error ? error.message : "Unknown error"
+  //       }`
+  //     );
+  //   }
+  // }
+
+  // // Update merchant withdrawal address using ChipiPay
+  // async updateWithdrawalAddress(
+  //   encryptedPrivateKey: string,
+  //   walletPublicKey: string,
+  //   newWithdrawalAddress: string,
+  //   encryptKey: string,
+  //   bearerToken: string
+  // ): Promise<string> {
+  //   try {
+  //     const contractCallParams: ContractCallParams = {
+  //       privateKey: encryptedPrivateKey,
+  //       contractAddress: this.contractAddress,
+  //       entrypoint: "update_merchant_withdrawal_address",
+  //       calldata: [newWithdrawalAddress],
+  //       bearerToken,
+  //       encryptKey,
+  //       walletPublicKey,
+  //     };
+
+  //     const result = await chipipayService.callAnyContract(contractCallParams);
+
+  //     if (!result.success) {
+  //       throw new Error(result.error || "Failed to update withdrawal address");
+  //     }
+
+  //     return result.txHash;
+  //   } catch (error) {
+  //     console.error("Error updating withdrawal address:", error);
+  //     throw error;
+  //   }
+  // }
+
+  // Update merchant metadata using ChipiPay
+  // async updateMerchantMetadata(
+  //   encryptedPrivateKey: string,
+  //   walletPublicKey: string,
+  //   newMetadataHash: string,
+  //   encryptKey: string,
+  //   bearerToken: string
+  // ): Promise<string> {
+  //   try {
+  //     const contractCallParams: ContractCallParams = {
+  //       privateKey: encryptedPrivateKey,
+  //       contractAddress: this.contractAddress,
+  //       entrypoint: "update_merchant_metadata",
+  //       calldata: [newMetadataHash],
+  //       bearerToken,
+  //       encryptKey,
+  //       walletPublicKey,
+  //     };
+
+  //     const result = await chipipayService.callAnyContract(contractCallParams);
+
+  //     if (!result.success) {
+  //       throw new Error(result.error || "Failed to update metadata");
+  //     }
+
+  //     return result.txHash;
+  //   } catch (error) {
+  //     console.error("Error updating merchant metadata:", error);
+  //     throw error;
+  //   }
+  // }
+
+  // // Withdraw funds using ChipiPay
+  // async withdrawFunds(
+  //   encryptedPrivateKey: string,
+  //   walletPublicKey: string,
+  //   amount: string,
+  //   encryptKey: string,
+  //   bearerToken: string
+  // ): Promise<string> {
+  //   try {
+  //     const contractCallParams: ContractCallParams = {
+  //       privateKey: encryptedPrivateKey,
+  //       contractAddress: this.contractAddress,
+  //       entrypoint: "withdraw_funds",
+  //       calldata: [amount],
+  //       bearerToken,
+  //       encryptKey,
+  //       walletPublicKey,
+  //     };
+
+  //     const result = await chipipayService.callAnyContract(contractCallParams);
+
+  //     if (!result.success) {
+  //       throw new Error(result.error || "Failed to withdraw funds");
+  //     }
+
+  //     return result.txHash;
+  //   } catch (error) {
+  //     console.error("Error withdrawing funds:", error);
+  //     throw error;
+  //   }
+  // }
 }
 
 export default ContractMerchantService;

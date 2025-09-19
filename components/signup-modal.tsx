@@ -22,6 +22,17 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
+import { useCreateWallet } from "@chipi-stack/chipi-react";
+import {
+  createWalletWithMerchantUpdate,
+  createInvisibleWallet,
+  getStoredEncryptionKey,
+  clearStoredEncryptionKey,
+  validateEncryptKey,
+  type DbResult,
+  type WalletCreationResult
+} from '@/lib/wallet-auth-integration';
+
 interface SignupModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -50,6 +61,7 @@ export const SignupModal: React.FC<SignupModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
   const router = useRouter();
+  const { createWalletAsync } = useCreateWallet();
 
   const steps = [
     { key: "email", title: "Email", icon: Mail },
@@ -153,7 +165,7 @@ export const SignupModal: React.FC<SignupModalProps> = ({
     setError("");
 
     try {
-      const response = await fetch("/api/auth/signup", {
+      const response = await fetch("/api/merchants/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

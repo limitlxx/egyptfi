@@ -1,24 +1,4 @@
 /**
-<<<<<<< HEAD
- * Basic error handling for testing
- */
-
-export enum ErrorCode {
-  NETWORK_ERROR = 'NETWORK_ERROR',
-  TIMEOUT_ERROR = 'TIMEOUT_ERROR',
-  VALIDATION_ERROR = 'VALIDATION_ERROR',
-  CHIPIPAY_API_ERROR = 'CHIPIPAY_API_ERROR'
-}
-
-export function createErrorResponse(code: ErrorCode, message: string, details?: any) {
-  return {
-    error: {
-      code,
-      message,
-      details
-    }
-  };
-=======
  * Standardized error handling system for ChipiPay integration
  * Provides consistent error codes, messages, and response formats
  */
@@ -494,5 +474,4 @@ export class ErrorHandler {
     
     return null;
   }
->>>>>>> backend
 }

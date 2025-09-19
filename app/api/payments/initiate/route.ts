@@ -38,9 +38,9 @@ async function generateQRCode(paymentUrl: string): Promise<string> {
 export async function POST(request: NextRequest) {
   try {
     // Get authentication headers
-    const { apiKey, walletAddress, environment } = getAuthHeaders(request)
+    const { apiKey, environment } = getAuthHeaders(request)
     
-    if (!apiKey || !walletAddress || !environment) {
+    if (!apiKey || !environment) {
       return NextResponse.json(
         { error: 'Missing authentication headers' },
         { status: 401 }
@@ -48,7 +48,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Authenticate the request
-    const authResult = await authenticateApiKey(apiKey, walletAddress, environment)
+    const authResult = await authenticateApiKey(apiKey, environment)
     if (!authResult.success) {
       return NextResponse.json(
         { error: authResult.error },
@@ -169,10 +169,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { 
           error: "Validation failed", 
-          details: error.errors.map(err => ({
-            field: err.path.join('.'),
-            message: err.message
-          }))
+          details: error
         },
         { status: 400 }
       )

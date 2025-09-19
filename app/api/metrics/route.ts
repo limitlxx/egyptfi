@@ -99,7 +99,7 @@ export async function GET(request: NextRequest) {
       '/api/metrics',
       200,
       responseTime,
-      authResult.merchantId
+      authResult.merchant?.merchantId
     );
 
     logger.info('Metrics API request completed', {
@@ -108,7 +108,7 @@ export async function GET(request: NextRequest) {
       metricName,
       interval,
       responseTime,
-      merchantId: authResult.merchantId
+      merchantId: authResult.merchant?.merchantId
     }, LogCategory.API_REQUEST);
 
     return NextResponse.json(metricsData, {
@@ -122,9 +122,9 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     const responseTime = Date.now() - startTime;
     
-    logger.error('Metrics API error', error, {
-      responseTime
-    }, LogCategory.API_REQUEST);
+    // logger.error('Metrics API error', error, {
+    //   responseTime
+    // }, LogCategory.API_REQUEST);
 
     // Record error metrics
     metricsCollector.recordApiRequest(

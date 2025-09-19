@@ -448,7 +448,7 @@ export class Logger {
       );
     } catch (error) {
       // Ignore conflicts - wallet operations might be logged multiple times
-      if (!error.message?.includes('duplicate key')) {
+      if (!(error instanceof Error) || !error.message?.includes('duplicate key')) {
         throw error;
       }
     } finally {

@@ -7,9 +7,9 @@ import { authenticateApiKey, getAuthHeaders } from '@/lib/auth-helpers';
  */
 export async function GET(request: NextRequest) {
   try {
-    const { apiKey, walletAddress, environment } = getAuthHeaders(request);
+    const { apiKey, environment } = getAuthHeaders(request);
     
-    if (!apiKey || !walletAddress || !environment) {
+    if (!apiKey || !environment) {
       return NextResponse.json(
         { error: 'Missing authentication headers' },
         { status: 401 }
@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Authenticate the request
-    const authResult = await authenticateApiKey(apiKey, walletAddress, environment);
+    const authResult = await authenticateApiKey(apiKey, environment);
     if (!authResult.success) {
       return NextResponse.json(
         { error: authResult.error },
@@ -64,12 +64,12 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
-    const { apiKey, walletAddress, environment } = getAuthHeaders(request);
-    if (!apiKey || !walletAddress || !environment) {
+    const { apiKey, environment } = getAuthHeaders(request);
+    if (!apiKey || !environment) {
       return NextResponse.json({ error: 'Missing authentication headers' }, { status: 401 });
     }
 
-    const authResult = await authenticateApiKey(apiKey, walletAddress, environment);
+    const authResult = await authenticateApiKey(apiKey, environment);
     if (!authResult.success) {
       return NextResponse.json({ error: authResult.error }, { status: 401 });
     }
@@ -113,12 +113,12 @@ export async function POST(request: NextRequest) {
  */
 export async function PUT(request: NextRequest) {
   try {
-    const { apiKey, walletAddress, environment } = getAuthHeaders(request);
-    if (!apiKey || !walletAddress || !environment) {
+    const { apiKey, environment } = getAuthHeaders(request);
+    if (!apiKey || !environment) {
       return NextResponse.json({ error: 'Missing authentication headers' }, { status: 401 });
     }
 
-    const authResult = await authenticateApiKey(apiKey, walletAddress, environment);
+    const authResult = await authenticateApiKey(apiKey, environment);
     if (!authResult.success) {
       return NextResponse.json({ error: authResult.error }, { status: 401 });
     }

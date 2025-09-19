@@ -12,18 +12,52 @@ import {
   ChipiPayErrorCodes,
 } from "./types/chipipay.types";
 
+// External dependencies for wallet creation
+import CryptoJS from "crypto-js";
+import type { DeploymentData } from "@avnu/gasless-sdk";
+import {
+  Account,
+  CairoCustomEnum,
+  CairoOption,
+  CairoOptionVariant,
+  CallData,
+  ec,
+  hash,
+  num,
+  RpcProvider,
+  stark,
+} from "starknet";
+
+// Encryption utility
+const encryptPrivateKey = (privateKey: string, password: string): string => {
+  if (!privateKey || !password) {
+    throw new Error("Private key and password are required");
+  }
+  return CryptoJS.AES.encrypt(privateKey, password).toString();
+};
+
+// Types for wallet data
+interface WalletData {
+  publicKey: string;
+  encryptedPrivateKey: string;
+}
+
 export class ChipiPayServiceImpl implements ChipiPayService {
   private readonly baseUrl: string;
   private readonly timeout: number = 30000; // 30 seconds
+  private readonly rpcUrl: string;
 
   constructor(
-    baseUrl: string = process.env.CHIPIPAY_URL || "https://api.chipipay.com/v1"
+    baseUrl: string = process.env.CHIPIPAY_URL || "https://api.chipipay.com/v1",
+    rpcUrl: string = process.env.STARKNET_RPC_URL ||
+      "https://starknet-mainnet.infura.io/v3/YOUR_PROJECT_ID"
   ) {
     this.baseUrl = baseUrl;
+    this.rpcUrl = rpcUrl;
   }
 
   /**
-   * Create an invisible wallet using ChipiPay's createWallet function
+   * Create an invisible wallet using ChipiPay's actual implementation
    */
   async createWallet(
     params: CreateWalletParams
@@ -33,278 +67,184 @@ export class ChipiPayServiceImpl implements ChipiPayService {
         externalUserId: params.externalUserId,
       });
 
-      const response = await this.makeRequest("/wallet/create", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${params.bearerToken}`,
-          "X-API-Key": params.apiPublicKey,
-        },
-        body: JSON.stringify({
-          encryptKey: params.encryptKey,
-          externalUserId: params.externalUserId,
-        }),
-      });
+      const { encryptKey, apiPublicKey, bearerToken } = params;
 
-      if (!response.success) {
-        throw new Error(response.error || "Wallet creation failed");
+      // Temporary fallback for development if ChipiPay API is not accessible
+      if (
+        process.env.NODE_ENV === "development" &&
+        process.env.CHIPIPAY_MOCK_MODE === "true"
+      ) {
+        console.log("[ChipiPay] Using mock mode for development");
+        return this.createMockWallet(params);
       }
 
-      this.logOperation("createWallet", {
-        externalUserId: params.externalUserId,
-        success: true,
-        txHash: response.txHash,
+      const provider = new RpcProvider({ nodeUrl: this.rpcUrl });
+
+      // Generating the private key with Stark Curve
+      const privateKeyAX = stark.randomAddress();
+      const starkKeyPubAX = ec.starkCurve.getStarkKey(privateKeyAX);
+
+      // Using Argent X Account v0.4.0 class hash
+      const accountClassHash =
+        "0x036078334509b514626504edc9fb252328d1a240e4e948bef8d0c08dff45927f";
+
+      // Calculate future address of the ArgentX account
+      const axSigner = new CairoCustomEnum({
+        Starknet: { pubkey: starkKeyPubAX },
       });
 
-      return {
-        success: true,
-        txHash: response.txHash,
-        wallet: {
-          publicKey: response.wallet.publicKey,
-          encryptedPrivateKey: response.wallet.encryptedPrivateKey,
-        },
+      // Set the dApp Guardian address
+      const axGuardian = new CairoOption<unknown>(CairoOptionVariant.None);
+
+      const AXConstructorCallData = CallData.compile({
+        owner: axSigner,
+        guardian: axGuardian,
+      });
+
+      const publicKey = hash.calculateContractAddressFromHash(
+        starkKeyPubAX,
+        accountClassHash,
+        AXConstructorCallData,
+        0
+      );
+
+      // Initiating Account
+      const account = new Account({
+        provider: provider,
+        address: publicKey,
+        signer: privateKeyAX,
+      });
+
+      // Backend Call API to create the wallet
+      console.log("ChipiPay API Request Details:", {
+        url: `${this.baseUrl}/chipi-wallets/prepare-creation`,
+        apiPublicKey,
+        bearerTokenLength: bearerToken?.length,
+        publicKey: publicKey.substring(0, 10) + "...",
+      });
+
+      const typeDataResponse = await fetch(
+        `${this.baseUrl}/chipi-wallets/prepare-creation`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${bearerToken}`,
+            "x-api-key": apiPublicKey,
+          },
+          body: JSON.stringify({
+            publicKey,
+          }),
+        }
+      );
+
+      if (!typeDataResponse.ok) {
+        const errorData = await typeDataResponse.json().catch(() => ({}));
+        console.error("ChipiPay API Error Response:", {
+          status: typeDataResponse.status,
+          statusText: typeDataResponse.statusText,
+          errorData,
+          headers: Object.fromEntries(typeDataResponse.headers.entries()),
+        });
+        throw new Error(
+          errorData.message ||
+            `HTTP ${typeDataResponse.status}: ${typeDataResponse.statusText}`
+        );
+      }
+
+      const { typeData, accountClassHash: accountClassHashResponse } =
+        await typeDataResponse.json();
+
+      // Sign the message
+      const userSignature = await account.signMessage(typeData);
+
+      const deploymentData: DeploymentData = {
+        class_hash: accountClassHashResponse,
+        salt: starkKeyPubAX,
+        unique: `${num.toHex(0)}`,
+        calldata: AXConstructorCallData.map((value: any) => num.toHex(value)),
       };
-    } catch (error) {
+
+      const encryptedPrivateKey = encryptPrivateKey(privateKeyAX, encryptKey);
+
+      // Call API to save the wallet in dashboard
+      const executeTransactionResponse = await fetch(
+        `${this.baseUrl}/chipi-wallets`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${bearerToken}`,
+            "x-api-key": apiPublicKey,
+          },
+          body: JSON.stringify({
+            apiPublicKey,
+            publicKey,
+            userSignature: {
+              r: (userSignature as any).r.toString(),
+              s: (userSignature as any).s.toString(),
+              recovery: (userSignature as any).recovery,
+            },
+            typeData,
+            encryptedPrivateKey,
+            deploymentData: {
+              ...deploymentData,
+              salt: `${deploymentData.salt}`,
+              calldata: deploymentData.calldata.map((data: any) => `${data}`),
+            },
+          }),
+        }
+      );
+
+      if (!executeTransactionResponse.ok) {
+        const errorData = await executeTransactionResponse
+          .json()
+          .catch(() => ({}));
+        throw new Error(
+          errorData.message ||
+            `HTTP ${executeTransactionResponse.status}: ${executeTransactionResponse.statusText}`
+        );
+      }
+
+      const executeTransaction = await executeTransactionResponse.json();
+      console.log("Execute transaction: ", executeTransaction);
+
+      if (executeTransaction.success) {
+        const result = {
+          success: true,
+          txHash: executeTransaction.txHash,
+          wallet: {
+            publicKey: executeTransaction.walletPublicKey,
+            encryptedPrivateKey: encryptedPrivateKey,
+          } as WalletData,
+        };
+
+        this.logOperation("createWallet", {
+          externalUserId: params.externalUserId,
+          success: true,
+          txHash: executeTransaction.txHash,
+          publicKey: executeTransaction.walletPublicKey,
+        });
+
+        return result;
+      } else {
+        throw new Error(
+          "Wallet creation failed: " +
+            (executeTransaction.error || "Unknown error")
+        );
+      }
+    } catch (error: unknown) {
+      console.error("Error creating wallet:", error);
+
+      if (error instanceof Error && error.message.includes("SSL")) {
+        throw new Error(
+          "SSL connection error. Try using NODE_TLS_REJECT_UNAUTHORIZED=0 or verify the RPC URL"
+        );
+      }
+
       this.logError("createWallet", error, params.externalUserId);
       throw this.createChipiPayError(
         ChipiPayErrorCodes.WALLET_CREATION_FAILED,
-        error
-      );
-    }
-  }
-
-  /**
-   * Transfer tokens using ChipiPay's useTransfer hook
-   */
-  async transfer(params: TransferParams): Promise<TransactionResponse> {
-    try {
-      this.logOperation("transfer", {
-        recipient: params.recipient,
-        amount: params.amount,
-        contractAddress: params.contractAddress,
-      });
-
-      const response = await this.makeRequest("/wallet/transfer", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${params.bearerToken}`,
-        },
-        body: JSON.stringify({
-          privateKey: params.privateKey,
-          recipient: params.recipient,
-          amount: params.amount,
-          contractAddress: params.contractAddress,
-          decimals: params.decimals,
-        }),
-      });
-
-      if (!response.success) {
-        throw new Error(response.error || "Transfer failed");
-      }
-
-      this.logOperation("transfer", {
-        recipient: params.recipient,
-        amount: params.amount,
-        success: true,
-        txHash: response.txHash,
-      });
-
-      return {
-        success: true,
-        txHash: response.txHash,
-        data: response.data,
-      };
-    } catch (error) {
-      this.logError("transfer", error, params.recipient);
-      throw this.createChipiPayError(ChipiPayErrorCodes.TRANSFER_FAILED, error);
-    }
-  }
-
-  /**
-   * Approve token spending using ChipiPay's useApprove hook
-   */
-  async approve(params: ApproveParams): Promise<TransactionResponse> {
-    try {
-      this.logOperation("approve", {
-        contractAddress: params.contractAddress,
-        spender: params.spender,
-        amount: params.amount,
-      });
-
-      const response = await this.makeRequest("/wallet/approve", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${params.bearerToken}`,
-        },
-        body: JSON.stringify({
-          privateKey: params.privateKey,
-          contractAddress: params.contractAddress,
-          spender: params.spender,
-          amount: params.amount,
-          decimals: params.decimals,
-        }),
-      });
-
-      if (!response.success) {
-        throw new Error(response.error || "Approval failed");
-      }
-
-      this.logOperation("approve", {
-        contractAddress: params.contractAddress,
-        spender: params.spender,
-        success: true,
-        txHash: response.txHash,
-      });
-
-      return {
-        success: true,
-        txHash: response.txHash,
-        data: response.data,
-      };
-    } catch (error) {
-      this.logError("approve", error, params.spender);
-      throw this.createChipiPayError(ChipiPayErrorCodes.APPROVE_FAILED, error);
-    }
-  }
-
-  /**
-   * Stake USDC in VESU using ChipiPay's useStakeVesuUsdc hook
-   */
-  async stakeVesuUsdc(params: StakeParams): Promise<TransactionResponse> {
-    try {
-      this.logOperation("stakeVesuUsdc", {
-        amount: params.amount,
-        receiverWallet: params.receiverWallet,
-      });
-
-      const response = await this.makeRequest("/wallet/stake-vesu-usdc", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${params.bearerToken}`,
-        },
-        body: JSON.stringify({
-          privateKey: params.privateKey,
-          amount: params.amount,
-          receiverWallet: params.receiverWallet,
-        }),
-      });
-
-      if (!response.success) {
-        throw new Error(response.error || "VESU staking failed");
-      }
-
-      this.logOperation("stakeVesuUsdc", {
-        amount: params.amount,
-        receiverWallet: params.receiverWallet,
-        success: true,
-        txHash: response.txHash,
-      });
-
-      return {
-        success: true,
-        txHash: response.txHash,
-        data: response.data,
-      };
-    } catch (error) {
-      this.logError("stakeVesuUsdc", error, params.receiverWallet);
-      throw this.createChipiPayError(ChipiPayErrorCodes.STAKE_FAILED, error);
-    }
-  }
-
-  /**
-   * Withdraw from VESU using ChipiPay's useWithdrawVesuUsdc hook
-   */
-  async withdrawVesuUsdc(params: WithdrawParams): Promise<TransactionResponse> {
-    try {
-      this.logOperation("withdrawVesuUsdc", {
-        amount: params.amount,
-        recipient: params.recipient,
-      });
-
-      const response = await this.makeRequest("/wallet/withdraw-vesu-usdc", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${params.bearerToken}`,
-        },
-        body: JSON.stringify({
-          privateKey: params.privateKey,
-          amount: params.amount,
-          recipient: params.recipient,
-        }),
-      });
-
-      if (!response.success) {
-        throw new Error(response.error || "VESU withdrawal failed");
-      }
-
-      this.logOperation("withdrawVesuUsdc", {
-        amount: params.amount,
-        recipient: params.recipient,
-        success: true,
-        txHash: response.txHash,
-      });
-
-      return {
-        success: true,
-        txHash: response.txHash,
-        data: response.data,
-      };
-    } catch (error) {
-      this.logError("withdrawVesuUsdc", error, params.recipient);
-      throw this.createChipiPayError(ChipiPayErrorCodes.WITHDRAW_FAILED, error);
-    }
-  }
-
-  /**
-   * Call any contract using ChipiPay's useCallAnyContract hook
-   */
-  async callAnyContract(
-    params: ContractCallParams
-  ): Promise<TransactionResponse> {
-    try {
-      this.logOperation("callAnyContract", {
-        contractAddress: params.contractAddress,
-        entrypoint: params.entrypoint,
-      });
-
-      const response = await this.makeRequest("/wallet/call-contract", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${params.bearerToken}`,
-        },
-        body: JSON.stringify({
-          privateKey: params.privateKey,
-          contractAddress: params.contractAddress,
-          entrypoint: params.entrypoint,
-          calldata: params.calldata,
-        }),
-      });
-
-      if (!response.success) {
-        throw new Error(response.error || "Contract call failed");
-      }
-
-      this.logOperation("callAnyContract", {
-        contractAddress: params.contractAddress,
-        entrypoint: params.entrypoint,
-        success: true,
-        txHash: response.txHash,
-      });
-
-      return {
-        success: true,
-        txHash: response.txHash,
-        data: response.data,
-      };
-    } catch (error) {
-      this.logError("callAnyContract", error, params.contractAddress);
-      throw this.createChipiPayError(
-        ChipiPayErrorCodes.CONTRACT_CALL_FAILED,
         error
       );
     }
@@ -385,6 +325,43 @@ export class ChipiPayServiceImpl implements ChipiPayService {
       context,
       stack: error.stack,
     });
+  }
+
+  /**
+   * Create a mock wallet for development/testing purposes
+   * This should only be used when ChipiPay API is not accessible
+   */
+  private async createMockWallet(
+    params: CreateWalletParams
+  ): Promise<CreateWalletResponse> {
+    const { encryptKey, externalUserId } = params;
+
+    // Generate mock wallet data
+    const privateKey = stark.randomAddress();
+    const publicKey = ec.starkCurve.getStarkKey(privateKey);
+    const encryptedPrivateKey = encryptPrivateKey(privateKey, encryptKey);
+
+    // Simulate API delay
+    await new Promise((resolve) => setTimeout(resolve, 1000));
+
+    const mockResult = {
+      success: true,
+      txHash: `0x${Math.random().toString(16).substr(2, 64)}`,
+      wallet: {
+        publicKey: `0x${publicKey}`,
+        encryptedPrivateKey: encryptedPrivateKey,
+      } as WalletData,
+    };
+
+    this.logOperation("createMockWallet", {
+      externalUserId,
+      success: true,
+      txHash: mockResult.txHash,
+      publicKey: mockResult.wallet.publicKey.substring(0, 10) + "...",
+      note: "MOCK WALLET - NOT REAL BLOCKCHAIN TRANSACTION",
+    });
+
+    return mockResult;
   }
 }
 

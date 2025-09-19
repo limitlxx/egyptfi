@@ -4,7 +4,7 @@ export interface CreateWalletParams {
   encryptKey: string;
   externalUserId: string;
   apiPublicKey: string;
-  bearerToken: string;
+  bearerToken: any;
 }
 
 export interface CreateWalletResponse {
@@ -14,6 +14,7 @@ export interface CreateWalletResponse {
     publicKey: string;
     encryptedPrivateKey: string;
   };
+  error?: string;
 }
 
 export interface TransferParams {
@@ -49,11 +50,13 @@ export interface WithdrawParams {
 }
 
 export interface ContractCallParams {
-  privateKey: string;
+  privateKey: string; // This is the encrypted private key
   contractAddress: string;
   entrypoint: string;
   calldata: any[];
   bearerToken: string;
+  encryptKey?: string; // PIN to decrypt the private key
+  walletPublicKey?: string; // Public key of the wallet
 }
 
 export interface TransactionResponse {
@@ -71,11 +74,11 @@ export interface ChipiPayError {
 
 export interface ChipiPayService {
   createWallet(params: CreateWalletParams): Promise<CreateWalletResponse>;
-  transfer(params: TransferParams): Promise<TransactionResponse>;
-  approve(params: ApproveParams): Promise<TransactionResponse>;
-  stakeVesuUsdc(params: StakeParams): Promise<TransactionResponse>;
-  withdrawVesuUsdc(params: WithdrawParams): Promise<TransactionResponse>;
-  callAnyContract(params: ContractCallParams): Promise<TransactionResponse>;
+  // transfer(params: TransferParams): Promise<TransactionResponse>;
+  // approve(params: ApproveParams): Promise<TransactionResponse>;
+  // stakeVesuUsdc(params: StakeParams): Promise<TransactionResponse>;
+  // withdrawVesuUsdc(params: WithdrawParams): Promise<TransactionResponse>;
+  // callAnyContract(params: ContractCallParams): Promise<TransactionResponse>;
 }
 
 export enum ChipiPayErrorCodes {

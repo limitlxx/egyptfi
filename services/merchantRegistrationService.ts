@@ -1,6 +1,8 @@
 // services/merchantRegistrationService.ts
 import { truncateToFelt252, emailToFelt252 } from "@/lib/felt252-utils";
 import ContractMerchantService from './contractMerchantService';
+import { chipipayService } from './chipipayService';
+import { CreateWalletParams, CreateWalletResponse, ContractCallParams } from './types/chipipay.types';
 
 export interface MerchantRegistrationData {
   business_name: string;
@@ -10,6 +12,8 @@ export interface MerchantRegistrationData {
   wallet_address?: string;
   authMethod: 'wallet' | 'google';
   local_currency?: string;
+  encryptKey?: string; // PIN for wallet encryption
+  externalUserId?: string; // User ID from auth provider
 }
 
 export interface ApiKeys {
@@ -31,6 +35,12 @@ export interface RegistrationResult {
   apiKeys?: ApiKeys;
   error?: string;
   requiresContractRegistration?: any;
+  wallet?: {
+    publicKey: string;
+    encryptedPrivateKey: string;
+  };
+  walletTxHash?: string;
+  contractRegistrationTxHash?: string;
 }
 
 export interface ContractRegistrationData {
@@ -41,6 +51,103 @@ export interface ContractRegistrationData {
 }
 
 class MerchantRegistrationService {
+  // Create ChipiPay invisible wallet
+  static async createInvisibleWallet(
+    merchantData: MerchantRegistrationData,
+    bearerToken: string,
+    apiPublicKey: string
+  ): Promise<CreateWalletResponse> {
+    try {
+      if (!merchantData.encryptKey || !merchantData.externalUserId) {
+        throw new Error('encryptKey and externalUserId are required for wallet creation');
+      }
+
+      console.log('Creating invisible wallet for merchant:', merchantData.business_email);
+
+      const walletParams: CreateWalletParams = {
+        encryptKey: merchantData.encryptKey,
+        externalUserId: merchantData.externalUserId,
+        apiPublicKey,
+        bearerToken
+      };
+
+      const walletResult = await chipipayService.createWallet(walletParams);
+
+      if (!walletResult.success) {
+        throw new Error('Failed to create invisible wallet');
+      }
+
+      console.log('Invisible wallet created successfully:', {
+        publicKey: walletResult.wallet.publicKey,
+        txHash: walletResult.txHash
+      });
+
+      return walletResult;
+    } catch (error) {
+      console.error('Error creating invisible wallet:', error);
+      throw new Error(`Failed to create invisible wallet: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  // Register merchant on the contract using ChipiPay
+  static async registerMerchantOnContract(
+    merchantData: MerchantRegistrationData,
+    walletAddress: string,
+    encryptedPrivateKey: string,
+    bearerToken: string,
+    contractAddress: string
+  ): Promise<string> {
+    try {
+      console.log('Registering merchant on contract:', {
+        walletAddress,
+        contractAddress,
+        businessName: merchantData.business_name
+      });
+
+      // Prepare metadata hash (combining name and email as felt252)
+      const nameAsFelt = truncateToFelt252(merchantData.business_name);
+      const emailAsFelt = emailToFelt252(merchantData.business_email);
+      
+      // For simplicity, we'll use the name as metadata_hash
+      // In production, you might want to create a proper hash of all metadata
+      const metadataHash = nameAsFelt;
+
+      if (!merchantData.encryptKey) {
+        throw new Error('encryptKey (PIN) is required for contract registration');
+      }
+
+      // ChipiPay expects the encrypted private key and PIN to decrypt it
+      const contractCallParams: ContractCallParams = {
+        privateKey: encryptedPrivateKey, // This is the encrypted private key from ChipiPay
+        contractAddress,
+        entrypoint: 'register_merchant',
+        calldata: [
+          walletAddress, // withdrawal_address
+          metadataHash   // metadata_hash
+        ],
+        bearerToken,
+        encryptKey: merchantData.encryptKey, // PIN to decrypt the private key
+        walletPublicKey: walletAddress // Public key of the wallet
+      };
+
+      const result = await chipipayService.callAnyContract(contractCallParams);
+
+      if (!result.success) {
+        throw new Error(result.error || 'Contract registration failed');
+      }
+
+      console.log('Merchant registered on contract successfully:', {
+        txHash: result.txHash,
+        walletAddress
+      });
+
+      return result.txHash;
+    } catch (error) {
+      console.error('Error registering merchant on contract:', error);
+      throw new Error(`Failed to register merchant on contract: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
   // Prepare data for contract registration
   static prepareContractData(
     merchantData: MerchantRegistrationData,
@@ -60,6 +167,85 @@ class MerchantRegistrationService {
       };
     } catch (error) {
       throw new Error(`Failed to prepare contract data: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
+  }
+
+  // Complete merchant registration with invisible wallet
+  static async registerMerchantWithInvisibleWallet(
+    merchantData: MerchantRegistrationData,
+    bearerToken: string,
+    apiPublicKey: string,
+    contractAddress: string
+  ): Promise<RegistrationResult> {
+    try {
+      console.log('Starting complete merchant registration with invisible wallet');
+
+      // Step 1: Create invisible wallet
+      const walletResult = await this.createInvisibleWallet(
+        merchantData,
+        bearerToken,
+        apiPublicKey
+      );
+
+      // Step 2: Update merchant data with wallet address
+      const updatedMerchantData = {
+        ...merchantData,
+        wallet_address: walletResult.wallet.publicKey,
+        authMethod: 'wallet' as const
+      };
+
+      // Step 3: Register in database
+      const dbResult = await this.registerInDatabase(updatedMerchantData);
+      
+      if (!dbResult.success) {
+        return {
+          ...dbResult,
+          wallet: walletResult.wallet,
+          walletTxHash: walletResult.txHash
+        };
+      }
+
+      // Step 4: Register on contract
+      let contractTxHash: string | undefined;
+      try {
+        contractTxHash = await this.registerMerchantOnContract(
+          merchantData,
+          walletResult.wallet.publicKey,
+          walletResult.wallet.encryptedPrivateKey,
+          bearerToken,
+          contractAddress
+        );
+
+        // Step 5: Update merchant status in database
+        if (dbResult.merchant?.id) {
+          await this.updateMerchantContractStatus(dbResult.merchant.id, {
+            contractRegistered: true,
+            contractTxHash,
+            walletAddress: walletResult.wallet.publicKey
+          });
+        }
+      } catch (contractError) {
+        console.warn('Contract registration failed, but database registration succeeded:', contractError);
+        // Don't fail the entire process if contract registration fails
+        // The merchant can retry contract registration later
+      }
+
+      return {
+        success: true,
+        merchant: dbResult.merchant,
+        apiKeys: dbResult.apiKeys,
+        wallet: walletResult.wallet,
+        walletTxHash: walletResult.txHash,
+        contractRegistrationTxHash: contractTxHash,
+        requiresContractRegistration: !contractTxHash
+      };
+
+    } catch (error) {
+      console.error('Complete merchant registration failed:', error);
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : 'Registration failed'
+      };
     }
   }
 

@@ -23,6 +23,8 @@
     "deploy:production": "NODE_ENV=production npm run deploy:validate && npm run deploy:migrate"
   },
   "dependencies": {
+    "@avnu/gasless-sdk": "^0.1.8",
+    "@chipi-stack/chipi-react": "^11.2.0",
     "@chipi-stack/nextjs": "^11.2.0",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-accordion": "1.2.12",
@@ -65,6 +67,7 @@
     "clsx": "^2.1.1",
     "cmdk": "1.1.1",
     "crypto": "^1.0.1",
+    "crypto-js": "^4.2.0",
     "date-fns": "4.1.0",
     "embla-carousel-react": "8.6.0",
     "geist": "^1.5.1",
@@ -96,6 +99,7 @@
   },
   "devDependencies": {
     "@tailwindcss/postcss": "^4.1.13",
+    "@types/crypto-js": "^4.2.2",
     "@types/jest": "^30.0.0",
     "@types/node": "^24",
     "@types/qrcode": "^1.5.5",

@@ -14,7 +14,7 @@ interface AuthResult {
 
 export async function authenticateApiKey(
   apiKey: string,
-  walletAddress: string,
+  // walletAddress: string,
   environment: 'testnet' | 'mainnet'
 ): Promise<AuthResult> {
   try {
@@ -29,10 +29,9 @@ export async function authenticateApiKey(
           m.is_verified
          FROM merchants m
          JOIN api_keys ak ON m.id = ak.merchant_id
-         WHERE LOWER(m.wallet_address) = LOWER($1) 
-         AND ak.public_key = $2
+         WHERE ak.public_key = $1
          AND m.is_verified = true`,
-        [walletAddress, apiKey]
+        [apiKey]
       );
 
       if (result.rows.length === 0) {

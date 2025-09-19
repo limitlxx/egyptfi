@@ -9,13 +9,12 @@ export function middleware(request: NextRequest) {
       !request.nextUrl.pathname.includes('/login')) {      
     
     const apiKey = request.headers.get('x-api-key');
-    const walletAddress = request.headers.get('x-wallet-address');
     const environment = request.headers.get('x-environment');
     
     // Basic header validation - detailed auth will be done in each API route
-    if (!apiKey || !walletAddress || !environment) {
+    if (!apiKey || !environment) {
       return NextResponse.json(
-        { error: 'API key, wallet address, and environment headers required' },
+        { error: 'API key and environment headers required' },
         { status: 401 }
       );
     }

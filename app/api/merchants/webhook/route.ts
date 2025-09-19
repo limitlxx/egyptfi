@@ -5,9 +5,9 @@ import { authenticateApiKey, getAuthHeaders } from "@/lib/auth-helpers";
 export async function POST(request: NextRequest) { 
 
   try {
-    const { apiKey, walletAddress, environment } = getAuthHeaders(request);
+    const { apiKey, environment } = getAuthHeaders(request);
 
-    if (!apiKey || !walletAddress || !environment) {
+    if (!apiKey || !environment) {
       return NextResponse.json(
         { error: "Missing authentication headers" },
         { status: 401 }
@@ -16,8 +16,7 @@ export async function POST(request: NextRequest) {
 
     // Authenticate the request
     const authResult = await authenticateApiKey(
-      apiKey,
-      walletAddress,
+      apiKey,    
       environment
     );
 

@@ -131,7 +131,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
       </div>
-
     </nav>
   );
 };
