@@ -153,7 +153,7 @@ export const SignupModal: React.FC<SignupModalProps> = ({
     setError("");
 
     try {
-      const response = await fetch("/api/auth/signup", {
+      const response = await fetch("/api/merchants/register", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

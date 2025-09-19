@@ -28,7 +28,7 @@ export const Navbar: React.FC<NavbarProps> = ({
     { name: "Get Started", href: "#get-started", action: "modal" },
     { name: "Monitoring", href: "/admin/monitoring", action: "link" },
     { name: "Docs", href: "/docs", action: "link" },
-    { name: "Pricing", href: "/pricing", action: "scroll" },
+    { name: "Pricing", href: "/pricing", action: "link" },
   ];
 
   const toggleTheme = () => {
@@ -131,7 +131,6 @@ export const Navbar: React.FC<NavbarProps> = ({
           </div>
         </div>
       </div>
-
     </nav>
   );
 };
