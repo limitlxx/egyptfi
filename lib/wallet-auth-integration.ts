@@ -1,5 +1,5 @@
 import toast from "react-hot-toast";
-import { auth } from "@clerk/nextjs/server";
+// import { auth } from "@clerk/nextjs/server";
 // import { useUser } from "@clerk/nextjs";
 
 // Types and Interfaces
@@ -237,7 +237,7 @@ export const createWalletWithMerchantUpdate = async (
   };
 
   // console.log(params);
-  const { getToken } = auth();
+  // const { getToken } = auth();
 
   // Extract merchant and network info
   const merchant = dbResult.merchant;
@@ -329,8 +329,7 @@ export const createWalletWithMerchantUpdate = async (
         // authorization: `Bearer ${process.env.CHIPI_SECRET_KEY}`,
       },
       // bearerToken: process.env.NEXT_PUBLIC_CHIPI_API_KEY,
-      // bearerToken: key,
-      bearerToken: token,
+      bearerToken: key,
     });
 
     console.log("Wallet created successfully:", walletResponse);
