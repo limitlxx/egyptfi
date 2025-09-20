@@ -4,6 +4,7 @@ import { Toaster } from "react-hot-toast";
 import { Providers } from "@/components/providers";
 import { NetworkStatusProvider } from "@/components/NetworkStatusProvider";
 import { ChipiProvider } from "@chipi-stack/nextjs";
+import { ClerkProvider } from "@clerk/nextjs";
 
 export const metadata: Metadata = {
   title: "EgyptFi",
@@ -39,10 +40,12 @@ html {
       <body>
         <NetworkStatusProvider>
           <Providers>
-            <ChipiProvider>
-              {children}
-              <Toaster />
-            </ChipiProvider>
+            <ClerkProvider>
+              <ChipiProvider>
+                {children}
+                <Toaster />
+              </ChipiProvider>
+            </ClerkProvider>
           </Providers>
         </NetworkStatusProvider>
       </body>

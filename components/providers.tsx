@@ -9,6 +9,7 @@ import {
 } from "@starknet-react/core";
 import { availableConnectors } from "@/connectors";
 import { ThemeProvider } from "@/components/theme-provider";
+import { ChipiProvider } from "@chipi-stack/nextjs";
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
@@ -23,9 +24,12 @@ export function Providers({ children }: { children: ReactNode }) {
         paymasterProvider={paymasterRpcProvider({
           rpc: (chain) => {
             return {
-              nodeUrl: chain.id === mainnet.id
-              ? process.env.NEXT_PUBLIC_PAYMASTER_URL_MAINNET || "https://starknet.paymaster.avnu.fi"
-              : process.env.NEXT_PUBLIC_PAYMASTER_URL || "https://sepolia.paymaster.avnu.fi",
+              nodeUrl:
+                chain.id === mainnet.id
+                  ? process.env.NEXT_PUBLIC_PAYMASTER_URL_MAINNET ||
+                    "https://starknet.paymaster.avnu.fi"
+                  : process.env.NEXT_PUBLIC_PAYMASTER_URL ||
+                    "https://sepolia.paymaster.avnu.fi",
               headers: {
                 "x-paymaster-api-key":
                   process.env.NEXT_PUBLIC_PAYMASTER_API ?? "",
@@ -35,15 +39,20 @@ export function Providers({ children }: { children: ReactNode }) {
         })}
         provider={jsonRpcProvider({
           rpc: (chain) => ({
-            nodeUrl: chain.id === mainnet.id
-            ? process.env.NEXT_PUBLIC_RPC_URL_MAINNET || "https://starknet-mainnet.public.blastapi.io"
-            : process.env.NEXT_PUBLIC_RPC_URL || "https://starknet-sepolia.public.blastapi.io"
+            nodeUrl:
+              chain.id === mainnet.id
+                ? process.env.NEXT_PUBLIC_RPC_URL_MAINNET ||
+                  "https://starknet-mainnet.public.blastapi.io"
+                : process.env.NEXT_PUBLIC_RPC_URL ||
+                  "https://starknet-sepolia.public.blastapi.io",
           }),
         })}
         connectors={availableConnectors}
         explorer={voyager}
       >
+        {/* <ChipiProvider> */}
         {children}
+        {/* </ChipiProvider> */}
       </StarknetConfig>
     </ThemeProvider>
   );

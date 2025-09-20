@@ -24,8 +24,10 @@
   },
   "dependencies": {
     "@avnu/gasless-sdk": "^0.1.8",
+    "@chipi-pay/chipi-sdk": "^3.2.2",
     "@chipi-stack/chipi-react": "^11.2.0",
     "@chipi-stack/nextjs": "^11.2.0",
+    "@clerk/nextjs": "^6.32.0",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-accordion": "1.2.12",
     "@radix-ui/react-alert-dialog": "1.1.15",

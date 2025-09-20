@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -22,16 +22,20 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
-import { useCreateWallet } from "@chipi-stack/chipi-react";
+// import { useCreateWallet } from "@chipi-stack/chipi-react";
+import { useUser, useAuth } from "@clerk/nextjs";
+// import { useUser } from "@clerk/nextjs";
 import {
   createWalletWithMerchantUpdate,
   createInvisibleWallet,
   getStoredEncryptionKey,
+  generateSecureEncryptKey,
   clearStoredEncryptionKey,
   validateEncryptKey,
   type DbResult,
-  type WalletCreationResult
-} from '@/lib/wallet-auth-integration';
+  type WalletCreationResult,
+} from "@/lib/wallet-auth-integration";
+import { useCreateWallet } from "@chipi-stack/chipi-react";
 
 interface SignupModalProps {
   isOpen: boolean;
@@ -59,9 +63,16 @@ export const SignupModal: React.FC<SignupModalProps> = ({
   const pinRefs = useRef<(HTMLInputElement | null)[]>([]);
   const confirmPinRefs = useRef<(HTMLInputElement | null)[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [isPending, setIsPending] = useState(false);
+  const [merchantData, setMerchantData] = useState<DbResult | null>(null);
+  const [error, setError] = useState<string | null>("");
   const router = useRouter();
   const { createWalletAsync } = useCreateWallet();
+  const { user } = useUser();
+  const { getToken } = useAuth();
+
+  console.log(useAuth());
 
   const steps = [
     { key: "email", title: "Email", icon: Mail },
@@ -131,14 +142,65 @@ export const SignupModal: React.FC<SignupModalProps> = ({
     setError("");
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentStep === "email") {
       if (!validateEmail(signupData.email)) {
         setError("Please enter a valid email address");
         return;
       }
-      setCurrentStep("pin");
+
+      // Check if email exists
+
+      setIsLoading(true);
+      setIsPending(true);
+      setError("");
+
+      try {
+        // Use POST method to check if email exists by trying to register with minimal data
+        const response = await fetch("/api/merchants/register", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            business_email: signupData.email,
+            // local_currency: "NGN",
+          }),
+        });
+
+        if (response.status === 409) {
+          // Email exists, proceed to PIN step
+          // setCurrentStep("pin");
+          setError("This email is already exists. Please use another email.");
+        } else if (response.status === 500) {
+          // Email doesn't exist or other validation error
+          const data = await response.json();
+          setError(
+            "This email is not registered. Please use a registered email."
+          );
+        } else if (response.status === 400) {
+          // Email doesn't exist or other validation error
+          const data = await response.json();
+          setError("Enter your email");
+        } else if (response.status === 200) {
+          const data = await response.json();
+          console.log(data);
+          setMerchantData(data);
+          console.log(merchantData);
+          setCurrentStep("pin");
+        } else {
+          // Other error
+          const data = await response.json();
+
+          setError(data.error || "Failed to check email");
+        }
+      } catch (err) {
+        setError("Failed to check email. Please try again.");
+      } finally {
+        setIsLoading(false);
+      }
     } else if (currentStep === "pin") {
+      console.log(merchantData);
       if (!validatePin(signupData.pin)) {
         setError("PIN must be exactly 6 digits");
         return;
@@ -163,6 +225,9 @@ export const SignupModal: React.FC<SignupModalProps> = ({
 
     setIsLoading(true);
     setError("");
+    console.log("tumi");
+    const token = await getToken();
+    console.log(getToken());
 
     try {
       const response = await fetch("/api/merchants/register", {
@@ -176,7 +241,24 @@ export const SignupModal: React.FC<SignupModalProps> = ({
         }),
       });
 
+      // const token = await getToken();
       const data = await response.json();
+      const encryptKey = generateSecureEncryptKey();
+      const externalUserId = merchantData?.merchant.id;
+      const network = "testnet";
+      // console.log(useAuth());
+      if (merchantData) {
+        createWalletWithMerchantUpdate(
+          merchantData,
+          createWalletAsync,
+          setLoading,
+          setError,
+          { pin: signupData.pin, encryptKey, externalUserId, network },
+          token
+        );
+      } else {
+        setError("Merchant data not available");
+      }
 
       if (!response.ok) {
         throw new Error(data.error || "Signup failed");
@@ -196,6 +278,8 @@ export const SignupModal: React.FC<SignupModalProps> = ({
       setIsLoading(false);
     }
   };
+
+  // useEffect(() => {}, [setMerchantData]);
 
   const renderStepContent = () => {
     switch (currentStep) {
@@ -237,12 +321,12 @@ export const SignupModal: React.FC<SignupModalProps> = ({
                 Choose a 6-digit PIN for your account
               </p>
             </div>
-            <div className="space-y-2"> 
+            <div className="space-y-2">
               {renderPinInputs(
                 signupData.pin,
                 (value) => handleInputChange("pin", value),
                 pinRefs
-              )} 
+              )}
             </div>
           </div>
         );
@@ -259,12 +343,12 @@ export const SignupModal: React.FC<SignupModalProps> = ({
                 Re-enter your PIN to confirm
               </p>
             </div>
-            <div className="space-y-2"> 
+            <div className="space-y-2">
               {renderPinInputs(
                 signupData.confirmPin,
                 (value) => handleInputChange("confirmPin", value),
                 confirmPinRefs
-              )} 
+              )}
             </div>
           </div>
         );
@@ -373,7 +457,11 @@ export const SignupModal: React.FC<SignupModalProps> = ({
               className="bg-primary hover:bg-primary/90"
             >
               {isLoading ? (
-                "Creating Account..."
+                currentStep === "email" ? (
+                  "Checking Email..."
+                ) : (
+                  "Creating Account..."
+                )
               ) : currentStep === "confirm" ? (
                 "Create Account"
               ) : (
