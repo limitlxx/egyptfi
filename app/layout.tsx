@@ -4,6 +4,7 @@ import { Toaster } from "react-hot-toast";
 import { Providers } from "@/components/providers";
 import { NetworkStatusProvider } from "@/components/NetworkStatusProvider";
 import { ChipiProvider } from "@chipi-stack/nextjs";
+import { ClerkProvider } from '@clerk/nextjs'
 
 export const metadata: Metadata = {
   title: "EgyptFi",
@@ -16,6 +17,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
+    <ClerkProvider>
     <html lang="en" suppressHydrationWarning={true}>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
@@ -39,13 +41,16 @@ html {
       <body>
         <NetworkStatusProvider>
           <Providers>
-            <ChipiProvider>
-              {children}
-              <Toaster />
-            </ChipiProvider>
+         
+              <ChipiProvider>
+                {children}
+                <Toaster />
+              </ChipiProvider>
+            
           </Providers>
         </NetworkStatusProvider>
       </body>
     </html>
+    </ClerkProvider>
   );
 }

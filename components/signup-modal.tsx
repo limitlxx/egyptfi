@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -21,24 +21,26 @@ import {
   Wallet,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-
-import { useCreateWallet } from "@chipi-stack/chipi-react";
 import {
   createWalletWithMerchantUpdate,
   createInvisibleWallet,
   getStoredEncryptionKey,
+  generateSecureEncryptKey,
   clearStoredEncryptionKey,
   validateEncryptKey,
   type DbResult,
-  type WalletCreationResult
-} from '@/lib/wallet-auth-integration';
+  type WalletCreationResult,
+} from "@/lib/wallet-auth-integration";
+
+import { useUser, useAuth, useSignUp } from "@clerk/nextjs";
+import { useCreateWallet } from "@chipi-stack/chipi-react";
 
 interface SignupModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
-type SignupStep = "email" | "pin" | "confirm" | "wallet";
+type SignupStep = "email" | "pin" | "confirm" | "email-verification" | "wallet";
 
 interface SignupData {
   email: string;
@@ -59,14 +61,23 @@ export const SignupModal: React.FC<SignupModalProps> = ({
   const pinRefs = useRef<(HTMLInputElement | null)[]>([]);
   const confirmPinRefs = useRef<(HTMLInputElement | null)[]>([]);
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [isPending, setIsPending] = useState(false);
+  const [merchantData, setMerchantData] = useState<DbResult | null>(null);
+  const [error, setError] = useState<string | null>("");
+  const [signupAttempt, setSignupAttempt] = useState<any>(null);
+  const [verificationCode, setVerificationCode] = useState("");
   const router = useRouter();
   const { createWalletAsync } = useCreateWallet();
+  const { user } = useUser();
+  const { getToken } = useAuth();
+  const { signUp, isLoaded, setActive } = useSignUp();
 
   const steps = [
     { key: "email", title: "Email", icon: Mail },
     { key: "pin", title: "PIN", icon: Lock },
     { key: "confirm", title: "Confirm", icon: CheckCircle },
+    { key: "email-verification", title: "Verify", icon: Mail },
     { key: "wallet", title: "Wallet", icon: Wallet },
   ];
 
@@ -131,12 +142,15 @@ export const SignupModal: React.FC<SignupModalProps> = ({
     setError("");
   };
 
-  const handleNext = () => {
+  const handleNext = async () => {
     if (currentStep === "email") {
       if (!validateEmail(signupData.email)) {
         setError("Please enter a valid email address");
         return;
       }
+
+      // For now, just proceed to PIN step
+      // Email validation will happen during actual signup
       setCurrentStep("pin");
     } else if (currentStep === "pin") {
       if (!validatePin(signupData.pin)) {
@@ -152,6 +166,8 @@ export const SignupModal: React.FC<SignupModalProps> = ({
       setCurrentStep("email");
     } else if (currentStep === "confirm") {
       setCurrentStep("pin");
+    } else if (currentStep === "email-verification") {
+      setCurrentStep("confirm");
     }
   };
 
@@ -161,41 +177,208 @@ export const SignupModal: React.FC<SignupModalProps> = ({
       return;
     }
 
+    if (!isLoaded) {
+      setError("Authentication not ready. Please try again.");
+      return;
+    }
+
     setIsLoading(true);
     setError("");
 
     try {
-      const response = await fetch("/api/merchants/register", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          email: signupData.email,
-          pin: signupData.pin,
-        }),
+      // Step 1: Create Clerk user account with proper password
+      const strongPassword = `${signupData.pin}EgyptFi2024!`;
+
+      console.log("Creating Clerk user with email:", signupData.email);
+
+      const clerkSignUpResult = await signUp.create({
+        emailAddress: signupData.email,
+        password: strongPassword,
       });
 
-      const data = await response.json();
+      console.log("Clerk signup result:", clerkSignUpResult);
+      console.log("Status:", clerkSignUpResult.status);
 
-      if (!response.ok) {
-        throw new Error(data.error || "Signup failed");
+      if (clerkSignUpResult.status === "complete") {
+        // User created successfully without verification (email verification disabled)
+        await setActive({ session: clerkSignUpResult.createdSessionId });
+
+        const token = await getToken();
+        const clerkUserId = clerkSignUpResult.createdUserId;
+
+        console.log("Clerk user created:", clerkUserId);
+        console.log("Token:", token);
+
+        if (!clerkUserId || !token) {
+          throw new Error("Failed to create authenticated session");
+        }
+
+        await registerMerchantAndCreateWallet(clerkUserId, token);
+      } else if (clerkSignUpResult.status === "missing_requirements") {
+        // Handle email verification requirement
+        console.log("Email verification required");
+
+        // Show email verification step
+        setCurrentStep("email-verification");
+
+        // Store the signup attempt for later completion
+        setSignupAttempt(clerkSignUpResult);
+      } else {
+        throw new Error(
+          `Unexpected signup status: ${clerkSignUpResult.status}`
+        );
       }
-
-      // Success - go to wallet creation step
-      setCurrentStep("wallet");
-
-      // Simulate wallet creation delay
-      setTimeout(() => {
-        onClose();
-        router.push("/dashboard");
-      }, 3000); // 3 seconds delay
     } catch (err) {
-      setError(err instanceof Error ? err.message : "An error occurred");
+      console.error("Signup error:", err);
+      setError(
+        err instanceof Error ? err.message : "An error occurred during signup"
+      );
     } finally {
       setIsLoading(false);
     }
   };
+
+  const handleEmailVerification = async () => {
+    if (!signupAttempt || !verificationCode) {
+      setError("Please enter the verification code");
+      return;
+    }
+
+    if (!isLoaded || !signUp) {
+      setError("Authentication not ready. Please try again.");
+      return;
+    }
+
+    setIsLoading(true);
+    setError("");
+
+    try {
+      // Attempt email verification
+      const verificationResult = await signUp.attemptEmailAddressVerification({
+        code: verificationCode,
+      });
+
+      console.log("Verification result:", verificationResult);
+
+      if (verificationResult.status === "complete") {
+        // Set the active session
+        await setActive({ session: verificationResult.createdSessionId });
+
+        // Get token and user ID
+        const token = await getToken();
+        const clerkUserId = verificationResult.createdUserId;
+
+        console.log("Email verified! Clerk user:", clerkUserId);
+        console.log("Token:", token);
+
+        if (!clerkUserId || !token) {
+          throw new Error(
+            "Failed to create authenticated session after verification"
+          );
+        }
+
+        // Proceed with merchant registration and wallet creation
+        await registerMerchantAndCreateWallet(clerkUserId, token);
+      } else {
+        throw new Error("Email verification incomplete");
+      }
+    } catch (err: any) {
+      console.error("Email verification error:", err);
+      if (err.errors && err.errors.length > 0) {
+        setError(err.errors[0].message || "Invalid verification code");
+      } else {
+        setError("Failed to verify email. Please try again.");
+      }
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const resendVerificationEmail = async () => {
+    if (!signupAttempt || !isLoaded || !signUp) return;
+
+    try {
+      await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
+      setError("");
+      // You could show a success message here
+    } catch (err) {
+      console.error("Failed to resend verification email:", err);
+      setError("Failed to resend verification email");
+    }
+  };
+
+  const registerMerchantAndCreateWallet = async (
+    clerkUserId: string,
+    token: string | null
+  ) => {
+    try {
+      // Register merchant with your backend
+      const headers: Record<string, string> = {
+        "Content-Type": "application/json",
+      };
+
+      if (token) {
+        headers.Authorization = `Bearer ${token}`;
+      }
+
+      const merchantResponse = await fetch("/api/merchants/register", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          business_email: signupData.email,
+          clerk_user_id: clerkUserId,
+          pin: signupData.pin,
+        }),
+      });
+
+      if (!merchantResponse.ok) {
+        const errorData = await merchantResponse.json();
+        throw new Error(errorData.error || "Failed to register merchant");
+      }
+
+      const merchantData = await merchantResponse.json();
+      setMerchantData(merchantData);
+
+      // Create wallet
+      setCurrentStep("wallet");
+
+      const encryptKey = generateSecureEncryptKey();
+      const network = "testnet";
+
+      if (merchantData) {
+        const walletResult = await createWalletWithMerchantUpdate(
+          merchantData,
+          createWalletAsync,
+          setLoading,
+          setError,
+          {
+            pin: signupData.pin,
+            encryptKey,
+            externalUserId: clerkUserId,
+            network,
+          },
+          token
+        );
+
+        if (walletResult.success) {
+          // Success - redirect to dashboard
+          setTimeout(() => {
+            onClose();
+            router.push("/dashboard");
+          }, 2000);
+        }
+      } else {
+        setError("Merchant data not available");
+      }
+    } catch (err) {
+      console.error("Merchant registration error:", err);
+      setError(
+        err instanceof Error ? err.message : "Failed to complete registration"
+      );
+    }
+  };
+
+  // useEffect(() => {}, [setMerchantData]);
 
   const renderStepContent = () => {
     switch (currentStep) {
@@ -213,6 +396,7 @@ export const SignupModal: React.FC<SignupModalProps> = ({
             </div>
             <div className="space-y-2">
               <Label htmlFor="email">Email Address</Label>
+
               <Input
                 id="email"
                 type="email"
@@ -237,12 +421,12 @@ export const SignupModal: React.FC<SignupModalProps> = ({
                 Choose a 6-digit PIN for your account
               </p>
             </div>
-            <div className="space-y-2"> 
+            <div className="space-y-2">
               {renderPinInputs(
                 signupData.pin,
                 (value) => handleInputChange("pin", value),
                 pinRefs
-              )} 
+              )}
             </div>
           </div>
         );
@@ -259,12 +443,50 @@ export const SignupModal: React.FC<SignupModalProps> = ({
                 Re-enter your PIN to confirm
               </p>
             </div>
-            <div className="space-y-2"> 
+            <div className="space-y-2">
               {renderPinInputs(
                 signupData.confirmPin,
                 (value) => handleInputChange("confirmPin", value),
                 confirmPinRefs
-              )} 
+              )}
+            </div>
+          </div>
+        );
+
+      case "email-verification":
+        return (
+          <div className="space-y-4">
+            <div className="text-center">
+              <Mail className="h-12 w-12 text-primary mx-auto mb-4" />
+              <h3 className="text-xl font-semibold text-foreground mb-2">
+                Verify your email
+              </h3>
+              <p className="text-muted-foreground mb-4">
+                We sent a verification code to {signupData.email}
+              </p>
+            </div>
+            <div className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="verification-code">Verification Code</Label>
+                <Input
+                  id="verification-code"
+                  type="text"
+                  placeholder="Enter 6-digit code"
+                  value={verificationCode}
+                  onChange={(e) => setVerificationCode(e.target.value)}
+                  className="text-center text-lg tracking-widest"
+                  maxLength={6}
+                />
+              </div>
+              <div className="text-center">
+                <button
+                  type="button"
+                  onClick={resendVerificationEmail}
+                  className="text-sm text-primary hover:underline"
+                >
+                  Didn't receive the code? Resend
+                </button>
+              </div>
             </div>
           </div>
         );
@@ -368,14 +590,28 @@ export const SignupModal: React.FC<SignupModalProps> = ({
             </Button>
 
             <Button
-              onClick={currentStep === "confirm" ? handleSignup : handleNext}
+              onClick={
+                currentStep === "confirm"
+                  ? handleSignup
+                  : currentStep === "email-verification"
+                  ? handleEmailVerification
+                  : handleNext
+              }
               disabled={isLoading}
               className="bg-primary hover:bg-primary/90"
             >
               {isLoading ? (
-                "Creating Account..."
+                currentStep === "email" ? (
+                  "Checking Email..."
+                ) : currentStep === "email-verification" ? (
+                  "Verifying..."
+                ) : (
+                  "Creating Account..."
+                )
               ) : currentStep === "confirm" ? (
                 "Create Account"
+              ) : currentStep === "email-verification" ? (
+                "Verify Email"
               ) : (
                 <>
                   Next

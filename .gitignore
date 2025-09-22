@@ -47,3 +47,5 @@ usage.md
 WITHDRAW_MERCHANT_USDC.md
 CONTRACT_FIRST_REGISTRATION_FLOW.md
 egyptfi_complete.zip
+# clerk configuration (can include secrets)
+/.clerk/
