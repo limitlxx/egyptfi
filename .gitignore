@@ -2,9 +2,11 @@
 
 # dependencies
 /node_modules 
-
+/circuits
 # next.js
 /.next/
+
+circuits
 /out/
 
 # production
