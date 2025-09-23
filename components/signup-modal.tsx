@@ -63,6 +63,7 @@ export const SignupModal: React.FC<SignupModalProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [loading, setLoading] = useState(false);
   const [isPending, setIsPending] = useState(false);
+  const [response, setResponse] = useState({});
   const [merchantData, setMerchantData] = useState<DbResult | null>(null);
   const [error, setError] = useState<string | null>("");
   const [signupAttempt, setSignupAttempt] = useState<any>(null);
@@ -320,6 +321,9 @@ export const SignupModal: React.FC<SignupModalProps> = ({
       if (token) {
         headers.Authorization = `Bearer ${token}`;
       }
+      console.log(token);
+      console.log(clerkUserId);
+      console.log(signupData.pin);
 
       const merchantResponse = await fetch("/api/merchants/register", {
         method: "POST",
@@ -330,6 +334,7 @@ export const SignupModal: React.FC<SignupModalProps> = ({
           pin: signupData.pin,
         }),
       });
+      console.log(merchantResponse);
 
       if (!merchantResponse.ok) {
         const errorData = await merchantResponse.json();
@@ -366,6 +371,7 @@ export const SignupModal: React.FC<SignupModalProps> = ({
             onClose();
             router.push("/dashboard");
           }, 2000);
+          console.log(walletResult);
         }
       } else {
         setError("Merchant data not available");

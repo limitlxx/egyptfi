@@ -28,6 +28,7 @@ import {
   Upload,
   X,
   Save,
+  Shield,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -72,13 +73,16 @@ import WalletModal from "@/components/WalletModal";
 import { useAccount, useProvider } from "@starknet-react/core";
 import { useRouter } from "next/navigation";
 
-import { InvoiceService, Invoice } from "@/services/invoiceService"; 
-import ContractMerchantService from "@/services/contractMerchantService"; 
+import { InvoiceService, Invoice } from "@/services/invoiceService";
+import ContractMerchantService from "@/services/contractMerchantService";
 import { PaymentModeIndicator } from "@/components/PaymentModeIndicator";
 import { useWithdrawMerchantCalls } from "@/hooks/useWithdrawMerchantCalls"; // New import
 import { usePaymaster } from "@/hooks/usePayMaster";
 import { WithdrawalService } from "@/services/WithdrawService";
-import { WithdrawalService as listwithdraw, Withdrawal } from "@/services/withdrawalService"
+import {
+  WithdrawalService as listwithdraw,
+  Withdrawal,
+} from "@/services/withdrawalService";
 
 const initialMerchantData = {
   name: "Coffee Shop Lagos",
@@ -174,25 +178,25 @@ export default function DashboardPage() {
 
   const { provider } = useProvider();
 
-   useEffect(() => {
+  useEffect(() => {
     async function fetchData() {
-      const data = await listwithdraw.getWithdrawalstats()
+      const data = await listwithdraw.getWithdrawalstats();
       setTotalAmount(data.total_payments);
-      setMonthAmount(data.current_month_payments)
-      setsuccessRate(data.success_rate)
-      
+      setMonthAmount(data.current_month_payments);
+      setsuccessRate(data.success_rate);
+
       // setWithdrawals(data)
-      setLoading(false)
+      setLoading(false);
     }
-    fetchData()
-  }, [])
+    fetchData();
+  }, []);
 
   useEffect(() => {
     async function fetchInvoices() {
       try {
         const data = await InvoiceService.getInvoices();
         console.log("Invoice Data", data);
-        
+
         setInvoices(data);
       } catch (error) {
         console.error("Error loading invoices:", error);
@@ -248,98 +252,115 @@ export default function DashboardPage() {
   }, [phone, originalValues.phone]);
 
   // Utility to convert u256 to number (assuming 6 decimals)
- const bigintToNumber = (value?: bigint, decimals = 6): number => {
-  if (!value) return 0;
-  return Number(value) / 10 ** decimals;
-};
+  const bigintToNumber = (value?: bigint, decimals = 6): number => {
+    if (!value) return 0;
+    return Number(value) / 10 ** decimals;
+  };
 
+  // Authentication check commented out for development
+  // useEffect(() => {
+  //   const checkAuth = async () => {
+  //     setIsCheckingAuth(true);
+
+  //     try {
+  //       const isAuthenticated = await AuthManager.isAuthenticated();
+  //       console.log("AuthManager.isAuthenticated:", isAuthenticated);
+
+  //       if (!isAuthenticated) {
+  //         const merchant = AuthManager.getMerchantInfo();
+  //         const currentEnv = AuthManager.getCurrentEnvironment();
+  //         const keys = AuthManager.getApiKeys(currentEnv);
+
+  //         if (merchant && keys) {
+  //           console.log(
+  //             "Stored auth data exists but verification failed - token may be expired"
+  //           );
+  //           setIsSessionExpired(true);
+  //         } else {
+  //           console.log("No stored auth data - redirecting to login");
+  //           router.push("/login");
+  //         }
+  //         setIsCheckingAuth(false);
+  //         return;
+  //       }
+
+  //       const merchant = AuthManager.getMerchantInfo();
+  //       if (!merchant) {
+  //         toast({
+  //           title: "Authentication required",
+  //           description: "Please log in to access your dashboard.",
+  //           variant: "destructive",
+  //         });
+  //         router.push("/login");
+  //         return;
+  //       }
+
+  //       // Set original values for change tracking
+  //       setOriginalValues({
+  //         businessName: merchant.businessName || initialMerchantData.name,
+  //         phone: merchant.phone || "",
+  //         defaultCurrency:
+  //           merchant.defaultCurrency || initialMerchantData.defaultCurrency,
+  //         businessLogo: merchant.businessLogo || initialMerchantData.logo,
+  //       });
+
+  //       // Check wallet connection
+  //       if (!isConnected || !address) {
+  //         setShowWalletModal(true);
+  //         setIsCheckingAuth(false);
+  //         return;
+  //       }
+
+  //       await refetchMerchantInfo(); // Fetch balance on load
+
+  //       setmerchantwallet(merchant.walletAddress.toLowerCase());
+
+  //       setmerchantwallet(merchant.walletAddress.toLowerCase());
+
+  //       // Verify wallet matches merchant
+  //       if (merchant.walletAddress.toLowerCase() !== address.toLowerCase()) {
+  //         toast({
+  //           title: "Wallet mismatch",
+  //           description:
+  //             "Connected wallet does not match registered merchant wallet. Please reconnect the correct wallet.",
+  //           variant: "destructive",
+  //         });
+  //         setShowWalletModal(true);
+  //         setIsCheckingAuth(false);
+  //         return;
+  //       }
+
+  //       setIsCheckingAuth(false);
+  //     } catch (error) {
+  //       console.error("Authentication check error:", error);
+  //       setIsCheckingAuth(false);
+  //       toast({
+  //         title: "Authentication error",
+  //         description:
+  //           "There was an error checking your authentication. Please try refreshing the page.",
+  //         variant: "destructive",
+  //       });
+  //     }
+  //   };
+
+  //   checkAuth();
+  // }, [router, isConnected, address]);
+
+  // Set default merchant data for development (bypassing auth)
   useEffect(() => {
-    const checkAuth = async () => {
-      setIsCheckingAuth(true);
+    setOriginalValues({
+      businessName: initialMerchantData.name,
+      phone: "",
+      defaultCurrency: initialMerchantData.defaultCurrency,
+      businessLogo: initialMerchantData.logo,
+    });
 
-      try {
-        const isAuthenticated = await AuthManager.isAuthenticated();
-        console.log("AuthManager.isAuthenticated:", isAuthenticated);
+    // Set default merchant wallet for development
+    setmerchantwallet("0x1234567890abcdef1234567890abcdef12345678");
 
-        if (!isAuthenticated) {
-          const merchant = AuthManager.getMerchantInfo();
-          const currentEnv = AuthManager.getCurrentEnvironment();
-          const keys = AuthManager.getApiKeys(currentEnv);
-
-          if (merchant && keys) {
-            console.log(
-              "Stored auth data exists but verification failed - token may be expired"
-            );
-            setIsSessionExpired(true);
-          } else {
-            console.log("No stored auth data - redirecting to login");
-            router.push("/login");
-          }
-          setIsCheckingAuth(false);
-          return;
-        }
-
-        const merchant = AuthManager.getMerchantInfo();
-        if (!merchant) {
-          toast({
-            title: "Authentication required",
-            description: "Please log in to access your dashboard.",
-            variant: "destructive",
-          });
-          router.push("/login");
-          return;
-        }
-
-        // Set original values for change tracking
-        setOriginalValues({
-          businessName: merchant.businessName || initialMerchantData.name,
-          phone: merchant.phone || "",
-          defaultCurrency:
-            merchant.defaultCurrency || initialMerchantData.defaultCurrency,
-          businessLogo: merchant.businessLogo || initialMerchantData.logo,
-        });
-
-        // Check wallet connection
-        if (!isConnected || !address) {
-          setShowWalletModal(true);
-          setIsCheckingAuth(false);
-          return;
-        }
-
-        await refetchMerchantInfo(); // Fetch balance on load
-
-        setmerchantwallet(merchant.walletAddress.toLowerCase())      
-
-        setmerchantwallet(merchant.walletAddress.toLowerCase())       
-
-        // Verify wallet matches merchant
-        if (merchant.walletAddress.toLowerCase() !== address.toLowerCase()) {
-          toast({
-            title: "Wallet mismatch",
-            description:
-              "Connected wallet does not match registered merchant wallet. Please reconnect the correct wallet.",
-            variant: "destructive",
-          });
-          setShowWalletModal(true);
-          setIsCheckingAuth(false);
-          return;
-        }
-
-        setIsCheckingAuth(false);
-      } catch (error) {
-        console.error("Authentication check error:", error);
-        setIsCheckingAuth(false);
-        toast({
-          title: "Authentication error",
-          description:
-            "There was an error checking your authentication. Please try refreshing the page.",
-          variant: "destructive",
-        });
-      }
-    };
-
-    checkAuth();
-  }, [router, isConnected, address]);
+    // Skip wallet connection check for development
+    setIsCheckingAuth(false);
+  }, []);
 
   // Logo upload handler
   const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -380,9 +401,11 @@ export default function DashboardPage() {
   const refetchMerchantInfo = async () => {
     try {
       const contractService = new ContractMerchantService(provider);
-      const contractMerchant = await contractService.getMerchant(merchantwallet);
+      const contractMerchant = await contractService.getMerchant(
+        merchantwallet
+      );
       console.log("contractMerchant", contractMerchant);
-      
+
       const balance = bigintToNumber(contractMerchant?.merchant?.usdc_balance);
       setAvailableBalance(balance);
       console.log("Fetched balance:", balance);
@@ -401,13 +424,19 @@ export default function DashboardPage() {
     const formData = new FormData();
     formData.append("logo", file);
 
-    const response = await AuthManager.makeAuthenticatedRequest(
-      "/api/merchants/upload-logo",
-      {
-        method: "POST",
-        body: formData, // Don't set Content-Type header for FormData
-      }
-    );
+    // Commented out AuthManager for development - using regular fetch
+    // const response = await AuthManager.makeAuthenticatedRequest(
+    //   "/api/merchants/upload-logo",
+    //   {
+    //     method: "POST",
+    //     body: formData, // Don't set Content-Type header for FormData
+    //   }
+    // );
+
+    const response = await fetch("/api/merchants/upload-logo", {
+      method: "POST",
+      body: formData, // Don't set Content-Type header for FormData
+    });
 
     if (!response.ok) {
       throw new Error("Failed to upload logo");
@@ -452,16 +481,25 @@ export default function DashboardPage() {
         local_currency: defaultCurrency,
       };
 
-      const response = await AuthManager.makeAuthenticatedRequest(
-        "/api/merchants/profile",
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(updates),
-        }
-      );
+      // Commented out AuthManager for development - using regular fetch
+      // const response = await AuthManager.makeAuthenticatedRequest(
+      //   "/api/merchants/profile",
+      //   {
+      //     method: "PUT",
+      //     headers: {
+      //       "Content-Type": "application/json",
+      //     },
+      //     body: JSON.stringify(updates),
+      //   }
+      // );
+
+      const response = await fetch("/api/merchants/profile", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updates),
+      });
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -536,16 +574,25 @@ export default function DashboardPage() {
         phone: phone ? formatPhoneNumber(phone) : null,
       };
 
-      const response = await AuthManager.makeAuthenticatedRequest(
-        "/api/merchants/profile",
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(updates),
-        }
-      );
+      // Commented out AuthManager for development - using regular fetch
+      // const response = await AuthManager.makeAuthenticatedRequest(
+      //   "/api/merchants/profile",
+      //   {
+      //     method: "PUT",
+      //     headers: {
+      //       "Content-Type": "application/json",
+      //     },
+      //     body: JSON.stringify(updates),
+      //   }
+      // );
+
+      const response = await fetch("/api/merchants/profile", {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updates),
+      });
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -592,11 +639,16 @@ export default function DashboardPage() {
   // Prepare withdrawal calls (enabled only when dialog is open)
   const { calls: withdrawCalls } = useWithdrawMerchantCalls({
     amount: withdrawAmount,
-    enabled: isWithdrawOpen && !!withdrawAmount && parseFloat(withdrawAmount) > 0,
+    enabled:
+      isWithdrawOpen && !!withdrawAmount && parseFloat(withdrawAmount) > 0,
   });
 
   // Use paymaster for transaction (sponsored or free mode)
-  const { executeTransaction: executeWithdraw, isLoading: isWithdrawTxLoading, paymentMode } = usePaymaster({
+  const {
+    executeTransaction: executeWithdraw,
+    isLoading: isWithdrawTxLoading,
+    paymentMode,
+  } = usePaymaster({
     calls: withdrawCalls,
     enabled: !!withdrawCalls,
     onSuccess: (transactionHash: string) => {
@@ -658,7 +710,8 @@ export default function DashboardPage() {
       console.error("Withdrawal failed:", error);
       toast({
         title: "Withdrawal failed",
-        description: error instanceof Error ? error.message : "An error occurred",
+        description:
+          error instanceof Error ? error.message : "An error occurred",
         variant: "destructive",
       });
     } finally {
@@ -831,9 +884,12 @@ export default function DashboardPage() {
         {/* KYC Completion CTA */}
         <div className="mb-6">
           <div className="bg-gradient-to-r from-primary to-yellow-600 rounded-lg p-6 text-center">
-            <h2 className="text-2xl font-bold text-white mb-2">Complete Your KYC</h2>
+            <h2 className="text-2xl font-bold text-white mb-2">
+              Complete Your KYC
+            </h2>
             <p className="text-white/90 mb-4">
-              Verify your identity to unlock full access to all EgyptFi features and increase your transaction limits.
+              Verify your identity to unlock full access to all EgyptFi features
+              and increase your transaction limits.
             </p>
             <Button
               onClick={() => setShowKycModal(true)}
@@ -978,7 +1034,8 @@ export default function DashboardPage() {
                             <div className="flex justify-between">
                               <span className="text-gray-600">Destination</span>
                               <span className="font-medium font-mono text-xs">
-                                {merchantwallet.slice(0, 6)}...{merchantwallet.slice(-4)}
+                                {merchantwallet.slice(0, 6)}...
+                                {merchantwallet.slice(-4)}
                               </span>
                             </div>
                             {/* <div className="flex justify-between">
@@ -999,19 +1056,23 @@ export default function DashboardPage() {
                           <PaymentModeIndicator showDetails={false} />
                         )}
                         <Button
-                            onClick={handleWithdraw}
-                            disabled={isWithdrawing || isWithdrawTxLoading || !withdrawAmount}
-                            className="w-full bg-gradient-to-r from-blue-600 to-purple-600"
-                          >
-                            {isWithdrawing || isWithdrawTxLoading ? (
-                              <>
-                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                                Withdrawing...
-                              </>
-                            ) : (
-                              "Withdraw Now"
-                            )}
-                          </Button>
+                          onClick={handleWithdraw}
+                          disabled={
+                            isWithdrawing ||
+                            isWithdrawTxLoading ||
+                            !withdrawAmount
+                          }
+                          className="w-full bg-gradient-to-r from-blue-600 to-purple-600"
+                        >
+                          {isWithdrawing || isWithdrawTxLoading ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Withdrawing...
+                            </>
+                          ) : (
+                            "Withdraw Now"
+                          )}
+                        </Button>
                       </div>
                     </DialogContent>
                   </Dialog>
@@ -1058,7 +1119,9 @@ export default function DashboardPage() {
                       <p className="text-sm font-medium text-gray-600">
                         Success Rate
                       </p>
-                      <p className="text-2xl font-bold text-gray-900">{successRate}%</p>
+                      <p className="text-2xl font-bold text-gray-900">
+                        {successRate}%
+                      </p>
                     </div>
                     <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
                       <Badge className="w-6 h-6 text-purple-600" />
@@ -1297,10 +1360,12 @@ export default function DashboardPage() {
                           <td
                             colSpan={7}
                             className="p-6 text-center text-gray-500"
-                          > 
+                          >
                             <ArrowDownToLine className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                             <p className="text-gray-500">No Payment yet</p>
-                            <p className="text-sm text-gray-400">Your Payment history will appear here</p> 
+                            <p className="text-sm text-gray-400">
+                              Your Payment history will appear here
+                            </p>
                           </td>
                         </tr>
                       )}
@@ -1874,7 +1939,9 @@ export default function DashboardPage() {
         <Dialog open={showKycModal} onOpenChange={setShowKycModal}>
           <DialogContent className="sm:max-w-md">
             <DialogHeader>
-              <DialogTitle className="text-center">Complete Your KYC</DialogTitle>
+              <DialogTitle className="text-center">
+                Complete Your KYC
+              </DialogTitle>
             </DialogHeader>
             <div className="space-y-6">
               <div className="text-center">
@@ -1885,13 +1952,16 @@ export default function DashboardPage() {
                   Identity Verification Required
                 </h3>
                 <p className="text-muted-foreground text-sm">
-                  To comply with regulations and unlock full platform features, we need to verify your identity.
+                  To comply with regulations and unlock full platform features,
+                  we need to verify your identity.
                 </p>
               </div>
 
               <div className="space-y-4">
                 <div className="bg-muted/50 rounded-lg p-4">
-                  <h4 className="font-medium text-foreground mb-2">What you'll need:</h4>
+                  <h4 className="font-medium text-foreground mb-2">
+                    What you'll need:
+                  </h4>
                   <ul className="text-sm text-muted-foreground space-y-1">
                     <li>• Government-issued ID (passport, driver's license)</li>
                     <li>• Proof of address (utility bill, bank statement)</li>
@@ -1900,7 +1970,9 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <h4 className="font-medium text-green-900 mb-2">Benefits of KYC:</h4>
+                  <h4 className="font-medium text-green-900 mb-2">
+                    Benefits of KYC:
+                  </h4>
                   <ul className="text-sm text-green-800 space-y-1">
                     <li>• Higher transaction limits</li>
                     <li>• Access to advanced features</li>
@@ -1923,7 +1995,8 @@ export default function DashboardPage() {
                     // TODO: Implement KYC flow
                     toast({
                       title: "KYC Coming Soon",
-                      description: "KYC verification will be available soon. Stay tuned!",
+                      description:
+                        "KYC verification will be available soon. Stay tuned!",
                     });
                     setShowKycModal(false);
                   }}

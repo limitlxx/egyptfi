@@ -1,3 +1,4 @@
+import { WalletRequestError } from "@starknet-react/core";
 import toast from "react-hot-toast";
 // import { auth } from "@clerk/nextjs/server";
 // import { useUser } from "@clerk/nextjs";
@@ -222,6 +223,16 @@ export const updateMerchantWallet = async (
   apiKey: string,
   environment: string
 ): Promise<{ success: boolean; error?: string }> => {
+  console.log("merchantId", merchantId);
+  console.log("wallet address", walletAddress);
+  console.log("wallet MMMMMMMMMMMMMMMMMMMMMMMMMMMMM", jwtToken);
+  console.log("API KEY", apiKey);
+  console.log("Environment", environment);
+  if (!walletAddress)
+    return {
+      success: false,
+      error: "No wallet address",
+    };
   try {
     const response = await fetch("/api/merchants/update-wallet", {
       method: "POST",
@@ -239,6 +250,8 @@ export const updateMerchantWallet = async (
     });
 
     const data = await response.json();
+
+    console.log(data);
 
     if (response.ok) {
       console.log("Merchant wallet updated successfully");
@@ -370,7 +383,7 @@ export const createWalletWithMerchantUpdate = async (
   try {
     // Create wallet with retry logic
     console.log("Token", clerkToken);
-    
+
     const walletResponse = await retryWithBackoff(
       async () => {
         return await createWalletAsync({
@@ -390,10 +403,12 @@ export const createWalletWithMerchantUpdate = async (
 
     // Extract public key
     const publicKey = extractPublicKey(walletResponse);
+    console.log("public key", publicKey);
     if (!publicKey) {
       console.warn("Wallet response did not contain publicKey");
+
       if (defaultConfig.showErrorToast) {
-        toast.warning("Wallet created but address extraction failed");
+        toast("Wallet created but address extraction failed", { icon: "⚠️" });
       }
     }
 
@@ -406,7 +421,7 @@ export const createWalletWithMerchantUpdate = async (
       const keyToStore = originalPin || encryptKeyForWallet!;
       const stored = safeLocalStorageSet(storageKey, keyToStore);
       if (!stored && defaultConfig.showErrorToast) {
-        toast.warning("Wallet created but failed to store key locally");
+        toast("Wallet created but failed to store key locally", { icon: "⚠️" });
       }
     }
 
@@ -418,6 +433,8 @@ export const createWalletWithMerchantUpdate = async (
       encryptedPinForMerchant &&
       jwtToken // Ensure jwtToken exists
     ) {
+      console.log(jwtToken);
+      console.log(apiKey);
       const updateResult = await retryWithBackoff(
         async () => {
           return await updateMerchantWallet(
@@ -425,8 +442,9 @@ export const createWalletWithMerchantUpdate = async (
             publicKey,
             jwtToken, // Now guaranteed to be string
             encryptedPinForMerchant,
-            apiKey || "",
-            "mainnet" // Send encrypted PIN
+            apiKey || "", // Send encrypted PIN
+            // "mainnet"
+            "testnet"
           );
         },
         defaultConfig.maxRetries,
@@ -448,9 +466,9 @@ export const createWalletWithMerchantUpdate = async (
     } else if (defaultConfig.updateMerchantRecord && !jwtToken) {
       console.warn("Skipping merchant record update: No JWT token available");
       if (defaultConfig.showErrorToast) {
-        toast.warning(
-          "Wallet created but merchant record not updated (no JWT token)"
-        );
+        toast("Wallet created but merchant record not updated (no JWT token)", {
+          icon: "⚠️",
+        });
       }
     }
 

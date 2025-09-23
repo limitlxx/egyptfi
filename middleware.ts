@@ -4,8 +4,8 @@ import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 
 // Define protected routes
 const isProtectedRoute = createRouteMatcher([
-  "/dashboard(.*)",
-  "/api/merchants/update-wallet",
+  // "/dashboard(.*)", // Commented out for development - no auth required
+  // "/api/merchants/update-wallet",
   "/api/merchants/profile",
   // Add other protected routes here
 ]);
@@ -15,6 +15,7 @@ const isPublicApiRoute = createRouteMatcher([
   "/api/merchants/register",
   "/api/merchants/login",
   "/api/merchants/check",
+  "/api/merchants/update-wallet",
 ]);
 
 export default clerkMiddleware(async (auth, request) => {
@@ -22,7 +23,7 @@ export default clerkMiddleware(async (auth, request) => {
   if (isProtectedRoute(request)) {
     const { userId } = await auth();
     if (!userId) {
-      return NextResponse.redirect(new URL('/sign-in', request.url));
+      return NextResponse.redirect(new URL("/sign-in", request.url));
     }
   }
 
