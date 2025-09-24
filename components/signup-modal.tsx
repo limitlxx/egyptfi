@@ -382,9 +382,12 @@ export const SignupModal: React.FC<SignupModalProps> = ({
           token
         );
 
+        console.log("CreateWallet Result", walletResult);
+        
+
         if (walletResult.success) {
           // 🔑 Get withdrawal address from created wallet
-          const withdrawalAddress = walletResult.walletResponse?.address;
+          const withdrawalAddress = walletResult.publicKey;
           if (!withdrawalAddress) {
             throw new Error("Wallet address not found");
           }
@@ -399,7 +402,7 @@ export const SignupModal: React.FC<SignupModalProps> = ({
           await callAnyContractAsync({
             params: {
               encryptKey: signupData.pin,
-              wallet: walletResult.walletResponse as any,
+              wallet: withdrawalAddress,
               contractAddress: CONTRACT_ADDRESS,
               calls: [
                 {
