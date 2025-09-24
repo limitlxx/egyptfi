@@ -208,7 +208,7 @@ class ContractMerchantService {
   //   }
   // }
 
-  // Update merchant metadata using ChipiPay
+  // // Update merchant metadata using ChipiPay
   // async updateMerchantMetadata(
   //   encryptedPrivateKey: string,
   //   walletPublicKey: string,
@@ -271,6 +271,76 @@ class ContractMerchantService {
   //     throw error;
   //   }
   // }
+
+   // Set KYC proof on-chain (mock implementation for now)
+  async setKycProof(
+    encryptedPrivateKey: string,
+    walletPublicKey: string,
+    proofHash: string,
+    encryptKey: string,
+    bearerToken: string
+  ): Promise<string> {
+    try {
+      console.log("Setting KYC proof on-chain (mock):", {
+        walletPublicKey,
+        proofHash,
+        contractAddress: this.contractAddress,
+      });
+
+      // Mock implementation - in production, this would make an actual contract call
+      // For now, we'll simulate a successful transaction
+      const mockTxHash = `0x${Math.random().toString(16).substr(2, 64)}`;
+
+      console.log("KYC proof set on-chain successfully (mock):", {
+        txHash: mockTxHash,
+        walletPublicKey,
+        proofHash,
+      });
+
+      return mockTxHash;
+    } catch (error) {
+      console.error("Error setting KYC proof on-chain:", error);
+      throw new Error(
+        `Failed to set KYC proof: ${
+          error instanceof Error ? error.message : "Unknown error"
+        }`
+      );
+    }
+  }
+
+  // Get KYC proof from contract
+  async getKycProof(merchantAddress: string): Promise<string> {
+    try {
+      console.log("Getting KYC proof from contract:", merchantAddress);
+
+      const result = await this.contract.get_kyc_proof(merchantAddress);
+
+      console.log("KYC proof retrieved:", result);
+      return result.toString();
+    } catch (error) {
+      console.error("Error getting KYC proof:", error);
+      return "0"; // Return "0" if no proof exists
+    }
+  }
+
+  // Verify KYC proof on-chain
+  async verifyKycProof(merchantAddress: string, proofHash: string): Promise<boolean> {
+    try {
+      console.log("Verifying KYC proof on-chain:", {
+        merchantAddress,
+        proofHash,
+      });
+
+      const result = await this.contract.verify_kyc_proof(merchantAddress, proofHash);
+
+      console.log("KYC proof verification result:", result);
+      return result;
+    } catch (error) {
+      console.error("Error verifying KYC proof:", error);
+      return false;
+    }
+  }
+
 }
 
 export default ContractMerchantService;

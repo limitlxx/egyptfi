@@ -3,7 +3,7 @@
 # dependencies
 /node_modules 
 **/node_modules  
-/circuits/circom/node_modules
+circuits/circom/node_modules
 # next.js
 /.next/
 

@@ -33,7 +33,8 @@ import {
 } from "@/lib/wallet-auth-integration";
 
 import { useUser, useAuth, useSignUp } from "@clerk/nextjs";
-import { useCreateWallet } from "@chipi-stack/chipi-react";
+import { useCreateWallet, useCallAnyContract } from "@chipi-stack/chipi-react";
+import { keccak256, toUtf8Bytes } from "ethers";
 
 interface SignupModalProps {
   isOpen: boolean;
@@ -73,6 +74,22 @@ export const SignupModal: React.FC<SignupModalProps> = ({
   const { user } = useUser();
   const { getToken } = useAuth();
   const { signUp, isLoaded, setActive } = useSignUp();
+  const { callAnyContractAsync, data } = useCallAnyContract();
+
+  const CONTRACT_ADDRESS =
+    process.env.NEXT_PUBLIC_EGYPT_SEPOLIA_CONTRACT_ADDRESS ||
+    "0x02680191ae87ed05ee564c8e468495c760ba1764065de451fe51bb097e64d062";
+
+  // Helper: hash merchant metadata
+  const getMetadataHash = (merchant: any) => {
+    const metadataString = JSON.stringify({
+      email: merchant.business_email,
+      business_name: merchant.business_name || "New Business",
+      business_type: merchant.business_type || "retail",
+    });
+  
+    return keccak256(toUtf8Bytes(metadataString));
+  };
 
   const steps = [
     { key: "email", title: "Email", icon: Mail },
@@ -366,6 +383,37 @@ export const SignupModal: React.FC<SignupModalProps> = ({
         );
 
         if (walletResult.success) {
+          // 🔑 Get withdrawal address from created wallet
+          const withdrawalAddress = walletResult.walletResponse?.address;
+          if (!withdrawalAddress) {
+            throw new Error("Wallet address not found");
+          }
+          const metadataHash = getMetadataHash(merchantData);
+
+          console.log("Registering merchant on contract with:", {
+            withdrawalAddress,
+            metadataHash,
+          });
+
+          // Call smart contract
+          await callAnyContractAsync({
+            params: {
+              encryptKey: signupData.pin,
+              wallet: walletResult.walletResponse as any,
+              contractAddress: CONTRACT_ADDRESS,
+              calls: [
+                {
+                  contractAddress: CONTRACT_ADDRESS,
+                  entrypoint: "register_merchant",
+                  calldata: [withdrawalAddress, metadataHash],
+                },
+              ],
+            },
+            bearerToken: token ?? "",
+          });
+
+          console.log("✅ Merchant successfully registered on-chain!");
+
           // Success - redirect to dashboard
           setTimeout(() => {
             onClose();

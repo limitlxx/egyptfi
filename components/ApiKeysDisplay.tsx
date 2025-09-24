@@ -1,20 +1,20 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Copy, 
-  Eye, 
-  EyeOff, 
-  RefreshCw, 
+import {
+  Copy,
+  Eye,
+  EyeOff,
+  RefreshCw,
   AlertTriangle,
   CheckCircle,
   Settings,
   Code,
-  Check
+  Check,
 } from "lucide-react";
 import {
   Dialog,
@@ -24,27 +24,26 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import {
-  Alert,
-  AlertDescription,
-} from "@/components/ui/alert";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import toast from "react-hot-toast";
 import { AuthManager } from "@/lib/auth-utils";
 // import { useToast } from '@/hooks/use-toast';
-import { useRouter } from 'next/navigation';
+import { useRouter } from "next/navigation";
 
 interface ApiKeyInfo {
   publicKey: string;
   secretKey: string;
-  environment: 'testnet' | 'mainnet';
+  environment: "testnet" | "mainnet";
   createdAt: string;
 }
 
 export const ApiKeysDisplay: React.FC = () => {
-  const [environment, setEnvironment] = useState<'testnet' | 'mainnet'>('testnet');
+  const [environment, setEnvironment] = useState<"testnet" | "mainnet">(
+    "testnet"
+  );
   const [keys, setKeys] = useState<{
-    testnet?: { publicKey: string; secretKey?: string; };
-    mainnet?: { publicKey: string; secretKey?: string; };
+    testnet?: { publicKey: string; secretKey?: string };
+    mainnet?: { publicKey: string; secretKey?: string };
   }>({});
   const [showSecretKeys, setShowSecretKeys] = useState<{
     testnet: boolean;
@@ -55,30 +54,32 @@ export const ApiKeysDisplay: React.FC = () => {
   const router = useRouter();
   // const { toast } = useToast();
 
-  const activeKeys = apiKeysList.find(k => k.environment === environment);  
+  const activeKeys = apiKeysList.find((k) => k.environment === environment);
 
   useEffect(() => {
     loadApiKeys();
     fetchApiKeysList();
-      setEnvironment(AuthManager.getCurrentEnvironment());
+    setEnvironment(AuthManager.getCurrentEnvironment());
   }, []);
 
   const loadApiKeys = () => {
-      const testnetKeys = AuthManager.getApiKeys('testnet');
-      const mainnetKeys = AuthManager.getApiKeys('mainnet');
-      
-      setKeys({
-        testnet: testnetKeys || undefined,
-        mainnet: mainnetKeys || undefined,
-      });
+    const testnetKeys = AuthManager.getApiKeys("testnet");
+    const mainnetKeys = AuthManager.getApiKeys("mainnet");
+
+    setKeys({
+      testnet: testnetKeys || undefined,
+      mainnet: mainnetKeys || undefined,
+    });
   };
 
   const fetchApiKeysList = async () => {
     try {
-      const response = await AuthManager.makeAuthenticatedRequest('/api/merchants/api-keys');
+      const response = await AuthManager.makeAuthenticatedRequest(
+        "/api/merchants/api-keys"
+      );
       if (response.status === 401) {
-        console.warn('API Keys request returned 401 - JWT may be expired');
-        toast.error('Session expired. Please log in again to continue.');
+        console.warn("API Keys request returned 401 - JWT may be expired");
+        toast.error("Session expired. Please log in again to continue.");
         // Don't immediately clear auth - let the user decide
         // AuthManager.clearAuth();
         // router.push('/login');
@@ -87,16 +88,19 @@ export const ApiKeysDisplay: React.FC = () => {
       if (response.ok) {
         const data = await response.json();
         console.log("Keys", data);
-        
-        setApiKeysList(data.apiKeys);
 
+        setApiKeysList(data.apiKeys);
       } else {
-        const errorData = await response.json().catch(() => ({ error: 'Failed to fetch API keys' }));
-        throw new Error(errorData.error || 'Failed to fetch API keys');
+        const errorData = await response
+          .json()
+          .catch(() => ({ error: "Failed to fetch API keys" }));
+        throw new Error(errorData.error || "Failed to fetch API keys");
       }
     } catch (error) {
-      console.error('Error fetching API keys:', error);
-      toast.error(error instanceof Error ? error.message : 'Failed to fetch API keys');
+      console.error("Error fetching API keys:", error);
+      toast.error(
+        error instanceof Error ? error.message : "Failed to fetch API keys"
+      );
     }
   };
 
@@ -110,64 +114,67 @@ export const ApiKeysDisplay: React.FC = () => {
     console.log(`${type} copied to clipboard`);
   };
 
-  const toggleSecretKeyVisibility = (env: 'testnet' | 'mainnet') => {
-    setShowSecretKeys(prev => ({
+  const toggleSecretKeyVisibility = (env: "testnet" | "mainnet") => {
+    setShowSecretKeys((prev) => ({
       ...prev,
-      [env]: !prev[env]
+      [env]: !prev[env],
     }));
   };
 
-  const regenerateApiKeys = async (env: 'testnet' | 'mainnet') => {
+  const regenerateApiKeys = async (env: "testnet" | "mainnet") => {
     setIsRegenerating(true);
     try {
-      if (typeof AuthManager !== 'undefined') {
-        const response = await AuthManager.makeAuthenticatedRequest('/api/merchants/api-keys', {
-          method: 'POST',
-          body: JSON.stringify({ environment: env }),
-        });
+      if (typeof AuthManager !== "undefined") {
+        const response = await AuthManager.makeAuthenticatedRequest(
+          "/api/merchants/api-keys",
+          {
+            method: "POST",
+            body: JSON.stringify({ environment: env }),
+          }
+        );
 
         if (response.ok) {
           const data = await response.json();
-          
+
           AuthManager.setApiKeys(env, {
             publicKey: data.apiKeys.publicKey,
             secretKey: data.apiKeys.secretKey,
           });
 
-          setKeys(prev => ({
+          setKeys((prev) => ({
             ...prev,
             [env]: {
               publicKey: data.apiKeys.publicKey,
               secretKey: data.apiKeys.secretKey,
-            }
+            },
           }));
 
-        toast.success(`${env} API keys regenerated successfully`);
+          toast.success(`${env} API keys regenerated successfully`);
           fetchApiKeysList();
         } else {
           const error = await response.json();
-        toast.error(error.error || 'Failed to regenerate API keys');
+          toast.error(error.error || "Failed to regenerate API keys");
         }
       }
     } catch (error) {
-      console.error('Error regenerating API keys:', error);
-      toast.error('Failed to regenerate API keys');
+      console.error("Error regenerating API keys:", error);
+      toast.error("Failed to regenerate API keys");
     } finally {
       setIsRegenerating(false);
     }
   };
 
-  const switchEnvironment = (env: 'testnet' | 'mainnet') => {
+  const switchEnvironment = (env: "testnet" | "mainnet") => {
     setEnvironment(env);
-    if (typeof AuthManager !== 'undefined') {
+    if (typeof AuthManager !== "undefined") {
       AuthManager.setCurrentEnvironment(env);
     }
     toast.success(`Switched to ${env} environment`);
   };
 
   const maskSecretKey = (key: string) => {
-    if (!key) return '';
-    return key.substring(0, 8) + '•'.repeat(24) + key.substring(key.length - 4);
+    if (!key) return "";
+    return key.substring(0, 8) + "•".repeat(24) + key.substring(key.length - 4);
   };
 
   return (
@@ -179,16 +186,16 @@ export const ApiKeysDisplay: React.FC = () => {
           <Label htmlFor="environment">Environment:</Label>
           <div className="flex space-x-1">
             <Button
-              variant={environment === 'testnet' ? 'default' : 'outline'}
+              variant={environment === "testnet" ? "default" : "outline"}
               size="sm"
-              onClick={() => switchEnvironment('testnet')}
+              onClick={() => switchEnvironment("testnet")}
             >
               Testnet
             </Button>
             <Button
-              variant={environment === 'mainnet' ? 'default' : 'outline'}
+              variant={environment === "mainnet" ? "default" : "outline"}
               size="sm"
-              onClick={() => switchEnvironment('mainnet')}
+              onClick={() => switchEnvironment("mainnet")}
             >
               Mainnet
             </Button>
@@ -201,8 +208,13 @@ export const ApiKeysDisplay: React.FC = () => {
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="flex items-center space-x-2">
-              <span>{environment.charAt(0).toUpperCase() + environment.slice(1)} API Keys</span>
-              <Badge variant={environment === 'testnet' ? 'secondary' : 'default'}>
+              <span>
+                {environment.charAt(0).toUpperCase() + environment.slice(1)} API
+                Keys
+              </span>
+              <Badge
+                variant={environment === "testnet" ? "secondary" : "default"}
+              >
                 {environment}
               </Badge>
             </CardTitle>
@@ -221,16 +233,18 @@ export const ApiKeysDisplay: React.FC = () => {
                 <DialogHeader>
                   <DialogTitle>Regenerate API Keys</DialogTitle>
                   <DialogDescription>
-                    This will revoke your current {environment} API keys and generate new ones. 
-                    Any applications using the old keys will stop working immediately.
+                    This will revoke your current {environment} API keys and
+                    generate new ones. Any applications using the old keys will
+                    stop working immediately.
                   </DialogDescription>
                 </DialogHeader>
                 <div className="space-y-4">
                   <Alert>
                     <AlertTriangle className="h-4 w-4" />
                     <AlertDescription>
-                      <strong>Warning:</strong> This action cannot be undone. Make sure to update 
-                      all your applications with the new keys.
+                      <strong>Warning:</strong> This action cannot be undone.
+                      Make sure to update all your applications with the new
+                      keys.
                     </AlertDescription>
                   </Alert>
                   <div className="flex space-x-2">
@@ -239,7 +253,9 @@ export const ApiKeysDisplay: React.FC = () => {
                       onClick={() => regenerateApiKeys(environment)}
                       disabled={isRegenerating}
                     >
-                      {isRegenerating ? 'Regenerating...' : 'Yes, Regenerate Keys'}
+                      {isRegenerating
+                        ? "Regenerating..."
+                        : "Yes, Regenerate Keys"}
                     </Button>
                   </div>
                 </div>
@@ -255,14 +271,16 @@ export const ApiKeysDisplay: React.FC = () => {
                 <Label>Public Key</Label>
                 <div className="flex items-center space-x-2 mt-1">
                   <Input
-                    value={activeKeys?.publicKey || ''}
+                    value={activeKeys?.publicKey || ""}
                     readOnly
                     className="font-mono text-sm"
                   />
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => copyToClipboard(activeKeys?.publicKey || '', 'Public key')}
+                    onClick={() =>
+                      copyToClipboard(activeKeys?.publicKey || "", "Public key")
+                    }
                   >
                     <Copy className="w-4 h-4" />
                   </Button>
@@ -283,11 +301,11 @@ export const ApiKeysDisplay: React.FC = () => {
                   </Label>
                   <div className="flex items-center space-x-2 mt-1">
                     <Input
-                      type={showSecretKeys[environment] ? 'text' : 'password'}
+                      type={showSecretKeys[environment] ? "text" : "password"}
                       value={
-                        showSecretKeys[environment] 
-                          ? activeKeys?.secretKey || ''
-                          : maskSecretKey(activeKeys?.secretKey || '')
+                        showSecretKeys[environment]
+                          ? activeKeys?.secretKey || ""
+                          : maskSecretKey(activeKeys?.secretKey || "")
                       }
                       readOnly
                       className="font-mono text-sm"
@@ -306,7 +324,12 @@ export const ApiKeysDisplay: React.FC = () => {
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={() => copyToClipboard(activeKeys?.secretKey || '', 'Secret key')}
+                      onClick={() =>
+                        copyToClipboard(
+                          activeKeys?.secretKey || "",
+                          "Secret key"
+                        )
+                      }
                     >
                       <Copy className="w-4 h-4" />
                     </Button>
@@ -314,8 +337,8 @@ export const ApiKeysDisplay: React.FC = () => {
                   <Alert className="mt-2">
                     <AlertTriangle className="h-4 w-4" />
                     <AlertDescription>
-                      Keep your secret key secure and never share it publicly. It's used to authenticate 
-                      API requests from your server.
+                      Keep your secret key secure and never share it publicly.
+                      It's used to authenticate API requests from your server.
                     </AlertDescription>
                   </Alert>
                 </div>
@@ -346,13 +369,17 @@ export const ApiKeysDisplay: React.FC = () => {
 
               {/* Contract Address */}
               <div>
-                <Label className='mb-2'>EgyptFi Contract Address</Label>
+                <Label className="mb-2">EgyptFi Contract Address</Label>
                 <div className="flex items-center space-x-2 mt-1">
                   <Input
                     value={
-                      environment === 'testnet'
-                        ? process.env.NEXT_PUBLIC_EGYPT_SEPOLIA_CONTRACT_ADDRESS || 'Not configured'
-                        : process.env.NEXT_PUBLIC_EGYPT_MAINNET_CONTRACT_ADDRESS || 'Not configured'
+                      environment === "testnet"
+                        ? process.env
+                            .NEXT_PUBLIC_EGYPT_SEPOLIA_CONTRACT_ADDRESS ||
+                          "Not configured"
+                        : process.env
+                            .NEXT_PUBLIC_EGYPT_MAINNET_CONTRACT_ADDRESS ||
+                          "Not configured"
                     }
                     disabled
                     className="font-mono text-sm"
@@ -360,18 +387,21 @@ export const ApiKeysDisplay: React.FC = () => {
                   <Button
                     variant="outline"
                     size="sm"
-                    onClick={() => copyToClipboard(
-                      environment === 'testnet'
-                        ? process.env.NEXT_PUBLIC_EGYPT_SEPOLIA_CONTRACT_ADDRESS || ''
-                        : process.env.NEXT_PUBLIC_EGYPT_MAINNET_CONTRACT_ADDRESS || '',
-                      'Contract address'
-                    )}
+                    onClick={() =>
+                      copyToClipboard(
+                        environment === "testnet"
+                          ? process.env
+                              .NEXT_PUBLIC_EGYPT_SEPOLIA_CONTRACT_ADDRESS || ""
+                          : process.env
+                              .NEXT_PUBLIC_EGYPT_MAINNET_CONTRACT_ADDRESS || "",
+                        "Contract address"
+                      )
+                    }
                   >
                     <Copy className="w-4 h-4" />
                   </Button>
                 </div>
               </div>
-
             </>
           ) : (
             <div className="text-center py-8 text-muted-foreground">
@@ -393,8 +423,8 @@ export const ApiKeysDisplay: React.FC = () => {
 };
 
 type DeveloperTabProps = {
-  webhook: string
-}
+  webhook: string;
+};
 
 // Main Developer Tab Component
 export default function DeveloperTab({ webhook }: DeveloperTabProps) {
@@ -407,24 +437,27 @@ export default function DeveloperTab({ webhook }: DeveloperTabProps) {
     setTimeout(() => setCopiedItem(null), 2000);
   };
 
-    const updateWebhookUrl = async () => {
-  try {
-    const response = await AuthManager.makeAuthenticatedRequest('/api/merchants/webhook', {
-      method: 'POST',
-      body: JSON.stringify({ webhookUrl }),
-    });
+  const updateWebhookUrl = async () => {
+    try {
+      const response = await AuthManager.makeAuthenticatedRequest(
+        "/api/merchants/webhook",
+        {
+          method: "POST",
+          body: JSON.stringify({ webhookUrl }),
+        }
+      );
 
-    if (response.ok) {
-      toast.success('Webhook URL updated successfully');
-    } else {
-      const error = await response.json();
-      toast.error(error.error || 'Failed to update webhook URL');
+      if (response.ok) {
+        toast.success("Webhook URL updated successfully");
+      } else {
+        const error = await response.json();
+        toast.error(error.error || "Failed to update webhook URL");
+      }
+    } catch (error) {
+      console.error("Error updating webhook URL:", error);
+      toast.error("Failed to update webhook URL");
     }
-  } catch (error) {
-    console.error('Error updating webhook URL:', error);
-    toast.error('Failed to update webhook URL');
-  }
-};
+  };
 
   return (
     <div className="space-y-6">
@@ -441,7 +474,9 @@ export default function DeveloperTab({ webhook }: DeveloperTabProps) {
           </CardHeader>
           <CardContent className="space-y-4 ">
             <div>
-              <Label className='mb-2' htmlFor="webhook-url">Webhook URL</Label>
+              <Label className="mb-2" htmlFor="webhook-url">
+                Webhook URL
+              </Label>
               <Input
                 id="webhook-url"
                 value={webhookUrl}
@@ -449,21 +484,25 @@ export default function DeveloperTab({ webhook }: DeveloperTabProps) {
                 placeholder="https://yoursite.com/webhook"
               />
             </div>
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <h4 className="font-semibold text-blue-900 mb-2">Webhook Events</h4>
-              <ul className="text-sm text-blue-800 space-y-1">
+            <div
+              className="bg-background text-foreground border-2 rounded-lg p-4"
+              style={{ borderColor: "#d4af37" }}
+            >
+              <h4 className="font-semibold mb-2">Webhook Events</h4>
+              <ul className="text-sm space-y-1">
                 <li>• payment.confirmed - Payment verified on blockchain</li>
                 <li>• payment.settled - USDC settled to your wallet</li>
                 <li>• payment.failed - Payment failed or expired</li>
               </ul>
             </div>
-           <Button
-            className="w-full bg-gradient-to-r from-blue-600 to-purple-600"
-            onClick={updateWebhookUrl}
-            disabled={!webhookUrl}
-          >
-            Update Webhook URL
-          </Button>
+            <Button
+              className="w-full bg-background text-foreground border-2"
+              style={{ borderColor: '#d4af37' }}
+              onClick={updateWebhookUrl}
+              disabled={!webhookUrl}
+            >
+              Update Webhook URL
+            </Button>
           </CardContent>
         </Card>
       </div>
@@ -475,8 +514,12 @@ export default function DeveloperTab({ webhook }: DeveloperTabProps) {
             <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Code className="w-6 h-6 text-blue-600" />
             </div>
-            <h3 className="font-semibold text-gray-900 mb-2">API Documentation</h3>
-            <p className="text-sm text-gray-600">Complete API reference with examples</p>
+            <h3 className="font-semibold text-gray-900 mb-2">
+              API Documentation
+            </h3>
+            <p className="text-sm text-gray-600">
+              Complete API reference with examples
+            </p>
           </CardContent>
         </Card>
 
@@ -486,7 +529,9 @@ export default function DeveloperTab({ webhook }: DeveloperTabProps) {
               <RefreshCw className="w-6 h-6 text-green-600" />
             </div>
             <h3 className="font-semibold text-gray-900 mb-2">API Playground</h3>
-            <p className="text-sm text-gray-600">Test API endpoints interactively</p>
+            <p className="text-sm text-gray-600">
+              Test API endpoints interactively
+            </p>
           </CardContent>
         </Card>
 
@@ -495,7 +540,9 @@ export default function DeveloperTab({ webhook }: DeveloperTabProps) {
             <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center mx-auto mb-4">
               <Settings className="w-6 h-6 text-purple-600" />
             </div>
-            <h3 className="font-semibold text-gray-900 mb-2">Sandbox Environment</h3>
+            <h3 className="font-semibold text-gray-900 mb-2">
+              Sandbox Environment
+            </h3>
             <p className="text-sm text-gray-600">Test with fake transactions</p>
           </CardContent>
         </Card>
@@ -532,11 +579,15 @@ export default function DeveloperTab({ webhook }: DeveloperTabProps) {
   "currency": "NGN",
   "description": "Premium Coffee Blend x2"
 }'`,
-                      "curl-example",
+                      "curl-example"
                     )
                   }
                 >
-                  {copiedItem === "curl-example" ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  {copiedItem === "curl-example" ? (
+                    <Check className="w-4 h-4" />
+                  ) : (
+                    <Copy className="w-4 h-4" />
+                  )}
                 </Button>
                 <pre className="text-green-400 text-sm overflow-x-auto">
                   {`curl -X POST https://api.yourservice.com/api/payment/initiate \\
@@ -573,11 +624,15 @@ export default function DeveloperTab({ webhook }: DeveloperTabProps) {
 
 const payment = await response.json();
 console.log(payment.hosted_url);`,
-                      "js-example",
+                      "js-example"
                     )
                   }
                 >
-                  {copiedItem === "js-example" ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  {copiedItem === "js-example" ? (
+                    <Check className="w-4 h-4" />
+                  ) : (
+                    <Copy className="w-4 h-4" />
+                  )}
                 </Button>
                 <pre className="text-green-400 text-sm overflow-x-auto">
                   {`const response = await fetch('https://api.yourservice.com/api/payment/initiate', {
@@ -623,11 +678,15 @@ response = requests.post(
 
 payment = response.json()
 print(payment['hosted_url'])`,
-                      "python-example",
+                      "python-example"
                     )
                   }
                 >
-                  {copiedItem === "python-example" ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+                  {copiedItem === "python-example" ? (
+                    <Check className="w-4 h-4" />
+                  ) : (
+                    <Copy className="w-4 h-4" />
+                  )}
                 </Button>
                 <pre className="text-green-400 text-sm overflow-x-auto">
                   {`import requests
@@ -657,23 +716,33 @@ print(payment['hosted_url'])`}
             <h4 className="font-semibold mb-2">Authentication</h4>
             <div className="bg-muted p-3 rounded-lg font-mono text-sm">
               <div>curl -X POST https://yourapi.com/api/payments \\</div>
-              <div className="ml-2">-H "Authorization: Bearer {'{'}your_jwt_token{'}'}" \\</div>
+              <div className="ml-2">
+                -H "Authorization: Bearer {"{"}your_jwt_token{"}"}" \\
+              </div>
               <div className="ml-2">-H "Content-Type: application/json" \\</div>
-              <div className="ml-2">-d '{"{"}...{"}"}'</div>
+              <div className="ml-2">
+                -d '{"{"}...{"}"}'
+              </div>
             </div>
-            
+
             <div>
               <h4 className="font-semibold mb-2">Environment URLs</h4>
               <ul className="space-y-1 text-sm text-muted-foreground">
-                <li><strong>Testnet:</strong> Use for development and testing</li>
-                <li><strong>Mainnet:</strong> Use for production transactions</li>
+                <li>
+                  <strong>Testnet:</strong> Use for development and testing
+                </li>
+                <li>
+                  <strong>Mainnet:</strong> Use for production transactions
+                </li>
               </ul>
             </div>
 
             <div>
               <h4 className="font-semibold mb-2">Security Best Practices</h4>
               <ul className="space-y-1 text-sm text-muted-foreground list-disc list-inside">
-                <li>Never expose secret keys or JWT tokens in client-side code</li>
+                <li>
+                  Never expose secret keys or JWT tokens in client-side code
+                </li>
                 <li>Store keys securely using environment variables</li>
                 <li>Regenerate keys if you suspect they've been compromised</li>
                 <li>Use HTTPS for all API requests</li>
