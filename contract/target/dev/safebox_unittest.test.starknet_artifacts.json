@@ -1,0 +1,1 @@
+{"version":1,"contracts":[{"id":"0evseirjn2930","package_name":"safebox","contract_name":"EgyptFi","module_path":"safebox::EgyptFi","artifacts":{"sierra":"safebox_unittest_EgyptFi.test.contract_class.json","casm":null}}]}
