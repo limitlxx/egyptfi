@@ -427,8 +427,9 @@ mod tests {
         let amount = 2000000; // 2 USDC
         let payment_id = egyptfi.create_payment(merchant, amount, 999, 888);
 
-        // Approve transfer
+        // Mint and Approve transfer
         start_cheat_caller_address(usdc.contract_address, customer);
+        usdc.mint(customer, amount); // Mint some USDC to customer
         usdc.approve(egyptfi.contract_address, amount);
         stop_cheat_caller_address(usdc.contract_address);
 
@@ -465,8 +466,10 @@ mod tests {
     fn test_process_payment_not_found() {
         let (egyptfi, _, _, _, customer) = setup();
 
+        let payment_id: felt252 = 0.try_into().unwrap(); // Non-existent payment ID
+
         start_cheat_caller_address(egyptfi.contract_address, customer);
-        egyptfi.process_payment('0'); // Non-existent payment ID
+        egyptfi.process_payment(payment_id); // Non-existent payment ID
         stop_cheat_caller_address(egyptfi.contract_address);
     }
 
@@ -485,6 +488,7 @@ mod tests {
         let payment_id = egyptfi.create_payment(merchant, amount, 999, 888);
 
         start_cheat_caller_address(usdc.contract_address, customer);
+        usdc.mint(customer, amount); // Mint some USDC to customer
         usdc.approve(egyptfi.contract_address, amount);
         stop_cheat_caller_address(usdc.contract_address);
 
@@ -530,6 +534,7 @@ mod tests {
 
         start_cheat_caller_address(usdc.contract_address, customer);
         usdc.approve(egyptfi.contract_address, amount);
+        usdc.mint(customer, amount); // Mint some USDC to customer
         stop_cheat_caller_address(usdc.contract_address);
 
         egyptfi.process_payment(payment_id);
@@ -537,12 +542,12 @@ mod tests {
 
         // Withdraw
         start_cheat_caller_address(egyptfi.contract_address, merchant);
-        let withdraw_amount = 1000000000000000000; // 1 USDC
+        let withdraw_amount = 1000000; // 1 USDC
         let mut spy = spy_events();
         egyptfi.withdraw_funds(withdraw_amount);
 
         let merchant_data = egyptfi.get_merchant(merchant);
-        assert_eq!(merchant_data.usdc_balance, 990000000000000000); // 0.99 USDC
+        assert_eq!(merchant_data.usdc_balance, 980000); // 0.98 USDC left after withdrawing 1 USDC since 1% fee taken on 2 USDC payment
 
         let expected_event = EgyptFi::Event::WithdrawalMade(
             EgyptFi::WithdrawalMade {
@@ -565,7 +570,7 @@ mod tests {
 
         start_cheat_caller_address(egyptfi.contract_address, merchant);
         egyptfi.register_merchant(withdrawal_address, 123);
-        egyptfi.withdraw_funds(1000000000000000000);
+        egyptfi.withdraw_funds(1000000); // 1 USDC
         stop_cheat_caller_address(egyptfi.contract_address);
     }
 
@@ -584,6 +589,7 @@ mod tests {
         let payment_id = egyptfi.create_payment(merchant, amount, 999, 888);
 
         start_cheat_caller_address(usdc.contract_address, customer);
+        usdc.mint(customer, amount); // Mint some USDC to customer
         usdc.approve(egyptfi.contract_address, amount);
         stop_cheat_caller_address(usdc.contract_address);
 
@@ -669,6 +675,7 @@ mod tests {
         let payment_id = egyptfi.create_payment(merchant, amount, 999, 888);
 
         start_cheat_caller_address(usdc.contract_address, customer);
+        usdc.mint(customer, amount); // Mint some USDC to customer
         usdc.approve(egyptfi.contract_address, amount);
         stop_cheat_caller_address(usdc.contract_address);
 
@@ -766,20 +773,28 @@ mod tests {
     #[test]
     #[should_panic(expected: 'Contract is paused')]
     fn test_process_payment_when_paused() {
-        let (egyptfi, owner, _, merchant, customer) = setup();
+        let (egyptfi, owner, usdc, merchant, customer) = setup();
         let withdrawal_address = contract_address_const::<'withdrawal'>();
 
         start_cheat_caller_address(egyptfi.contract_address, merchant);
         egyptfi.register_merchant(withdrawal_address, 123);
         stop_cheat_caller_address(egyptfi.contract_address);
 
+        let amount = 2000000; // 2 USDC
+        
         start_cheat_caller_address(egyptfi.contract_address, customer);
-        let payment_id = egyptfi.create_payment(merchant, 2000000, 999, 888);
+        let payment_id = egyptfi.create_payment(merchant, amount, 999, 888);
         stop_cheat_caller_address(egyptfi.contract_address);
 
         start_cheat_caller_address(egyptfi.contract_address, owner);
         egyptfi.toggle_emergency_pause();
         stop_cheat_caller_address(egyptfi.contract_address);
+
+        // Mint and Approve transfer
+        start_cheat_caller_address(usdc.contract_address, customer);
+        usdc.mint(customer, amount); // Mint some USDC to customer
+        usdc.approve(egyptfi.contract_address, amount);
+        stop_cheat_caller_address(usdc.contract_address);
 
         start_cheat_caller_address(egyptfi.contract_address, customer);
         egyptfi.process_payment(payment_id);
@@ -801,7 +816,7 @@ mod tests {
         stop_cheat_caller_address(egyptfi.contract_address);
 
         start_cheat_caller_address(egyptfi.contract_address, merchant);
-        egyptfi.withdraw_funds(1000000000000000000);
+        egyptfi.withdraw_funds(1000000); // 1 USDC
         stop_cheat_caller_address(egyptfi.contract_address);
     }
 
@@ -820,6 +835,7 @@ mod tests {
         let payment_id = egyptfi.create_payment(merchant, amount, 999, 888);
 
         start_cheat_caller_address(usdc.contract_address, customer);
+        usdc.mint(customer, amount); // Mint some USDC to customer
         usdc.approve(egyptfi.contract_address, amount);
         stop_cheat_caller_address(usdc.contract_address);
 

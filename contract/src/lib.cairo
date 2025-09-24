@@ -404,7 +404,7 @@ pub mod EgyptFi {
         let caller = get_caller_address();
         let mut payment = self.payments.read(payment_id);
         
-        assert(payment.payment_id != 0, 'Payment not found');
+        assert(payment.payment_id != 0, 'Payment not found'); //NOTE: comparison between felt252 and 0
         assert(payment.status == PaymentStatus::Pending, 'Payment not pending');
         assert(payment.customer == caller, 'Not payment customer');
 
@@ -480,8 +480,9 @@ pub mod EgyptFi {
 
         let mut merchant = self.merchants.read(caller);
         assert(merchant.usdc_balance >= payment.usdc_amount, 'Insufficient merchant balance');
+        //NOTE: merchant usd bal will b lower than payment usd bal since platform fee taken
 
-        merchant.usdc_balance -= payment.usdc_amount;
+        merchant.usdc_balance -= payment.usdc_amount; //NOTE: will cause an underflow since merchant usd bal lower than payment usd bal
         self.merchants.write(caller, merchant);
 
         let usdc_contract = IERC20Dispatcher { contract_address: self.usdc_token.read() };
