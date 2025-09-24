@@ -15,6 +15,7 @@ import {
   LinkIcon,
   X,
   AlertCircle,
+  Coins,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -71,6 +72,7 @@ export function InvoiceContent({ invoiceData, onPaymentConfirmed }: InvoiceConte
 
   const chains: Chain[] = [
     { id: "starknet", name: "StarkNet", icon: CircleDotDashed },
+    { id: "btc", name: "BTC", icon: Coins },
     { id: "ethereum", name: "Ethereum", icon: Network },
     { id: "base", name: "Base", icon: CircleDot },
     { id: "arbitrum", name: "Arbitrum", icon: Gem },
@@ -82,6 +84,7 @@ export function InvoiceContent({ invoiceData, onPaymentConfirmed }: InvoiceConte
       { id: "usdc", name: "USDC" },
       { id: "eth", name: "ETH" },
       { id: "strk", name: "STRK" },
+      { id: "wbtc", name: "wBTC" },
     ],
     ethereum: [
       { id: "usdc", name: "USDC" },
@@ -101,6 +104,10 @@ export function InvoiceContent({ invoiceData, onPaymentConfirmed }: InvoiceConte
       { id: "usdc", name: "USDC" },
       { id: "matic", name: "MATIC" },
       { id: "dai", name: "DAI" },
+    ],
+     btc: [
+      { id: "l1", name: "L1" },
+      { id: "l2", name: "L2" },
     ],
   };
 
@@ -282,8 +289,7 @@ export function InvoiceContent({ invoiceData, onPaymentConfirmed }: InvoiceConte
 
           </div>
           
-        </div>
-        
+        </div>        
 
         {/* Column 2: Payment Info */}
         <div className="col-span-1 border-b lg:border-b-0 lg:border-r border-gray-200 p-4 sm:p-6 lg:p-8">

@@ -82,7 +82,7 @@ export default function InvoicePage() {
         invoiceId: `IE-${invoice.payment_ref}`,
         description: invoice.description || "Payment",
         paymentRef: invoice.payment_ref,
-        hostedUrl: `${process.env.NEXT_PUBLIC_APP_URL}/invoice/${payment_ref}`,
+        hostedUrl: `${process.env.NEXT_PUBLIC_APP_URL}/invoice?${payment_ref}`,
         secondaryEndpoint: invoice.secondary_endpoint,
         qrCode: invoice.qrCode,
         payUrl: invoice.paymentUrl,
@@ -116,7 +116,6 @@ export default function InvoicePage() {
         }),
       });
 
-      console.log("Payment confirmed for ref:", paymentRef);
     } catch (error) {
       console.error("Failed to update payment status:", error);
     }

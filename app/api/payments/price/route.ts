@@ -12,7 +12,7 @@ const CACHE_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 
 // Validation schema for query parameters
 const PriceFetchSchema = z.object({
-  token: z.enum(["strk", "eth", "usdc"], {
+  token: z.enum(["strk", "eth", "usdc", "wbtc"], {
     message: "Token must be one of strk, eth, usdc",
   }),
   chain: z
@@ -106,11 +106,12 @@ export async function GET(request: NextRequest) {
     const chainlinkFeeds: Record<string, string> = {
       strk: "0x76a0254cdadb59b86da3b5960bf8d73779cac88edc5ae587cab3cedf03226ec",
       eth: "0x6b2ef9b416ad0f996b2a8ac0dd771b1788196f51c96f5b000df2e47ac756d26",
-      usdc: "0x72495dbb867dd3c6373820694008f8a8bff7b41f7f7112245d687858b243470",
+      usdc: "0x72495dbb867dd3c6373820694008f8a8bff7b41f7f7112245d687858b243470", 
+      wbtc: "0x5a4930401bbb1d643ca501640e218fec253b33326f47d139bd025c62a1fbc7f"
     };
 
     // Starknet provider
-    const starknetProvider = new RpcProvider({ nodeUrl: constants.NetworkName.SN_MAIN });
+    const starknetProvider = new RpcProvider({ nodeUrl: process.env.STARKNET_RPC_URL }); // constants.NetworkName.SN_MAIN
 
     // Fetch token/USD rates from Chainlink
     const tokenRates: Record<string, string> = {};
@@ -137,7 +138,7 @@ export async function GET(request: NextRequest) {
 
       tokenRates[`${t.toUpperCase()}/USD`] = price.toFixed(2);
       convertedAmount[t.toUpperCase()] = (fiatInUsd / price).toFixed(
-        t === "eth" ? 6 : 2
+        t === "eth" ? 6 : 10
       );     
       
       console.log("TOKEN RATES", tokenRates);      
@@ -178,10 +179,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         {
           error: "Validation failed",
-          details: error.errors.map((err) => ({
-            field: err.path.join("."),
-            message: err.message,
-          })),
+          details: error 
         },
         { status: 400 }
       );

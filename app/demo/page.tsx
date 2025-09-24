@@ -96,8 +96,8 @@ export default function DemoPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          payment_ref: "order-1758108394381",
-          local_amount: cartType === "ecommerce" ? 10500 : 5000,
+          payment_ref: `order-${Date.now()}`,
+          local_amount: cartType === "ecommerce" ? 100 : 1000,
           local_currency: "NGN",
           description:
             cartType === "ecommerce" ? "Ecommerce Purchase" : "Game Purchase",
