@@ -21,10 +21,6 @@ export default function PaymentPage() {
   const payment_ref = searchParams.get("ref");
   const redirect_to = searchParams.get("redirect");
   const { isConnected, address } = useWallet();
-
-  console.log("ADrres", address);
-  
-
   const [invoiceData, setInvoiceData] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

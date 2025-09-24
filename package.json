@@ -24,6 +24,9 @@
     "deploy:production": "NODE_ENV=production npm run deploy:validate && npm run deploy:migrate"
   },
   "dependencies": {
+    "@atomiqlabs/chain-starknet": "^5.1.4",
+    "@atomiqlabs/sdk": "^6.0.1",
+    "@atomiqlabs/storage-sqlite": "^3.0.0",
     "@avnu/gasless-sdk": "^0.1.8",
     "@chipi-stack/chipi-react": "^11.2.0",
     "@chipi-stack/nextjs": "^11.2.0",

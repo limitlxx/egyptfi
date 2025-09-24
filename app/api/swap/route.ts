@@ -1,55 +1,37 @@
-// app/api/swap/route.ts
 import { NextResponse } from "next/server";
-import { AutoSwappr } from "autoswap-sdk"; 
+import { SwapService, type SwapRequest, type SwapResponse } from "@/lib/swap-service";
+
+const service = new SwapService();
 
 export async function POST(req: Request) {
   try {
-    const { tokenIn, tokenOut, amount, accountAddress } = await req.json();
+    const body: SwapRequest = await req.json();
 
-    if (!tokenIn || !tokenOut || !amount || !accountAddress) {
-      return NextResponse.json(
-        { error: "Missing required parameters" },
-        { status: 400 }
-      );
+    if (!body.tokenIn || !body.tokenOut || !body.amount || !body.accountAddress) {
+      return NextResponse.json({ error: "Missing required parameters" }, { status: 400 });
     }
 
-    const autoswapprContractAddress = process.env.AUTOSWAPPR_CONTRACT_ADDRESS;
-    const rpcUrl = process.env.STARKNET_RPC_URL;
-    const privateKey = process.env.PRIVATE_KEY;
-
-    if (!autoswapprContractAddress || !rpcUrl || !accountAddress || !privateKey) {
-      return NextResponse.json(
-        { error: "Missing environment variables" },
-        { status: 500 }
-      );
+    // For BTC out, validate destAddress
+    if ((body.tokenOut === 'BTC' || body.tokenOut === 'BTCLN') && !body.destAddress) {
+      return NextResponse.json({ error: "destAddress required for BTC output" }, { status: 400 });
     }
 
-    const config = {
-      contractAddress: autoswapprContractAddress,
-      rpcUrl,
-      accountAddress,
-      privateKey,
-    };
+    const result: SwapResponse = await service.executeSwap(body);
 
-    const autoswappr = new AutoSwappr(config);
+    // For async paths, process pending immediately
+    if (result.status === 'waiting_payment') {
+      await service.processPendingSwaps();
+    }
 
-    const swapOptions = {
-      amount: amount.toString(), // SDK expects string
-      isToken1: tokenIn > tokenOut, // ✅ careful: if these are addresses, you may need a different comparison
-      skipAhead: 0,
-    };
-
-    const swapResult = await autoswappr.executeSwap(tokenIn, tokenOut, swapOptions);
-
-    return NextResponse.json({
-      success: true,
-      results: swapResult,
-    });
+    return NextResponse.json({ ...result, success: true });
   } catch (error: any) {
-    console.error("Swap error:", error);
-    return NextResponse.json(
-      { error: "Swap failed", details: error.message ?? error.toString() },
-      { status: 500 }
-    );
+    console.error("Swap API error:", error);
+    return NextResponse.json({ error: "Swap failed", details: error.message }, { status: 500 });
   }
+}
+
+// Optional: Separate endpoint for polling/processing pending swaps (e.g., /api/swap/process)
+export async function GET() {
+  await service.processPendingSwaps();
+  return NextResponse.json({ success: true, message: "Processed pending swaps" });
 }

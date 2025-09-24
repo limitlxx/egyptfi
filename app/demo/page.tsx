@@ -102,7 +102,7 @@ export default function DemoPage() {
           description:
             cartType === "ecommerce" ? "Ecommerce Purchase" : "Game Purchase",
           chain: "starknet",
-          secondary_endpoint: "https://egyptfi.online/confirm",
+          secondary_endpoint: "http://localhost:3000/confirm",
           email: "demo@egyptfi.com",
         }),
       });
