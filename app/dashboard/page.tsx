@@ -83,6 +83,7 @@ import {
   WithdrawalService as listwithdraw,
   Withdrawal,
 } from "@/services/withdrawalService";
+import Image from "next/image";
 
 const initialMerchantData = {
   name: "Coffee Shop Lagos",
@@ -723,10 +724,10 @@ export default function DashboardPage() {
 
   if (isCheckingAuth) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
-          <p className="text-gray-600">Checking authentication...</p>
+          <p className="text-muted-foreground">Checking authentication...</p>
         </div>
       </div>
     );
@@ -734,13 +735,13 @@ export default function DashboardPage() {
 
   if (isSessionExpired) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center">
           <AlertCircle className="w-12 h-12 text-red-600 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+          <h2 className="text-2xl font-bold text-foreground mb-2">
             Session Expired
           </h2>
-          <p className="text-gray-600 mb-6">
+          <p className="text-muted-foreground mb-6">
             Your session has expired or is invalid. Please log in again to
             continue.
           </p>
@@ -828,18 +829,30 @@ export default function DashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+    <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+      <header className="border-b bg-background/80 backdrop-blur-sm sticky top-0 z-50">
+        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            <Link href="/" className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">N</span>
-              </div>
-              <span className="text-xl font-bold text-gray-900">EgyptFi</span>
+            {/* <div className="flex-shrink-0"> */}
+            <Link href="/" className="flex items-center">
+              <Image
+                src="/egyptfi_logo-03.png"
+                alt="EGYPTFI"
+                width={840}
+                height={280}
+                className="h-56 w-auto dark:hidden"
+              />
+              <Image
+                src="/egyptfi_white-03.png"
+                alt="EGYPTFI"
+                width={840}
+                height={280}
+                className="h-56 w-auto hidden dark:block"
+              />
             </Link>
-            <div className="hidden md:flex items-center space-x-2 text-sm text-gray-500">
+            {/* </div> */}
+            <div className="hidden md:flex items-center space-x-2 text-sm text-muted-foreground">
               <span>/</span>
               <span>Dashboard</span>
             </div>
@@ -864,7 +877,7 @@ export default function DashboardPage() {
               )}
             </div>
 
-            <span className="font-medium text-gray-900">{businessName}</span>
+            <span className="font-medium text-foreground">{businessName}</span>
             {isConnected && (
               <Button
                 variant="outline"
@@ -884,16 +897,16 @@ export default function DashboardPage() {
         {/* KYC Completion CTA */}
         <div className="mb-6">
           <div className="bg-gradient-to-r from-primary to-yellow-600 rounded-lg p-6 text-center">
-            <h2 className="text-2xl font-bold text-white mb-2">
+            <h2 className="text-2xl font-bold text-primary-foreground mb-2">
               Complete Your KYC
             </h2>
-            <p className="text-white/90 mb-4">
+            <p className="text-primary-foreground/90 mb-4">
               Verify your identity to unlock full access to all EgyptFi features
               and increase your transaction limits.
             </p>
             <Button
               onClick={() => setShowKycModal(true)}
-              className="bg-white text-primary hover:bg-white/90 font-semibold px-8 py-3"
+              className="bg-primary-foreground text-primary hover:bg-primary-foreground/90 font-semibold px-8 py-3"
             >
               Start KYC Verification
             </Button>
@@ -934,13 +947,13 @@ export default function DashboardPage() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">
+                      <p className="text-sm font-medium text-muted-foreground">
                         Available Balance
                       </p>
-                      <p className="text-2xl font-bold text-gray-900">
+                      <p className="text-2xl font-bold text-foreground">
                         {availableBalance.toFixed(1)} USDC
                       </p>
-                      <p className="text-xs text-gray-500 mt-1">
+                      <p className="text-xs text-muted-foreground mt-1">
                         Ready to withdraw
                       </p>
                     </div>
@@ -954,7 +967,8 @@ export default function DashboardPage() {
                   >
                     <DialogTrigger asChild>
                       <Button
-                        className="w-full mt-4 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700"
+                        className="w-full mt-4 bg-background text-foreground border-2"
+                        style={{ borderColor: "#d4af37" }}
                         disabled={availableBalance <= 0}
                       >
                         <ArrowDownToLine className="w-4 h-4 mr-2" />
@@ -1062,7 +1076,8 @@ export default function DashboardPage() {
                             isWithdrawTxLoading ||
                             !withdrawAmount
                           }
-                          className="w-full bg-gradient-to-r from-blue-600 to-purple-600"
+                          className="w-full bg-background text-foreground border-2"
+                          style={{ borderColor: "#d4af37" }}
                         >
                           {isWithdrawing || isWithdrawTxLoading ? (
                             <>
@@ -1082,10 +1097,10 @@ export default function DashboardPage() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">
+                      <p className="text-sm font-medium text-muted-foreground">
                         Total Payments
                       </p>
-                      <p className="text-2xl font-bold text-gray-900">
+                      <p className="text-2xl font-bold text-foreground">
                         ₦{totalBalance}
                       </p>
                     </div>
@@ -1099,10 +1114,10 @@ export default function DashboardPage() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">
+                      <p className="text-sm font-medium text-muted-foreground">
                         This Month
                       </p>
-                      <p className="text-2xl font-bold text-gray-900">
+                      <p className="text-2xl font-bold text-foreground">
                         ₦{monthBalance}
                       </p>
                     </div>
@@ -1116,10 +1131,10 @@ export default function DashboardPage() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-gray-600">
+                      <p className="text-sm font-medium text-muted-foreground">
                         Success Rate
                       </p>
-                      <p className="text-2xl font-bold text-gray-900">
+                      <p className="text-2xl font-bold text-foreground">
                         {successRate}%
                       </p>
                     </div>
@@ -1133,7 +1148,7 @@ export default function DashboardPage() {
 
             {/* Create Payment Button */}
             <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-gray-900">
+              <h2 className="text-2xl font-bold text-foreground">
                 Payment Links
               </h2>
               <Dialog
@@ -1141,7 +1156,10 @@ export default function DashboardPage() {
                 onOpenChange={setIsCreatePaymentOpen}
               >
                 <DialogTrigger asChild>
-                  <Button className="bg-gradient-to-r from-blue-600 to-purple-600">
+                  <Button
+                    className="bg-background text-foreground border-2"
+                    style={{ borderColor: "#d4af37" }}
+                  >
                     <Plus className="w-4 h-4 mr-2" />
                     Create Payment Link
                   </Button>
@@ -1193,7 +1211,10 @@ export default function DashboardPage() {
                         }
                       />
                     </div>
-                    <Button className="w-full bg-gradient-to-r from-blue-600 to-purple-600">
+                    <Button
+                      className="w-full bg-background text-foreground border-2"
+                      style={{ borderColor: "#d4af37" }}
+                    >
                       Create Payment Link
                     </Button>
                   </div>
@@ -1224,7 +1245,11 @@ export default function DashboardPage() {
                   <SelectItem value="failed">Failed</SelectItem>
                 </SelectContent>
               </Select>
-              <Button variant="outline">
+              <Button
+                variant="outline"
+                className="bg-background text-foreground border-2"
+                style={{ borderColor: "#d4af37" }}
+              >
                 <Download className="w-4 h-4 mr-2" />
                 Export
               </Button>
@@ -1241,27 +1266,27 @@ export default function DashboardPage() {
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
                   <table className="w-full">
-                    <thead className="border-b bg-gray-50">
+                    <thead className="border-b bg-muted/50">
                       <tr>
-                        <th className="text-left p-4 font-semibold text-gray-900">
+                        <th className="text-left p-4 font-semibold text-foreground">
                           Payment Ref
                         </th>
-                        <th className="text-left p-4 font-semibold text-gray-900">
+                        <th className="text-left p-4 font-semibold text-foreground">
                           Amount
                         </th>
-                        <th className="text-left p-4 font-semibold text-gray-900">
+                        <th className="text-left p-4 font-semibold text-foreground">
                           Token Paid
                         </th>
-                        <th className="text-left p-4 font-semibold text-gray-900">
+                        <th className="text-left p-4 font-semibold text-foreground">
                           Chain
                         </th>
-                        <th className="text-left p-4 font-semibold text-gray-900">
+                        <th className="text-left p-4 font-semibold text-foreground">
                           Status
                         </th>
-                        <th className="text-left p-4 font-semibold text-gray-900">
+                        <th className="text-left p-4 font-semibold text-foreground">
                           Date
                         </th>
-                        <th className="text-left p-4 font-semibold text-gray-900">
+                        <th className="text-left p-4 font-semibold text-foreground">
                           Actions
                         </th>
                       </tr>
@@ -1271,31 +1296,31 @@ export default function DashboardPage() {
                         filteredPayments.map((payment) => (
                           <tr
                             key={payment.payment_ref}
-                            className="border-b hover:bg-gray-50"
+                            className="border-b hover:bg-muted/50"
                           >
                             <td className="p-4">
                               <div>
-                                <code className="text-sm bg-gray-100 px-2 py-1 rounded">
+                                <code className="text-sm bg-muted px-2 py-1 rounded">
                                   {payment.payment_ref}
                                 </code>
-                                <p className="text-xs text-gray-500 mt-1">
+                                <p className="text-xs text-muted-foreground mt-1">
                                   {payment.description}
                                 </p>
                               </div>
                             </td>
                             <td className="p-4">
-                              <span className="font-medium">
+                              <span className="font-medium text-foreground">
                                 {payment.local_currency}{" "}
                                 {payment.amount.toLocaleString()}
                               </span>
                             </td>
                             <td className="p-4">
-                              <span className="font-medium">
+                              <span className="font-medium text-foreground">
                                 {payment.tokenPaid}
                               </span>
                             </td>
                             <td className="p-4">
-                              <span className="text-gray-600">
+                              <span className="text-muted-foreground">
                                 {payment.chain}
                               </span>
                             </td>
@@ -1305,7 +1330,7 @@ export default function DashboardPage() {
                               </Badge>
                             </td>
                             <td className="p-4">
-                              <span className="text-gray-600 text-sm">
+                              <span className="text-muted-foreground text-sm">
                                 {payment.created_at}
                               </span>
                             </td>
@@ -1359,11 +1384,13 @@ export default function DashboardPage() {
                         <tr>
                           <td
                             colSpan={7}
-                            className="p-6 text-center text-gray-500"
+                            className="p-6 text-center text-muted-foreground"
                           >
-                            <ArrowDownToLine className="w-12 h-12 text-gray-300 mx-auto mb-4" />
-                            <p className="text-gray-500">No Payment yet</p>
-                            <p className="text-sm text-gray-400">
+                            <ArrowDownToLine className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
+                            <p className="text-muted-foreground">
+                              No Payment yet
+                            </p>
+                            <p className="text-sm text-muted-foreground/70">
                               Your Payment history will appear here
                             </p>
                           </td>
@@ -1379,7 +1406,7 @@ export default function DashboardPage() {
             <WithdrawalHistory />
 
             {/* Yield Farming - Improved UX (Coming Soon) */}
-            <Card className="border border-dashed border-purple-200 bg-white">
+            <Card className="border border-dashed border-purple-200 bg-card">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -1388,13 +1415,13 @@ export default function DashboardPage() {
                     </div>
                     <div>
                       <CardTitle>Invest in Yield</CardTitle>
-                      <p className="text-sm text-gray-600">
+                      <p className="text-sm text-muted-foreground">
                         Earn passive yield on idle USDC with on-chain
                         strategies.
                       </p>
                     </div>
                   </div>
-                  <Badge className="bg-gray-200 text-gray-800">
+                  <Badge className="bg-muted text-muted-foreground">
                     Coming Soon
                   </Badge>
                 </div>
@@ -1462,21 +1489,25 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="rounded-lg bg-gray-50 p-3">
-                    <p className="text-xs text-gray-500">Est. APY</p>
-                    <p className="font-semibold text-gray-900">
+                  <div className="rounded-lg bg-muted/50 p-3">
+                    <p className="text-xs text-muted-foreground">Est. APY</p>
+                    <p className="font-semibold text-foreground">
                       {strategyApy.toFixed(1)}%
                     </p>
                   </div>
-                  <div className="rounded-lg bg-gray-50 p-3">
-                    <p className="text-xs text-gray-500">Projected Monthly</p>
-                    <p className="font-semibold text-gray-900">
+                  <div className="rounded-lg bg-muted/50 p-3">
+                    <p className="text-xs text-muted-foreground">
+                      Projected Monthly
+                    </p>
+                    <p className="font-semibold text-foreground">
                       {projectedMonthly.toFixed(2)} USDC
                     </p>
                   </div>
-                  <div className="rounded-lg bg-gray-50 p-3">
-                    <p className="text-xs text-gray-500">Projected Yearly</p>
-                    <p className="font-semibold text-gray-900">
+                  <div className="rounded-lg bg-muted/50 p-3">
+                    <p className="text-xs text-muted-foreground">
+                      Projected Yearly
+                    </p>
+                    <p className="font-semibold text-foreground">
                       {projectedYearly.toFixed(2)} USDC
                     </p>
                   </div>
@@ -1484,7 +1515,8 @@ export default function DashboardPage() {
                 <div className="mt-4 grid gap-2 sm:grid-cols-2">
                   <Button
                     disabled
-                    className="bg-gradient-to-r from-blue-600 to-purple-600 disabled:opacity-70"
+                    style={{ backgroundColor: "#d4af37" }}
+                    className="disabled:opacity-70"
                   >
                     <Lock className="w-4 h-4 mr-2" />
                     Invest (Coming Soon)
@@ -1564,7 +1596,185 @@ export default function DashboardPage() {
 
           {/* Developer Tab */}
           <TabsContent value="developer" className="space-y-6">
-            <DeveloperTab webhook={webhookUrl} />
+            <div className="space-y-6">
+              {/* Environment Switcher */}
+              <div className="flex items-center justify-between">
+                <h3 className="text-xl font-semibold text-foreground">
+                  API Keys Management
+                </h3>
+                <div className="flex items-center space-x-2">
+                  <Label htmlFor="environment" className="text-foreground">
+                    Environment:
+                  </Label>
+                  <div className="flex space-x-1">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="bg-background text-foreground border-2"
+                      style={{ borderColor: "#d4af37" }}
+                    >
+                      Testnet
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="bg-background text-foreground border-2"
+                      style={{ borderColor: "#d4af37" }}
+                    >
+                      Mainnet
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              {/* API Keys Card */}
+              <Card className="bg-card">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center space-x-2 text-foreground">
+                      <span>Testnet API Keys</span>
+                      <Badge
+                        variant="secondary"
+                        className="bg-muted text-muted-foreground"
+                      >
+                        testnet
+                      </Badge>
+                    </CardTitle>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="bg-background text-foreground border-2"
+                      style={{ borderColor: "#d4af37" }}
+                    >
+                      <RefreshCw className="w-4 h-4 mr-2" />
+                      Regenerate
+                    </Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label className="text-foreground">Public Key</Label>
+                    <div className="flex items-center space-x-2 mt-1">
+                      <Input
+                        value="test_pk_1234567890abcdef1234567890abcdef"
+                        readOnly
+                        className="font-mono text-sm bg-background text-foreground border-2"
+                        style={{ borderColor: "#d4af37" }}
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="bg-background text-foreground border-2"
+                        style={{ borderColor: "#d4af37" }}
+                      >
+                        <Copy className="w-4 h-4" />
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Use this key to identify your application in API requests.
+                    </p>
+                  </div>
+
+                  <div>
+                    <Label className="flex items-center space-x-2 text-foreground">
+                      <span>Secret Key</span>
+                      <Badge variant="destructive" className="text-xs">
+                        Store Securely
+                      </Badge>
+                    </Label>
+                    <div className="flex items-center space-x-2 mt-1">
+                      <Input
+                        type="password"
+                        value="••••••••••••••••••••••••••••••••••••••••"
+                        readOnly
+                        className="font-mono text-sm bg-background text-foreground border-2"
+                        style={{ borderColor: "#d4af37" }}
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="bg-background text-foreground border-2"
+                        style={{ borderColor: "#d4af37" }}
+                      >
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="bg-background text-foreground border-2"
+                        style={{ borderColor: "#d4af37" }}
+                      >
+                        <Copy className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label className="text-foreground">Contract Address</Label>
+                    <div className="flex items-center space-x-2 mt-1">
+                      <Input
+                        value="0x1234567890abcdef1234567890abcdef12345678"
+                        disabled
+                        className="font-mono text-sm bg-background text-foreground border-2"
+                        style={{ borderColor: "#d4af37" }}
+                      />
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="bg-background text-foreground border-2"
+                        style={{ borderColor: "#d4af37" }}
+                      >
+                        <Copy className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Webhook Configuration */}
+              <Card className="bg-card">
+                <CardHeader>
+                  <CardTitle className="text-foreground">
+                    Webhook Configuration
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div>
+                    <Label className="text-foreground" htmlFor="webhook-url">
+                      Webhook URL
+                    </Label>
+                    <Input
+                      id="webhook-url"
+                      value={webhookUrl}
+                      onChange={(e) => setWebhookUrl(e.target.value)}
+                      placeholder="https://yoursite.com/webhook"
+                      className="bg-background text-foreground border-2 mt-1"
+                      style={{ borderColor: "#d4af37" }}
+                    />
+                  </div>
+                  <div
+                    className="bg-background text-foreground border-2 rounded-lg p-4"
+                    style={{ borderColor: "#d4af37" }}
+                  >
+                    <h4 className="font-semibold mb-2">Webhook Events</h4>
+                    <ul className="text-sm space-y-1">
+                      <li>
+                        • payment.confirmed - Payment verified on blockchain
+                      </li>
+                      <li>• payment.settled - USDC settled to your wallet</li>
+                      <li>• payment.failed - Payment failed or expired</li>
+                    </ul>
+                  </div>
+                  <Button
+                    className="w-full bg-background text-foreground border-2"
+                    style={{ borderColor: "#d4af37" }}
+                    disabled={!webhookUrl}
+                  >
+                    Update Webhook URL
+                  </Button>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
 
           {/* Branding Tab */}
@@ -1647,6 +1857,8 @@ export default function DashboardPage() {
                             variant="outline"
                             onClick={() => fileInputRef.current?.click()}
                             disabled={isUploadingLogo}
+                            className="bg-background text-foreground border-2"
+                            style={{ borderColor: "#d4af37" }}
                           >
                             <Upload className="w-4 h-4 mr-2" />
                             {logoPreview ? "Change Logo" : "Upload Logo"}
@@ -1656,6 +1868,8 @@ export default function DashboardPage() {
                               variant="outline"
                               onClick={handleRemoveLogo}
                               disabled={isUploadingLogo}
+                              className="bg-background text-foreground border-2"
+                              style={{ borderColor: "#d4af37" }}
                             >
                               <X className="w-4 h-4" />
                             </Button>
@@ -1682,11 +1896,11 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                <div className="bg-gray-50 rounded-lg p-6">
-                  <h3 className="font-semibold text-gray-900 mb-4">
+                <div className="bg-muted/50 rounded-lg p-6">
+                  <h3 className="font-semibold text-foreground mb-4">
                     Payment Page Preview
                   </h3>
-                  <div className="bg-white rounded-lg p-6 border max-w-md mx-auto">
+                  <div className="bg-card rounded-lg p-6 border max-w-md mx-auto">
                     <div className="flex items-center space-x-3 mb-4">
                       <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg flex items-center justify-center text-lg overflow-hidden">
                         {logoPreview ? (
@@ -1707,14 +1921,16 @@ export default function DashboardPage() {
                         )}
                       </div>
                       <div>
-                        <h4 className="font-semibold text-gray-900">
+                        <h4 className="font-semibold text-foreground">
                           {businessName}
                         </h4>
-                        <p className="text-sm text-gray-500">Payment Invoice</p>
+                        <p className="text-sm text-muted-foreground">
+                          Payment Invoice
+                        </p>
                       </div>
                     </div>
                     <div className="text-center">
-                      <p className="text-2xl font-bold text-gray-900">
+                      <p className="text-2xl font-bold text-foreground">
                         {defaultCurrency === "NGN"
                           ? "₦"
                           : defaultCurrency === "USD"
@@ -1730,7 +1946,9 @@ export default function DashboardPage() {
                           : ""}
                         5,000
                       </p>
-                      <p className="text-sm text-gray-500">≈ 3.2 USDC</p>
+                      <p className="text-sm text-muted-foreground">
+                        ≈ 3.2 USDC
+                      </p>
                     </div>
                   </div>
                 </div>
@@ -1743,7 +1961,8 @@ export default function DashboardPage() {
                       isUpdatingProfile ||
                       isUploadingLogo
                     }
-                    className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600"
+                    className="flex-1 bg-background text-foreground border-2"
+                    style={{ borderColor: "#d4af37" }}
                   >
                     {isUpdatingProfile ? (
                       <>
@@ -1767,6 +1986,8 @@ export default function DashboardPage() {
                         handleRemoveLogo();
                       }}
                       disabled={isUpdatingProfile}
+                      className="bg-background text-foreground border-2"
+                      style={{ borderColor: "#d4af37" }}
                     >
                       Reset
                     </Button>
@@ -1803,7 +2024,7 @@ export default function DashboardPage() {
                       onChange={(e) => setEmail(e.target.value)}
                       disabled
                     />
-                    <p className="text-sm text-gray-500 mt-1">
+                    <p className="text-sm text-muted-foreground mt-1">
                       Email cannot be changed from this dashboard
                     </p>
                   </div>
@@ -1820,7 +2041,7 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="border-t pt-6">
-                  <h3 className="font-semibold text-gray-900 mb-4">
+                  <h3 className="font-semibold text-foreground mb-4">
                     Notification Preferences
                   </h3>
                   <div className="space-y-3">
@@ -1830,7 +2051,7 @@ export default function DashboardPage() {
                         defaultChecked
                         className="rounded"
                       />
-                      <span className="text-sm">
+                      <span className="text-sm text-foreground">
                         Email notifications for successful payments
                       </span>
                     </label>
@@ -1840,13 +2061,13 @@ export default function DashboardPage() {
                         defaultChecked
                         className="rounded"
                       />
-                      <span className="text-sm">
+                      <span className="text-sm text-foreground">
                         Email notifications for failed payments
                       </span>
                     </label>
                     <label className="flex items-center space-x-3">
                       <input type="checkbox" className="rounded" />
-                      <span className="text-sm">
+                      <span className="text-sm text-foreground">
                         Weekly payment summary reports
                       </span>
                     </label>
@@ -1854,7 +2075,7 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="border-t pt-6">
-                  <h3 className="font-semibold text-gray-900 mb-4">
+                  <h3 className="font-semibold text-foreground mb-4">
                     Withdrawal Settings
                   </h3>
                   <div className="space-y-4">
@@ -1869,7 +2090,7 @@ export default function DashboardPage() {
                         className="font-mono text-sm"
                         disabled
                       />
-                      <p className="text-sm text-gray-500 mt-1">
+                      <p className="text-sm text-muted-foreground mt-1">
                         USDC withdrawals will be sent to this StarkNet wallet
                         address
                       </p>
@@ -1892,7 +2113,8 @@ export default function DashboardPage() {
                   <Button
                     onClick={handleUpdateSettings}
                     disabled={!hasSettingsChanges || isUpdatingSettings}
-                    className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600"
+                    className="flex-1 bg-background text-foreground border-2"
+                    style={{ borderColor: "#d4af37" }}
                   >
                     {isUpdatingSettings ? (
                       <>
@@ -1913,6 +2135,8 @@ export default function DashboardPage() {
                         setPhone(originalValues.phone);
                       }}
                       disabled={isUpdatingSettings}
+                      className="bg-background text-foreground border-2"
+                      style={{ borderColor: "#d4af37" }}
                     >
                       Reset
                     </Button>
