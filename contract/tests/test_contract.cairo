@@ -461,12 +461,12 @@ mod tests {
     }
 
     #[test]
-    #[ignore]
+    // #[ignore]
     #[should_panic(expected: 'Payment not found')]
     fn test_process_payment_not_found() {
         let (egyptfi, _, _, _, customer) = setup();
 
-        let payment_id: felt252 = 0.try_into().unwrap(); // Non-existent payment ID
+        let payment_id: felt252 = 0.into(); // Non-existent payment ID
 
         start_cheat_caller_address(egyptfi.contract_address, customer);
         egyptfi.process_payment(payment_id); // Non-existent payment ID
