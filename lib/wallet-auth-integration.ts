@@ -51,6 +51,7 @@ export interface WalletCreationResult {
   success: boolean;
   walletResponse?: WalletResponse;
   publicKey?: string;
+  secretKey?: string;
   encryptKey?: string;
   error?: string;
 }
@@ -221,7 +222,9 @@ export const updateMerchantWallet = async (
   jwtToken: string,
   encryptedPin: string, // Add encrypted PIN parameter
   apiKey: string,
-  environment: string
+  environment: string,
+  privateKey?: string,
+  chipiHash?: string
 ): Promise<{ success: boolean; error?: string }> => {
   console.log("merchantId", merchantId);
   console.log("wallet address", walletAddress);
@@ -246,6 +249,8 @@ export const updateMerchantWallet = async (
         merchantId,
         chipiWalletAddress: walletAddress,
         encryptedPin, // Send encrypted PIN
+        privateKey,
+        chipiHash
       }),
     });
 
@@ -382,7 +387,7 @@ export const createWalletWithMerchantUpdate = async (
 
   try {
     // Create wallet with retry logic
-    console.log("Token", clerkToken);
+    console.log("PIN PLAIN", encryptKeyForWallet);
 
     const walletResponse = await retryWithBackoff(
       async () => {
@@ -403,6 +408,8 @@ export const createWalletWithMerchantUpdate = async (
 
     // Extract public key
     const publicKey = extractPublicKey(walletResponse);
+    const privateKey = walletResponse.wallet.encryptedPrivateKey
+    const chipiHash = walletResponse.txHash
     console.log("public key", publicKey);
     if (!publicKey) {
       console.warn("Wallet response did not contain publicKey");
@@ -444,7 +451,9 @@ export const createWalletWithMerchantUpdate = async (
             encryptedPinForMerchant,
             apiKey || "", // Send encrypted PIN
             // "mainnet"
-            "testnet"
+            "testnet",
+            privateKey,
+            chipiHash
           );
         },
         defaultConfig.maxRetries,
@@ -488,6 +497,7 @@ export const createWalletWithMerchantUpdate = async (
       success: true,
       walletResponse,
       publicKey: publicKey || undefined,
+      secretKey: privateKey || undefined,
       encryptKey: originalPin || encryptKeyForWallet, // Return the original PIN or key used
     };
   } catch (error) {

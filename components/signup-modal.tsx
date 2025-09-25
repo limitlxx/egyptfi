@@ -41,6 +41,11 @@ interface SignupModalProps {
   onClose: () => void;
 }
 
+type WalletData = {
+  publicKey: string;
+  encryptedPrivateKey: string;
+};
+
 type SignupStep = "email" | "pin" | "confirm" | "email-verification" | "wallet";
 
 interface SignupData {
@@ -87,7 +92,7 @@ export const SignupModal: React.FC<SignupModalProps> = ({
       business_name: merchant.business_name || "New Business",
       business_type: merchant.business_type || "retail",
     });
-  
+
     return keccak256(toUtf8Bytes(metadataString));
   };
 
@@ -383,7 +388,6 @@ export const SignupModal: React.FC<SignupModalProps> = ({
         );
 
         console.log("CreateWallet Result", walletResult);
-        
 
         if (walletResult.success) {
           // 🔑 Get withdrawal address from created wallet
@@ -398,11 +402,22 @@ export const SignupModal: React.FC<SignupModalProps> = ({
             metadataHash,
           });
 
+          console.log("PIN MODDAL", signupData.pin);
+
+          if (!walletResult.publicKey || !walletResult.secretKey) {
+            throw new Error("Wallet generation failed: missing keys");
+          }
+
+          const walletData: WalletData = {
+            publicKey: walletResult.publicKey,
+            encryptedPrivateKey: walletResult.secretKey,
+          };
+
           // Call smart contract
           await callAnyContractAsync({
             params: {
               encryptKey: signupData.pin,
-              wallet: withdrawalAddress,
+              wallet: walletData,
               contractAddress: CONTRACT_ADDRESS,
               calls: [
                 {
