@@ -82,8 +82,8 @@ export const SignupModal: React.FC<SignupModalProps> = ({
   const { callAnyContractAsync, data } = useCallAnyContract();
 
   const CONTRACT_ADDRESS =
-    process.env.NEXT_PUBLIC_EGYPT_SEPOLIA_CONTRACT_ADDRESS ||
-    "0x02680191ae87ed05ee564c8e468495c760ba1764065de451fe51bb097e64d062";
+    process.env.NEXT_PUBLIC_EGYPT_MAINNET_CONTRACT_ADDRESS ||
+    "0x04bb1a742ac72a9a72beebe1f608c508fce6dfa9250b869018b6e157dccb46e8";
 
   // Helper: hash merchant metadata
   const getMetadataHash = (merchant: any) => {
