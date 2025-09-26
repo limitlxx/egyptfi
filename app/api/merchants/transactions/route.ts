@@ -1,18 +1,20 @@
-import { NextRequest, NextResponse } from 'next/server';
-import pool from '@/lib/db';
-import { authenticateApiKey, getAuthHeaders } from '@/lib/auth-helpers';
+import { NextRequest, NextResponse } from "next/server";
+import pool from "@/lib/db";
+import { authenticateApiKey, getAuthHeaders } from "@/lib/auth-helpers";
 
 /**
  * GET transactions for the authenticated merchant
- */ 
+ */
 export async function GET(request: NextRequest) {
   try {
-      const searchParams = request.nextUrl.searchParams
+    const searchParams = request.nextUrl.searchParams;
     const { apiKey, environment } = getAuthHeaders(request);
-    
+    console.log(apiKey);
+    console.log(environment);
+
     if (!apiKey || !environment) {
       return NextResponse.json(
-        { error: 'Missing authentication headers' },
+        { error: "Missing authentication headers" },
         { status: 401 }
       );
     }
@@ -20,16 +22,13 @@ export async function GET(request: NextRequest) {
     // Authenticate the request
     const authResult = await authenticateApiKey(apiKey, environment);
     if (!authResult.success) {
-      return NextResponse.json(
-        { error: authResult.error },
-        { status: 401 }
-      );
+      return NextResponse.json({ error: authResult.error }, { status: 401 });
     }
 
     const client = await pool.connect();
     try {
       const merchantId = authResult.merchant!.id;
-      const isStats = searchParams.get('stats') === 'true';
+      const isStats = searchParams.get("stats") === "true";
 
       if (isStats) {
         // Compute stats assuming 'success' status indicates a successful transaction
@@ -75,12 +74,13 @@ export async function GET(request: NextRequest) {
       client.release();
     }
   } catch (error) {
-    console.error('Error fetching transactions or stats:', error);
-    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
+    console.error("Error fetching transactions or stats:", error);
+    return NextResponse.json(
+      { error: "Internal server error" },
+      { status: 500 }
+    );
   }
 }
-
-
 
 /**
  * POST create new transaction
@@ -89,7 +89,10 @@ export async function POST(request: NextRequest) {
   try {
     const { apiKey, environment } = getAuthHeaders(request);
     if (!apiKey || !environment) {
-      return NextResponse.json({ error: 'Missing authentication headers' }, { status: 401 });
+      return NextResponse.json(
+        { error: "Missing authentication headers" },
+        { status: 401 }
+      );
     }
 
     const authResult = await authenticateApiKey(apiKey, environment);
@@ -109,14 +112,17 @@ export async function POST(request: NextRequest) {
     } = body;
 
     if (!currency_amount || !wallet_amount || !to_address || !status) {
-      return NextResponse.json({ error: 'Missing required fields' }, { status: 400 });
+      return NextResponse.json(
+        { error: "Missing required fields" },
+        { status: 400 }
+      );
     }
 
     const client = await pool.connect();
     try {
       const result = await client.query(
         `INSERT INTO transactions
-          (merchant_id, currency_amount, wallet_amount, alt_amount, to_address, status, txHash, gasSponsored, created_at) 
+          (merchant_id, currency_amount, wallet_amount, alt_amount, to_address, status, "txHash", "gasSponsored", created_at) 
          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,NOW())
          RETURNING *`,
         [
@@ -131,13 +137,19 @@ export async function POST(request: NextRequest) {
         ]
       );
 
-      return NextResponse.json({ success: true, transaction: result.rows[0] }, { status: 201 });
+      return NextResponse.json(
+        { success: true, transaction: result.rows[0] },
+        { status: 201 }
+      );
     } finally {
       client.release();
     }
   } catch (error) {
-    console.error('Error creating transaction:', error);
-    return NextResponse.json({ error: 'Failed to create transaction' }, { status: 500 });
+    console.error("Error creating transaction:", error);
+    return NextResponse.json(
+      { error: "Failed to create transaction" },
+      { status: 500 }
+    );
   }
 }
 
@@ -148,7 +160,10 @@ export async function PUT(request: NextRequest) {
   try {
     const { apiKey, environment } = getAuthHeaders(request);
     if (!apiKey || !environment) {
-      return NextResponse.json({ error: 'Missing authentication headers' }, { status: 401 });
+      return NextResponse.json(
+        { error: "Missing authentication headers" },
+        { status: 401 }
+      );
     }
 
     const authResult = await authenticateApiKey(apiKey, environment);
@@ -159,13 +174,13 @@ export async function PUT(request: NextRequest) {
     const updates = await request.json();
 
     const allowedFields = [
-      'currency_amount',
-      'wallet_amount',
-      'alt_amount',
-      'to_address',
-      'status',
-      'txHash',
-      'gasSponsored',
+      "currency_amount",
+      "wallet_amount",
+      "alt_amount",
+      "to_address",
+      "status",
+      "txHash",
+      "gasSponsored",
     ];
 
     const setFields: string[] = [];
@@ -176,8 +191,9 @@ export async function PUT(request: NextRequest) {
       if (allowedFields.includes(key)) {
         // normalize to DB column names
         let column = key;
-        if (key === 'txHash') column = 'txhash';
-        if (key === 'gasSponsored') column = 'gassponsored';
+        if (key === "txHash") column = "txhash";
+        // if (key === "txHash") column = "txhash";
+        if (key === "gasSponsored") column = "gassponsored";
 
         setFields.push(`${column} = $${paramCount}`);
         values.push(value);
@@ -186,11 +202,17 @@ export async function PUT(request: NextRequest) {
     }
 
     if (setFields.length === 0) {
-      return NextResponse.json({ error: 'No valid fields to update' }, { status: 400 });
+      return NextResponse.json(
+        { error: "No valid fields to update" },
+        { status: 400 }
+      );
     }
 
     if (!updates.id) {
-      return NextResponse.json({ error: 'Transaction id is required' }, { status: 400 });
+      return NextResponse.json(
+        { error: "Transaction id is required" },
+        { status: 400 }
+      );
     }
 
     values.push(authResult.merchant!.id);
@@ -200,7 +222,7 @@ export async function PUT(request: NextRequest) {
     try {
       const query = `
         UPDATE transactions
-        SET ${setFields.join(', ')}, timestamp = NOW()
+        SET ${setFields.join(", ")}, timestamp = NOW()
         WHERE merchant_id = $${paramCount} AND id = $${paramCount + 1}
         RETURNING *
       `;
@@ -208,7 +230,10 @@ export async function PUT(request: NextRequest) {
       const result = await client.query(query, values);
 
       if (result.rows.length === 0) {
-        return NextResponse.json({ error: 'Transaction not found' }, { status: 404 });
+        return NextResponse.json(
+          { error: "Transaction not found" },
+          { status: 404 }
+        );
       }
 
       return NextResponse.json({ success: true, transaction: result.rows[0] });
@@ -216,7 +241,10 @@ export async function PUT(request: NextRequest) {
       client.release();
     }
   } catch (error) {
-    console.error('Error updating transaction:', error);
-    return NextResponse.json({ error: 'Failed to update transaction' }, { status: 500 });
+    console.error("Error updating transaction:", error);
+    return NextResponse.json(
+      { error: "Failed to update transaction" },
+      { status: 500 }
+    );
   }
 }

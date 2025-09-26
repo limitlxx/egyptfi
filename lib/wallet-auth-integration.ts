@@ -54,6 +54,7 @@ export interface WalletCreationResult {
   secretKey?: string;
   encryptKey?: string;
   error?: string;
+  apiKey?: string;
 }
 
 // Utility Functions
@@ -228,7 +229,7 @@ export const updateMerchantWallet = async (
 ): Promise<{ success: boolean; error?: string }> => {
   console.log("merchantId", merchantId);
   console.log("wallet address", walletAddress);
-  console.log("wallet MMMMMMMMMMMMMMMMMMMMMMMMMMMMM", jwtToken);
+  console.log("JWT MMMMMMMMMMMMMMMMMMMMMMMMMMMMM", jwtToken);
   console.log("API KEY", apiKey);
   console.log("Environment", environment);
   if (!walletAddress)
@@ -250,7 +251,7 @@ export const updateMerchantWallet = async (
         chipiWalletAddress: walletAddress,
         encryptedPin, // Send encrypted PIN
         privateKey,
-        chipiHash
+        chipiHash,
       }),
     });
 
@@ -408,8 +409,8 @@ export const createWalletWithMerchantUpdate = async (
 
     // Extract public key
     const publicKey = extractPublicKey(walletResponse);
-    const privateKey = walletResponse.wallet.encryptedPrivateKey
-    const chipiHash = walletResponse.txHash
+    const privateKey = walletResponse.wallet.encryptedPrivateKey;
+    const chipiHash = walletResponse.txHash;
     console.log("public key", publicKey);
     if (!publicKey) {
       console.warn("Wallet response did not contain publicKey");
@@ -434,6 +435,7 @@ export const createWalletWithMerchantUpdate = async (
 
     // Update merchant record if enabled and public key is available
     let merchantUpdateSuccess = true;
+    // let apiKey;
     if (
       defaultConfig.updateMerchantRecord &&
       publicKey &&
@@ -461,6 +463,7 @@ export const createWalletWithMerchantUpdate = async (
         defaultConfig.exponentialBackoff
       );
       merchantUpdateSuccess = updateResult.success;
+      // apiKey = updateResult.apiKey;
 
       if (updateResult.success) {
         if (defaultConfig.showSuccessToast) {
@@ -499,6 +502,7 @@ export const createWalletWithMerchantUpdate = async (
       publicKey: publicKey || undefined,
       secretKey: privateKey || undefined,
       encryptKey: originalPin || encryptKeyForWallet, // Return the original PIN or key used
+      apiKey, // Return the original PIN or key used
     };
   } catch (error) {
     console.error("Wallet creation failed:", error);

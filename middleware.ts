@@ -16,6 +16,8 @@ const isPublicApiRoute = createRouteMatcher([
   "/api/merchants/login",
   "/api/merchants/check",
   "/api/merchants/update-wallet",
+  "/api/merchants/kyc/submit",
+  "/api/merchants/kyc/verify",
 ]);
 
 export default clerkMiddleware(async (auth, request) => {
