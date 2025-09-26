@@ -89,9 +89,9 @@ export default function DemoPage() {
       const response = await fetch("/api/payments/initiate", {
         method: "POST",
         headers: {
-          "X-API-Key": "pk_test_e20af044678ed83d9d1b151f93403e90", // Mock API key for demo
+          "X-API-Key": "pk_test_b14927117c0c9a9af5a5172f0569e6dd", // Mock API key for demo
           "X-Wallet-Address":
-            "0x065982b15bc87abdaa2da7db5f2164792b6c2e497bd80f4b7ace9e799be4beb0", // Mock wallet address
+            "0x5033cd9d8d7ec8b4a2a631e1da60e97b652d06c06476402b32a16986413f10d", // Mock wallet address
           "X-Environment": "testnet",
           "Content-Type": "application/json",
         },
