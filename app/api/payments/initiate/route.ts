@@ -11,7 +11,7 @@ const PaymentInitiateSchema = z.object({
   local_amount: z.number().positive('Amount must be positive'),
   local_currency: z.string().min(3, 'Currency code must be at least 3 characters'),
   description: z.string().optional(),
-  chain: z.enum(['ethereum', 'starknet', 'base', 'arbitrum', 'polygon']).optional(),
+  chain: z.enum(['ethereum', 'starknet', 'base', 'arbitrum', 'polygon', 'bitcoin']).optional(),
   secondary_endpoint: z.string().url().optional(),
   email: z.string().min(1, 'Email is required'),
   // metadata: z.enum(['cancel_action']).optional(),
@@ -198,7 +198,7 @@ export async function GET(request: NextRequest) {
     const client = await pool.connect()
     try {
       const result = await client.query(
-        `SELECT *, m.business_name, m.business_logo, m.business_email, m.webhook, m.wallet_address m FROM invoices i
+        `SELECT *, m.business_name, m.business_logo, m.business_email, m.webhook, m.wallet_address, m.preferred_btc_flow FROM invoices i
             JOIN merchants m ON i.merchant_id = m.id
             WHERE i.payment_ref = $1`,
         [payment_ref]
@@ -236,6 +236,7 @@ export async function GET(request: NextRequest) {
           walletUrl: `${invoice.payment_endpoint}&redirect=${invoice.secondary_endpoint}`,
           secondaryEndpoint: invoice.secondary_endpoint,
           merchant_address: invoice.wallet_address,
+          preferred_btc_flow: invoice.preferred_btc_flow,
           qrCode
         }
       })

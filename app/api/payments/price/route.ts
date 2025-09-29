@@ -12,11 +12,11 @@ const CACHE_DURATION_MS = 15 * 60 * 1000; // 15 minutes
 
 // Validation schema for query parameters
 const PriceFetchSchema = z.object({
-  token: z.enum(["strk", "eth", "usdc"], {
-    message: "Token must be one of strk, eth, usdc",
+  token: z.enum(["strk", "eth", "usdc", "btc-l1", "btc-l2"], {
+    message: "Token must be one of strk, eth, usdc, btc-l1, btc-l2",
   }),
   chain: z
-    .enum(["starknet"], { message: "Only starknet is supported for now" })
+    .enum(["starknet", "bitcoin"], { message: "Chain must be starknet or bitcoin" })
     .optional(),
   fiat_amount: z.number().positive("Fiat amount must be positive"),
   fiat_currency: z
@@ -98,50 +98,77 @@ export async function GET(request: NextRequest) {
     // Calculate fiat_amount in USD
     console.log("FIAT AMOUNT", validatedData.fiat_amount);
     console.log("FIAT PER USD", fiatPerUsd);
-    
-    
+
+
     const fiatInUsd = validatedData.fiat_amount / fiatPerUsd;
 
-    // Chainlink feeds on Starknet mainnet
-    const chainlinkFeeds: Record<string, string> = {
-      strk: "0x76a0254cdadb59b86da3b5960bf8d73779cac88edc5ae587cab3cedf03226ec",
-      eth: "0x6b2ef9b416ad0f996b2a8ac0dd771b1788196f51c96f5b000df2e47ac756d26",
-      usdc: "0x72495dbb867dd3c6373820694008f8a8bff7b41f7f7112245d687858b243470",
-    };
-
-    // Starknet provider
-    const starknetProvider = new RpcProvider({ nodeUrl: constants.NetworkName.SN_MAIN });
-
-    // Fetch token/USD rates from Chainlink
+    // Fetch token/USD rates
     const tokenRates: Record<string, string> = {};
     const convertedAmount: Record<string, string> = {};
 
-    for (const t of Object.keys(chainlinkFeeds)) {
-      const feedAddress = chainlinkFeeds[t as keyof typeof chainlinkFeeds];
+    if (validatedData.chain === "bitcoin") {
+      // For Bitcoin, fetch BTC price from CMC
+      const btcResponse = await fetch(
+        `https://pro-api.coinmarketcap.com/v2/cryptocurrency/quotes/latest?symbol=BTC&convert=USD`,
+        {
+          headers: {
+            "X-CMC_PRO_API_KEY": process.env.CMC_API_KEY!,
+            Accept: "application/json",
+          },
+        }
+      );
 
-      const callResult = await starknetProvider.callContract({
-        contractAddress: feedAddress,
-        entrypoint: "latest_round_data",
-      });
+      if (!btcResponse.ok) {
+        return NextResponse.json(
+          { error: "Failed to fetch BTC price from CoinMarketCap" },
+          { status: 502 }
+        );
+      }
 
-      // console.log(`Raw callResult for ${t}:`, callResult);
+      const btcData = await btcResponse.json();
+      const btcPrice = btcData.data.BTC[0].quote.USD.price;
 
-      // callResult is string[]
-      const answer = BigInt(callResult[1]); // Assuming answer is at index 1
-      const decimals = 8; // Confirm this by calling the decimals function if needed
-      const price = Number(answer) / 10 ** decimals;
+      tokenRates["BTC/USD"] = btcPrice.toFixed(2);
+      convertedAmount["BTC-L1"] = (fiatInUsd / btcPrice).toFixed(8);
+      convertedAmount["BTC-L2"] = (fiatInUsd / btcPrice).toFixed(8); // Same for now, can differentiate later
+    } else {
+      // Chainlink feeds on Starknet mainnet
+      const chainlinkFeeds: Record<string, string> = {
+        strk: "0x76a0254cdadb59b86da3b5960bf8d73779cac88edc5ae587cab3cedf03226ec",
+        eth: "0x6b2ef9b416ad0f996b2a8ac0dd771b1788196f51c96f5b000df2e47ac756d26",
+        usdc: "0x72495dbb867dd3c6373820694008f8a8bff7b41f7f7112245d687858b243470",
+      };
 
-      console.log("PRICE", price);
-      console.log("FIAT PRICE", fiatInUsd);
-      
+      // Starknet provider
+      const starknetProvider = new RpcProvider({ nodeUrl: constants.NetworkName.SN_MAIN });
 
-      tokenRates[`${t.toUpperCase()}/USD`] = price.toFixed(2);
-      convertedAmount[t.toUpperCase()] = (fiatInUsd / price).toFixed(
-        t === "eth" ? 6 : 2
-      );     
-      
-      console.log("TOKEN RATES", tokenRates);      
-      console.log("CONVERTED AMOUNT", convertedAmount);
+      for (const t of Object.keys(chainlinkFeeds)) {
+        const feedAddress = chainlinkFeeds[t as keyof typeof chainlinkFeeds];
+
+        const callResult = await starknetProvider.callContract({
+          contractAddress: feedAddress,
+          entrypoint: "latest_round_data",
+        });
+
+        // console.log(`Raw callResult for ${t}:`, callResult);
+
+        // callResult is string[]
+        const answer = BigInt(callResult[1]); // Assuming answer is at index 1
+        const decimals = 8; // Confirm this by calling the decimals function if needed
+        const price = Number(answer) / 10 ** decimals;
+
+        console.log("PRICE", price);
+        console.log("FIAT PRICE", fiatInUsd);
+
+
+        tokenRates[`${t.toUpperCase()}/USD`] = price.toFixed(2);
+        convertedAmount[t.toUpperCase()] = (fiatInUsd / price).toFixed(
+          t === "eth" ? 6 : 2
+        );
+
+        console.log("TOKEN RATES", tokenRates);
+        console.log("CONVERTED AMOUNT", convertedAmount);
+      }
     }
     
 
@@ -178,7 +205,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json(
         {
           error: "Validation failed",
-          details: error.errors.map((err) => ({
+          details: error.issues.map((err) => ({
             field: err.path.join("."),
             message: err.message,
           })),

@@ -50,6 +50,7 @@ interface InvoiceData {
   amount: number
   payUrl: string
   walletUrl: string
+  preferred_btc_flow?: string
 }
 
 interface InvoiceContentProps {
@@ -75,6 +76,7 @@ export function InvoiceContent({ invoiceData, onPaymentConfirmed }: InvoiceConte
     { id: "base", name: "Base", icon: CircleDot },
     { id: "arbitrum", name: "Arbitrum", icon: Gem },
     { id: "polygon", name: "Polygon", icon: Wallet },
+    { id: "bitcoin", name: "Bitcoin", icon: CircleDot },
   ]
 
   const tokens: Record<string, Token[]> = {
@@ -102,6 +104,10 @@ export function InvoiceContent({ invoiceData, onPaymentConfirmed }: InvoiceConte
       { id: "matic", name: "MATIC" },
       { id: "dai", name: "DAI" },
     ],
+    bitcoin: [
+      { id: "btc-l1", name: "BTC L1" },
+      { id: "btc-l2", name: "BTC L2" },
+    ],
   };
 
   const formatted = new Intl.NumberFormat("en-US", {
@@ -113,9 +119,9 @@ export function InvoiceContent({ invoiceData, onPaymentConfirmed }: InvoiceConte
   const fetchPrice = useCallback(async () => {
     if (!selectedChain || !selectedToken) return;
 
-    // Only support starknet for price conversion
-    if (selectedChain !== "starknet") {
-      setError("Price conversion currently only available for Starknet");
+    // Only support starknet and bitcoin for price conversion
+    if (selectedChain !== "starknet" && selectedChain !== "bitcoin") {
+      setError("Price conversion currently only available for Starknet and Bitcoin");
       setConvertedAmounts({});
       return;
     }
@@ -157,11 +163,17 @@ export function InvoiceContent({ invoiceData, onPaymentConfirmed }: InvoiceConte
   // Update selected token when chain changes
   useEffect(() => {
     if (selectedChain && tokens[selectedChain]?.length > 0) {
-      setSelectedToken(tokens[selectedChain][0].id);
+      if (selectedChain === "bitcoin" && invoiceData.preferred_btc_flow) {
+        // Default to merchant's preferred BTC flow
+        const preferredToken = invoiceData.preferred_btc_flow === "l1" ? "btc-l1" : "btc-l2";
+        setSelectedToken(preferredToken);
+      } else {
+        setSelectedToken(tokens[selectedChain][0].id);
+      }
     } else {
       setSelectedToken("");
     }
-  }, [selectedChain]);
+  }, [selectedChain, invoiceData.preferred_btc_flow]);
 
   // Polling for payment status
   useEffect(() => {
