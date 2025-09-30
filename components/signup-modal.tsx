@@ -35,6 +35,7 @@ import {
 import { useUser, useAuth, useSignUp } from "@clerk/nextjs";
 import { useCreateWallet, useCallAnyContract } from "@chipi-stack/chipi-react";
 import { keccak256, toUtf8Bytes } from "ethers";
+import { AuthManager } from "@/lib/auth-utils";
 
 interface SignupModalProps {
   isOpen: boolean;
@@ -429,8 +430,41 @@ export const SignupModal: React.FC<SignupModalProps> = ({
             },
             bearerToken: token ?? "",
           });
+          console.log(merchantData);
+          console.log(signupData);
+          console.log("wallet result", walletResult);
+          console.log("wallet response", walletResult.walletResponse);
+          // set Auth
+          AuthManager.setMerchantInfo({
+            id: merchantData.merchant.id,
+            businessEmail: merchantData.merchant.business_email,
+            walletAddress:
+              walletResult?.walletResponse?.wallet?.publicKey ?? "",
+          });
+          AuthManager.setApiKeys("testnet", {
+            publicKey: walletResult?.apiKey ?? "",
+            // secretKey:
+            //   walletResult.walletResponse?.wallet?.encryptedPrivateKey ?? "",
+          });
+          AuthManager.setCurrentEnvironment("testnet");
+          // Call smart contract
+          // await callAnyContractAsync({
+          //   params: {
+          //     encryptKey: signupData.pin,
+          //     wallet: withdrawalAddress,
+          //     contractAddress: CONTRACT_ADDRESS,
+          //     calls: [
+          //       {
+          //         contractAddress: CONTRACT_ADDRESS,
+          //         entrypoint: "register_merchant",
+          //         calldata: [withdrawalAddress, metadataHash],
+          //       },
+          //     ],
+          //   },
+          //   bearerToken: token ?? "",
+          // });
 
-          console.log("✅ Merchant successfully registered on-chain!");
+          // console.log("✅ Merchant successfully registered on-chain!");
 
           // Success - redirect to dashboard
           setTimeout(() => {
