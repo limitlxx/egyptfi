@@ -208,7 +208,7 @@ class ContractMerchantService {
   //   }
   // }
 
-  // // Update merchant metadata using ChipiPay
+  // Update merchant metadata using ChipiPay
   // async updateMerchantMetadata(
   //   encryptedPrivateKey: string,
   //   walletPublicKey: string,
@@ -240,39 +240,7 @@ class ContractMerchantService {
   //   }
   // }
 
-  // // Withdraw funds using ChipiPay
-  // async withdrawFunds(
-  //   encryptedPrivateKey: string,
-  //   walletPublicKey: string,
-  //   amount: string,
-  //   encryptKey: string,
-  //   bearerToken: string
-  // ): Promise<string> {
-  //   try {
-  //     const contractCallParams: ContractCallParams = {
-  //       privateKey: encryptedPrivateKey,
-  //       contractAddress: this.contractAddress,
-  //       entrypoint: "withdraw_funds",
-  //       calldata: [amount],
-  //       bearerToken,
-  //       encryptKey,
-  //       walletPublicKey,
-  //     };
-
-  //     const result = await chipipayService.callAnyContract(contractCallParams);
-
-  //     if (!result.success) {
-  //       throw new Error(result.error || "Failed to withdraw funds");
-  //     }
-
-  //     return result.txHash;
-  //   } catch (error) {
-  //     console.error("Error withdrawing funds:", error);
-  //     throw error;
-  //   }
-  // }
-
-   // Set KYC proof on-chain (mock implementation for now)
+  // Set KYC proof on-chain (mock implementation for now)
   async setKycProof(
     encryptedPrivateKey: string,
     walletPublicKey: string,
@@ -341,6 +309,37 @@ class ContractMerchantService {
     }
   }
 
+  // // Withdraw funds using ChipiPay
+  // async withdrawFunds(
+  //   encryptedPrivateKey: string,
+  //   walletPublicKey: string,
+  //   amount: string,
+  //   encryptKey: string,
+  //   bearerToken: string
+  // ): Promise<string> {
+  //   try {
+  //     const contractCallParams: ContractCallParams = {
+  //       privateKey: encryptedPrivateKey,
+  //       contractAddress: this.contractAddress,
+  //       entrypoint: "withdraw_funds",
+  //       calldata: [amount],
+  //       bearerToken,
+  //       encryptKey,
+  //       walletPublicKey,
+  //     };
+
+  //     const result = await chipipayService.callAnyContract(contractCallParams);
+
+  //     if (!result.success) {
+  //       throw new Error(result.error || "Failed to withdraw funds");
+  //     }
+
+  //     return result.txHash;
+  //   } catch (error) {
+  //     console.error("Error withdrawing funds:", error);
+  //     throw error;
+  //   }
+  // }
 }
 
 export default ContractMerchantService;

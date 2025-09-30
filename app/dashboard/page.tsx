@@ -119,9 +119,15 @@ export default function DashboardPage() {
   const [payments, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
 
+  // Transaction state
+  const [transactions, setTransactions] = useState([]);
+  const [loadingTransactions, setLoadingTransactions] = useState(true);
+
   // Merchant data state
   const [businessName, setBusinessName] = useState(
-    AuthManager.getMerchantInfo()?.businessName || initialMerchantData.name
+    AuthManager.getMerchantInfo()?.businessName ||
+      AuthManager.getMerchantInfo()?.businessName ||
+      initialMerchantData.name
   );
   const [businessLogo, setBusinessLogo] = useState(
     AuthManager.getMerchantInfo()?.businessLogo || initialMerchantData.logo
@@ -176,12 +182,15 @@ export default function DashboardPage() {
   const [isYieldWaitlistOpen, setIsYieldWaitlistOpen] = useState(false);
   const [yieldEmail, setYieldEmail] = useState("");
   const [showKycModal, setShowKycModal] = useState(false);
+  const [showKycTypeModal, setShowKycTypeModal] = useState(false);
+  const [kycStatus, setKycStatus] = useState<string | null>(null);
 
   const { provider } = useProvider();
 
   useEffect(() => {
     async function fetchData() {
       const data = await listwithdraw.getWithdrawalstats();
+      console.log(data);
       setTotalAmount(data.total_payments);
       setMonthAmount(data.current_month_payments);
       setsuccessRate(data.success_rate);
@@ -207,6 +216,61 @@ export default function DashboardPage() {
     }
 
     fetchInvoices();
+  }, []);
+
+  // Fetch transactions from backend
+  // useEffect(() => {
+  //   const fetchTransactions = async () => {
+  //     try {
+  //       const currentEnv = AuthManager.getCurrentEnvironment();
+  //       const keys = AuthManager.getApiKeys(currentEnv);
+  //       if (!keys || !keys.secretKey) {
+  //         console.error("No API keys found");
+  //         return;
+  //       }
+
+  //       const response = await fetch("/api/merchants/transactions", {
+  //         headers: {
+  //           "x-api-key": keys.secretKey,
+  //           "x-environment": currentEnv,
+  //         },
+  //       });
+
+  //       if (!response.ok) {
+  //         throw new Error("Failed to fetch transactions");
+  //       }
+
+  //       const data = await response.json();
+  //       console.log(data);
+  //       setTransactions(data);
+  //     } catch (error) {
+  //       console.error("Error fetching transactions:", error);
+  //     } finally {
+  //       setLoadingTransactions(false);
+  //     }
+  //   };
+
+  //   fetchTransactions();
+  // }, []);
+
+  // Fetch KYC status
+  useEffect(() => {
+    const fetchKycStatus = async () => {
+      try {
+        const response = await fetch("/api/merchants/kyc/submit", {
+          method: "GET",
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setKycStatus(data.kycStatus);
+        }
+      } catch (error) {
+        console.error("Error fetching KYC status:", error);
+      }
+    };
+
+    fetchKycStatus();
   }, []);
 
   const strategyApy = useMemo(() => {
@@ -259,93 +323,97 @@ export default function DashboardPage() {
   };
 
   // Authentication check commented out for development
-  // useEffect(() => {
-  //   const checkAuth = async () => {
-  //     setIsCheckingAuth(true);
+  useEffect(() => {
+    const checkAuth = async () => {
+      setIsCheckingAuth(true);
 
-  //     try {
-  //       const isAuthenticated = await AuthManager.isAuthenticated();
-  //       console.log("AuthManager.isAuthenticated:", isAuthenticated);
+      try {
+        const isAuthenticated = await AuthManager.isAuthenticated();
+        console.log("AuthManager.isAuthenticated:", isAuthenticated);
 
-  //       if (!isAuthenticated) {
-  //         const merchant = AuthManager.getMerchantInfo();
-  //         const currentEnv = AuthManager.getCurrentEnvironment();
-  //         const keys = AuthManager.getApiKeys(currentEnv);
+        if (!isAuthenticated) {
+          const merchant = AuthManager.getMerchantInfo();
+          const currentEnv = AuthManager.getCurrentEnvironment();
+          const keys = AuthManager.getApiKeys(currentEnv);
+          console.log(merchant);
+          console.log(currentEnv);
+          console.log(keys);
 
-  //         if (merchant && keys) {
-  //           console.log(
-  //             "Stored auth data exists but verification failed - token may be expired"
-  //           );
-  //           setIsSessionExpired(true);
-  //         } else {
-  //           console.log("No stored auth data - redirecting to login");
-  //           router.push("/login");
-  //         }
-  //         setIsCheckingAuth(false);
-  //         return;
-  //       }
+          if (merchant && keys) {
+            console.log(
+              "Stored auth data exists but verification failed - token may be expired"
+            );
+            setIsSessionExpired(true);
+          } else {
+            console.log("No stored auth data - redirecting to login");
+            router.push("/");
+          }
+          setIsCheckingAuth(false);
+          return;
+        }
 
-  //       const merchant = AuthManager.getMerchantInfo();
-  //       if (!merchant) {
-  //         toast({
-  //           title: "Authentication required",
-  //           description: "Please log in to access your dashboard.",
-  //           variant: "destructive",
-  //         });
-  //         router.push("/login");
-  //         return;
-  //       }
+        const merchant = AuthManager.getMerchantInfo();
+        console.log(merchant);
+        if (!merchant) {
+          toast({
+            title: "Authentication required",
+            description: "Please log in to access your dashboard.",
+            variant: "destructive",
+          });
+          router.push("/login");
+          return;
+        }
 
-  //       // Set original values for change tracking
-  //       setOriginalValues({
-  //         businessName: merchant.businessName || initialMerchantData.name,
-  //         phone: merchant.phone || "",
-  //         defaultCurrency:
-  //           merchant.defaultCurrency || initialMerchantData.defaultCurrency,
-  //         businessLogo: merchant.businessLogo || initialMerchantData.logo,
-  //       });
+        // Set original values for change tracking
+        setOriginalValues({
+          businessName: merchant.businessName || initialMerchantData.name,
+          phone: merchant.phone || "",
+          defaultCurrency:
+            merchant.defaultCurrency || initialMerchantData.defaultCurrency,
+          businessLogo: merchant.businessLogo || initialMerchantData.logo,
+        });
 
-  //       // Check wallet connection
-  //       if (!isConnected || !address) {
-  //         setShowWalletModal(true);
-  //         setIsCheckingAuth(false);
-  //         return;
-  //       }
+        // Check wallet connection
+        if (!isConnected || !address) {
+          setShowWalletModal(true);
+          setIsCheckingAuth(false);
+          return;
+        }
 
-  //       await refetchMerchantInfo(); // Fetch balance on load
+        await refetchMerchantInfo(); // Fetch balance on load
 
-  //       setmerchantwallet(merchant.walletAddress.toLowerCase());
+        setmerchantwallet(merchant.walletAddress.toLowerCase());
 
-  //       setmerchantwallet(merchant.walletAddress.toLowerCase());
+        setmerchantwallet(merchant.walletAddress.toLowerCase());
 
-  //       // Verify wallet matches merchant
-  //       if (merchant.walletAddress.toLowerCase() !== address.toLowerCase()) {
-  //         toast({
-  //           title: "Wallet mismatch",
-  //           description:
-  //             "Connected wallet does not match registered merchant wallet. Please reconnect the correct wallet.",
-  //           variant: "destructive",
-  //         });
-  //         setShowWalletModal(true);
-  //         setIsCheckingAuth(false);
-  //         return;
-  //       }
+        // Verify wallet matches merchant
+        if (merchant.walletAddress.toLowerCase() !== address.toLowerCase()) {
+          toast({
+            title: "Wallet mismatch",
+            description:
+              "Connected wallet does not match registered merchant wallet. Please reconnect the correct wallet.",
+            variant: "destructive",
+          });
+          setShowWalletModal(true);
+          setIsCheckingAuth(false);
+          return;
+        }
 
-  //       setIsCheckingAuth(false);
-  //     } catch (error) {
-  //       console.error("Authentication check error:", error);
-  //       setIsCheckingAuth(false);
-  //       toast({
-  //         title: "Authentication error",
-  //         description:
-  //           "There was an error checking your authentication. Please try refreshing the page.",
-  //         variant: "destructive",
-  //       });
-  //     }
-  //   };
+        setIsCheckingAuth(false);
+      } catch (error) {
+        console.error("Authentication check error:", error);
+        setIsCheckingAuth(false);
+        toast({
+          title: "Authentication error",
+          description:
+            "There was an error checking your authentication. Please try refreshing the page.",
+          variant: "destructive",
+        });
+      }
+    };
 
-  //   checkAuth();
-  // }, [router, isConnected, address]);
+    checkAuth();
+  }, [router, isConnected, address]);
 
   // Set default merchant data for development (bypassing auth)
   useEffect(() => {
@@ -733,36 +801,83 @@ export default function DashboardPage() {
     );
   }
 
-  if (isSessionExpired) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="text-center">
-          <AlertCircle className="w-12 h-12 text-red-600 mx-auto mb-4" />
-          <h2 className="text-2xl font-bold text-foreground mb-2">
-            Session Expired
-          </h2>
-          <p className="text-muted-foreground mb-6">
-            Your session has expired or is invalid. Please log in again to
-            continue.
-          </p>
-          <Button
-            onClick={() => {
-              AuthManager.clearAuth();
-              router.push("/login");
-            }}
-            className="bg-gradient-to-r from-blue-600 to-purple-600"
-          >
-            Log In Again
-          </Button>
-        </div>
-      </div>
-    );
-  }
+  // if (isSessionExpired) {
+  //   return (
+  //     <div className="min-h-screen flex items-center justify-center bg-background">
+  //       <div className="text-center">
+  //         <AlertCircle className="w-12 h-12 text-red-600 mx-auto mb-4" />
+  //         <h2 className="text-2xl font-bold text-foreground mb-2">
+  //           Session Expired
+  //         </h2>
+  //         <p className="text-muted-foreground mb-6">
+  //           Your session has expired or is invalid. Please log in again to
+  //           continue.
+  //         </p>
+  //         <Button
+  //           onClick={() => {
+  //             AuthManager.clearAuth();
+  //             router.push("/login");
+  //           }}
+  //           className="bg-gradient-to-r from-blue-600 to-purple-600"
+  //         >
+  //           Log In Again
+  //         </Button>
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   const copyToClipboard = async (text: string, id: string) => {
     await navigator.clipboard.writeText(text);
     setCopiedItem(id);
     setTimeout(() => setCopiedItem(null), 2000);
+  };
+
+  // Export payments to CSV
+  const exportToCSV = () => {
+    if (payments.length === 0) {
+      toast({
+        title: "No data to export",
+        description: "There are no payments to export.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const headers = [
+      "Payment Ref",
+      "Amount",
+      "Token Paid",
+      "Chain",
+      "Status",
+      "Date",
+    ];
+    const csvContent = [
+      headers.join(","),
+      ...payments.map((payment) =>
+        [
+          payment.payment_ref,
+          `${payment.local_currency} ${payment.amount}`,
+          payment.tokenPaid,
+          payment.chain,
+          payment.status,
+          payment.created_at,
+        ].join(",")
+      ),
+    ].join("\n");
+
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
+    const url = URL.createObjectURL(blob);
+    link.setAttribute("href", url);
+    link.setAttribute(
+      "download",
+      `payment_history_${new Date().toISOString().split("T")[0]}.csv`
+    );
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const filteredPayments = payments.filter((payment) => {
@@ -824,7 +939,7 @@ export default function DashboardPage() {
         description: "Please connect your wallet to continue.",
         variant: "destructive",
       });
-      router.push("/login");
+      // router.push("/login");
     }
   };
 
@@ -894,24 +1009,26 @@ export default function DashboardPage() {
       </header>
 
       <div className="container mx-auto px-4 py-8 max-w-7xl">
-        {/* KYC Completion CTA */}
-        <div className="mb-6">
-          <div className="bg-gradient-to-r from-primary to-yellow-600 rounded-lg p-6 text-center">
-            <h2 className="text-2xl font-bold text-primary-foreground mb-2">
-              Complete Your KYC
-            </h2>
-            <p className="text-primary-foreground/90 mb-4">
-              Verify your identity to unlock full access to all EgyptFi features
-              and increase your transaction limits.
-            </p>
-            <Button
-              onClick={() => setShowKycModal(true)}
-              className="bg-primary-foreground text-primary hover:bg-primary-foreground/90 font-semibold px-8 py-3"
-            >
-              Start KYC Verification
-            </Button>
+        {/* KYC Completion CTA - Only show if not verified */}
+        {kycStatus !== "verified" && (
+          <div className="mb-6">
+            <div className="bg-gradient-to-r from-primary to-yellow-600 rounded-lg p-6 text-center">
+              <h2 className="text-2xl font-bold text-primary-foreground mb-2">
+                Complete Your KYC
+              </h2>
+              <p className="text-primary-foreground/90 mb-4">
+                Verify your identity to unlock full access to all EgyptFi
+                features and increase your transaction limits.
+              </p>
+              <Button
+                onClick={() => setShowKycModal(true)}
+                className="bg-primary-foreground text-primary hover:bg-primary-foreground/90 font-semibold px-8 py-3"
+              >
+                Start KYC Verification
+              </Button>
+            </div>
           </div>
-        </div>
+        )}
 
         <Tabs defaultValue="payments" className="w-full">
           <TabsList className="grid w-full grid-cols-4">
@@ -1101,7 +1218,8 @@ export default function DashboardPage() {
                         Total Payments
                       </p>
                       <p className="text-2xl font-bold text-foreground">
-                        ₦{totalBalance}
+                        {/* ₦{totalBalance} */}
+                        {totalBalance}
                       </p>
                     </div>
                     <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
@@ -1118,7 +1236,8 @@ export default function DashboardPage() {
                         This Month
                       </p>
                       <p className="text-2xl font-bold text-foreground">
-                        ₦{monthBalance}
+                        {monthBalance}
+                        {/* ₦{monthBalance} */}
                       </p>
                     </div>
                     <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
@@ -1249,6 +1368,7 @@ export default function DashboardPage() {
                 variant="outline"
                 className="bg-background text-foreground border-2"
                 style={{ borderColor: "#d4af37" }}
+                onClick={exportToCSV}
               >
                 <Download className="w-4 h-4 mr-2" />
                 Export
@@ -2147,11 +2267,11 @@ export default function DashboardPage() {
           </TabsContent>
         </Tabs>
 
-        {/* Wallet Modal */}
+        {/* // Wallet Modal
         <WalletModal
           isOpen={showWalletModal}
           onClose={handleWalletModalClose}
-        />
+        /> */}
 
         {/* Account Modal */}
         <AccountModal
@@ -2216,19 +2336,83 @@ export default function DashboardPage() {
                 </Button>
                 <Button
                   onClick={() => {
-                    // TODO: Implement KYC flow
-                    toast({
-                      title: "KYC Coming Soon",
-                      description:
-                        "KYC verification will be available soon. Stay tuned!",
-                    });
                     setShowKycModal(false);
+                    setShowKycTypeModal(true);
                   }}
                   className="flex-1 bg-primary hover:bg-primary/90"
                 >
                   Start Verification
                 </Button>
               </div>
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* KYC Type Selection Modal */}
+        <Dialog open={showKycTypeModal} onOpenChange={setShowKycTypeModal}>
+          <DialogContent className="sm:max-w-md">
+            <DialogHeader>
+              <DialogTitle className="text-center">
+                Select Verification Type
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-6">
+              <div className="text-center">
+                <p className="text-muted-foreground text-sm">
+                  Choose the type of verification that applies to you
+                </p>
+              </div>
+
+              <div className="space-y-4">
+                <Button
+                  onClick={() => {
+                    setShowKycTypeModal(false);
+                    router.push("/kyc?type=individual");
+                  }}
+                  className="w-full h-auto p-6 flex flex-col items-center space-y-3 bg-background text-foreground border-2 hover:bg-muted/50"
+                  style={{ borderColor: "#d4af37" }}
+                  variant="outline"
+                >
+                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
+                    <Shield className="w-6 h-6 text-blue-600" />
+                  </div>
+                  <div className="text-center">
+                    <h3 className="font-semibold text-lg">Individual</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Personal identity verification for individual users
+                    </p>
+                  </div>
+                </Button>
+
+                <Button
+                  onClick={() => {
+                    setShowKycTypeModal(false);
+                    router.push("/kyc?type=business");
+                  }}
+                  className="w-full h-auto p-6 flex flex-col items-center space-y-3 bg-background text-foreground border-2 hover:bg-muted/50"
+                  style={{ borderColor: "#d4af37" }}
+                  variant="outline"
+                >
+                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
+                    <Shield className="w-6 h-6 text-green-600" />
+                  </div>
+                  <div className="text-center">
+                    <h3 className="font-semibold text-lg">Business</h3>
+                    <p className="text-sm text-muted-foreground">
+                      Business entity verification for companies and
+                      organizations
+                    </p>
+                  </div>
+                </Button>
+              </div>
+
+              <Button
+                variant="outline"
+                onClick={() => setShowKycTypeModal(false)}
+                className="w-full"
+              >
+                Cancel
+              </Button>
             </div>
           </DialogContent>
         </Dialog>

@@ -17,7 +17,12 @@ pub trait IEgyptFi<TContractState> {
         new_metadata_hash: felt252
     );
     fn deactivate_merchant(ref self: TContractState);
-    
+
+    // KYC management
+    fn set_kyc_proof(ref self: TContractState, proof_hash: felt252);
+    fn get_kyc_proof(self: @TContractState, merchant: ContractAddress) -> felt252;
+    fn verify_kyc_proof(self: @TContractState, merchant: ContractAddress, proof_hash: felt252) -> bool;
+
     // Payment processing
     fn create_payment(
         ref self: TContractState,
@@ -355,6 +360,30 @@ mod EgyptFi {
             timestamp: get_block_timestamp(),
         });
         self.reentrancy_guard.end();
+    }
+
+    fn set_kyc_proof(ref self: ContractState, proof_hash: felt252) {
+        self.reentrancy_guard.start();
+        let caller = get_caller_address();
+        let merchant = self.merchants.read(caller);
+        assert(merchant.is_active, 'Merchant not found');
+
+        self.setKycProof.write(caller, proof_hash);
+        self.emit(MerchantUpdated {
+            merchant: caller,
+            field: 'kyc_proof',
+            timestamp: get_block_timestamp(),
+        });
+        self.reentrancy_guard.end();
+    }
+
+    fn get_kyc_proof(self: @ContractState, merchant: ContractAddress) -> felt252 {
+        self.setKycProof.read(merchant)
+    }
+
+    fn verify_kyc_proof(self: @ContractState, merchant: ContractAddress, proof_hash: felt252) -> bool {
+        let stored_proof = self.setKycProof.read(merchant);
+        stored_proof == proof_hash && stored_proof != 0
     }
 
     fn create_payment(

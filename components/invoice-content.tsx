@@ -15,7 +15,6 @@ import {
   LinkIcon,
   X,
   AlertCircle,
-  Coins,
 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -51,6 +50,7 @@ interface InvoiceData {
   amount: number
   payUrl: string
   walletUrl: string
+  preferred_btc_flow?: string
 }
 
 interface InvoiceContentProps {
@@ -72,11 +72,11 @@ export function InvoiceContent({ invoiceData, onPaymentConfirmed }: InvoiceConte
 
   const chains: Chain[] = [
     { id: "starknet", name: "StarkNet", icon: CircleDotDashed },
-    { id: "btc", name: "BTC", icon: Coins },
     { id: "ethereum", name: "Ethereum", icon: Network },
     { id: "base", name: "Base", icon: CircleDot },
     { id: "arbitrum", name: "Arbitrum", icon: Gem },
     { id: "polygon", name: "Polygon", icon: Wallet },
+    { id: "bitcoin", name: "Bitcoin", icon: CircleDot },
   ]
 
   const tokens: Record<string, Token[]> = {
@@ -84,7 +84,6 @@ export function InvoiceContent({ invoiceData, onPaymentConfirmed }: InvoiceConte
       { id: "usdc", name: "USDC" },
       { id: "eth", name: "ETH" },
       { id: "strk", name: "STRK" },
-      { id: "wbtc", name: "wBTC" },
     ],
     ethereum: [
       { id: "usdc", name: "USDC" },
@@ -105,9 +104,9 @@ export function InvoiceContent({ invoiceData, onPaymentConfirmed }: InvoiceConte
       { id: "matic", name: "MATIC" },
       { id: "dai", name: "DAI" },
     ],
-     btc: [
-      { id: "l1", name: "L1" },
-      { id: "l2", name: "L2" },
+    bitcoin: [
+      { id: "btc-l1", name: "BTC L1" },
+      { id: "btc-l2", name: "BTC L2" },
     ],
   };
 
@@ -120,9 +119,9 @@ export function InvoiceContent({ invoiceData, onPaymentConfirmed }: InvoiceConte
   const fetchPrice = useCallback(async () => {
     if (!selectedChain || !selectedToken) return;
 
-    // Only support starknet for price conversion
-    if (selectedChain !== "starknet") {
-      setError("Price conversion currently only available for Starknet");
+    // Only support starknet and bitcoin for price conversion
+    if (selectedChain !== "starknet" && selectedChain !== "bitcoin") {
+      setError("Price conversion currently only available for Starknet and Bitcoin");
       setConvertedAmounts({});
       return;
     }
@@ -164,11 +163,17 @@ export function InvoiceContent({ invoiceData, onPaymentConfirmed }: InvoiceConte
   // Update selected token when chain changes
   useEffect(() => {
     if (selectedChain && tokens[selectedChain]?.length > 0) {
-      setSelectedToken(tokens[selectedChain][0].id);
+      if (selectedChain === "bitcoin" && invoiceData.preferred_btc_flow) {
+        // Default to merchant's preferred BTC flow
+        const preferredToken = invoiceData.preferred_btc_flow === "l1" ? "btc-l1" : "btc-l2";
+        setSelectedToken(preferredToken);
+      } else {
+        setSelectedToken(tokens[selectedChain][0].id);
+      }
     } else {
       setSelectedToken("");
     }
-  }, [selectedChain]);
+  }, [selectedChain, invoiceData.preferred_btc_flow]);
 
   // Polling for payment status
   useEffect(() => {
@@ -289,7 +294,8 @@ export function InvoiceContent({ invoiceData, onPaymentConfirmed }: InvoiceConte
 
           </div>
           
-        </div>        
+        </div>
+        
 
         {/* Column 2: Payment Info */}
         <div className="col-span-1 border-b lg:border-b-0 lg:border-r border-gray-200 p-4 sm:p-6 lg:p-8">
