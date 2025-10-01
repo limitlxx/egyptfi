@@ -95,6 +95,7 @@
     "react-hot-toast": "^2.6.0",
     "react-resizable-panels": "^3.0.6",
     "recharts": "3.2.0",
+    "sats-connect": "3.0.1",
     "sonner": "^2.0.7",
     "starknet": "^8.1.2",
     "starknetkit": "^3.1.0-beta.1",

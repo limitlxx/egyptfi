@@ -6,14 +6,31 @@ import { ArrowLeft, Wallet, Check, Loader2, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import Link from "next/link";
 import toast from "react-hot-toast";
 import WalletConnection from "@/components/WalletConnection";
 import { useWallet } from "@/hooks/useWallet";
 import { usePaymaster } from "@/hooks/usePayMaster";
-import { get_payment, prepare_payment_call, update_payment_status } from "@/services/paymentService";
+import {
+  get_payment,
+  prepare_payment_call,
+  update_payment_status,
+} from "@/services/paymentService";
 import { EGYPT_SEPOLIA_CONTRACT_ADDRESS } from "@/lib/utils";
+
+import { type Connector, useConnect } from "@starknet-react/core";
+import {
+  type StarknetkitConnector,
+  useStarknetkitConnectModal,
+} from "starknetkit";
+import { availableConnectors } from "@/connectors";
 
 export default function PaymentPage() {
   const searchParams = useSearchParams();
@@ -30,9 +47,16 @@ export default function PaymentPage() {
   const [isPriceLoading, setIsPriceLoading] = useState(false);
   const [isPaying, setIsPaying] = useState(false);
 
+  const { connectAsync, connectors } = useConnect();
+  const [isConnecting, setIsConnecting] = useState(false);
+
+  const { starknetkitConnectModal } = useStarknetkitConnectModal({
+    connectors: availableConnectors as StarknetkitConnector[],
+  });
+
   if (!payment_ref) {
-  throw new Error("Missing payment reference");
-}
+    throw new Error("Missing payment reference");
+  }
 
   const chains = [
     { id: "starknet", name: "StarkNet", icon: "⬟" },
@@ -42,8 +66,18 @@ export default function PaymentPage() {
 
   const tokens = {
     starknet: [
-      { id: "usdc", name: "USDC", address: "0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8" },
-      { id: "eth", name: "ETH", address: "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7" },
+      {
+        id: "usdc",
+        name: "USDC",
+        address:
+          "0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8",
+      },
+      {
+        id: "eth",
+        name: "ETH",
+        address:
+          "0x049d36570d4e46f48e99674bd3fcc84644ddd6b96f7c741b1562b82f9e004dc7",
+      },
     ],
     ethereum: [
       { id: "usdc", name: "USDC", address: "0x...ethereum_usdc" }, // Replace
@@ -57,8 +91,31 @@ export default function PaymentPage() {
 
   const selectedTokenData =
     selectedChain && selectedToken
-      ? tokens[selectedChain as keyof typeof tokens]?.find((t) => t.id === selectedToken)
+      ? tokens[selectedChain as keyof typeof tokens]?.find(
+          (t) => t.id === selectedToken
+        )
       : null;
+
+  // Handle direct modal for starknetkit connect ---commented below
+  const handleConnectWithModal = async () => {
+    try {
+      setIsConnecting(true);
+      const { connector } = await starknetkitConnectModal();
+
+      if (!connector) {
+        return;
+      }
+
+      await connectAsync({ connector: connector as Connector });
+      toast.success("Wallet connected successfully");
+      // onClose();
+    } catch (err) {
+      console.error("Connection error:", err);
+      toast.error("Failed to connect wallet");
+    } finally {
+      setIsConnecting(false);
+    }
+  };
 
   useEffect(() => {
     if (!payment_ref) {
@@ -90,7 +147,8 @@ export default function PaymentPage() {
   };
 
   const fetchPrice = async () => {
-    if (!selectedChain || !selectedToken || selectedChain !== "starknet") return;
+    if (!selectedChain || !selectedToken || selectedChain !== "starknet")
+      return;
     try {
       setIsPriceLoading(true);
       const response = await fetch(
@@ -98,7 +156,9 @@ export default function PaymentPage() {
       );
       if (!response.ok) throw new Error("Failed to fetch price");
       const result = await response.json();
-      setConvertedAmount(result.data.converted_amount[selectedToken.toUpperCase()]);
+      setConvertedAmount(
+        result.data.converted_amount[selectedToken.toUpperCase()]
+      );
     } catch (err) {
       toast.error("Failed to update price");
     } finally {
@@ -114,20 +174,21 @@ export default function PaymentPage() {
     }
   }, [invoiceData, selectedChain, selectedToken]);
 
-  const { executeTransaction, isSuccess, transactionHash, isError, txError } = usePaymaster({
-    calls: [], // Set dynamically in handlePayment
-    enabled: isConnected && !!selectedTokenData && !!invoiceData,
-    onSuccess: (txHash) => {
-      toast.success(`Payment processed: ${txHash}`);
-      update_payment_status({ payment_ref, status: "paid", tx_hash: txHash });
-      if (redirect_to) {
-        window.location.href = decodeURIComponent(redirect_to);
-      } else {
-        router.push(`/confirm?ref=${payment_ref}`);
-      }
-    },
-    onError: (err) => console.log(`Payment failed: ${err.message}`),
-  });
+  const { executeTransaction, isSuccess, transactionHash, isError, txError } =
+    usePaymaster({
+      calls: [], // Set dynamically in handlePayment
+      enabled: isConnected && !!selectedTokenData && !!invoiceData,
+      onSuccess: (txHash) => {
+        toast.success(`Payment processed: ${txHash}`);
+        update_payment_status({ payment_ref, status: "paid", tx_hash: txHash });
+        if (redirect_to) {
+          window.location.href = decodeURIComponent(redirect_to);
+        } else {
+          router.push(`/confirm?ref=${payment_ref}`);
+        }
+      },
+      onError: (err) => console.log(`Payment failed: ${err.message}`),
+    });
 
   const handlePayment = async () => {
     if (!isConnected || !address) {
@@ -150,7 +211,7 @@ export default function PaymentPage() {
         description: invoiceData.description || "",
       });
       console.log();
-      
+
       await executeTransaction(paymentCalls);
     } catch (err) {
       toast.error(`Payment failed: ${err}`);
@@ -158,7 +219,6 @@ export default function PaymentPage() {
       setIsPaying(false);
     }
   };
-
 
   if (isLoading) {
     return (
@@ -176,7 +236,9 @@ export default function PaymentPage() {
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center max-w-md mx-auto p-6">
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h1 className="text-xl font-semibold text-gray-900 mb-2">Payment Error</h1>
+          <h1 className="text-xl font-semibold text-gray-900 mb-2">
+            Payment Error
+          </h1>
           <p className="text-gray-600 mb-4">{error}</p>
           <Button variant="ghost" size="sm" asChild>
             <Link href="/">
@@ -209,21 +271,58 @@ export default function PaymentPage() {
             <div className="text-center mb-8">
               <div className="w-16 h-16 bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl flex items-center justify-center text-2xl mx-auto mb-4">
                 {invoiceData?.merchant_logo ? (
-                  <img src={invoiceData.merchant_logo} alt="Merchant logo" className="w-full h-full object-cover rounded-xl" />
+                  <img
+                    src={invoiceData.merchant_logo}
+                    alt="Merchant logo"
+                    className="w-full h-full object-cover rounded-xl"
+                  />
                 ) : (
                   "☕"
                 )}
               </div>
-              <h1 className="text-2xl font-bold text-gray-900 mb-2">Complete Payment</h1>
-              <p className="text-gray-500">{invoiceData?.merchant_name} • {invoiceData?.currency}{invoiceData?.amount.toLocaleString()}</p>
+              <h1 className="text-2xl font-bold text-gray-900 mb-2">
+                Complete Payment
+              </h1>
+              <p className="text-gray-500">
+                {invoiceData?.merchant_name} • {invoiceData?.currency}
+                {invoiceData?.amount.toLocaleString()}
+              </p>
             </div>
 
             {!isConnected ? (
               <div className="text-center mb-8">
                 <div className="bg-gray-50 rounded-xl p-8 mb-6">
                   <Wallet className="w-12 h-12 text-gray-400 mx-auto mb-4" />
-                  <h3 className="text-lg font-semibold text-gray-900 mb-2">Connect Your Wallet</h3>
-                  <p className="text-gray-500 mb-6">Connect your crypto wallet to complete the payment</p>
+                  <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                    Connect Your Wallet
+                  </h3>
+                  <p className="text-gray-500 mb-6">
+                    Connect your crypto wallet to complete the payment
+                  </p>
+
+                  {/* StarknetKit Modal Button */}
+                  <Button
+                    variant="default"
+                    className="w-full h-12 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                    onClick={handleConnectWithModal}
+                    disabled={isConnecting}
+                  >
+                    {isConnecting
+                      ? "Connecting..."
+                      : "Connect with StarknetKit Modal"}
+                  </Button>
+
+                  <div className="relative">
+                    <div className="absolute inset-0 flex items-center">
+                      <span className="w-full border-t border-border" />
+                    </div>
+                    <div className="relative flex justify-center text-xs uppercase">
+                      <span className="bg-background px-2 text-muted-foreground">
+                        Or connect directly
+                      </span>
+                    </div>
+                  </div>
+
                   <WalletConnection />
                 </div>
               </div>
@@ -233,15 +332,22 @@ export default function PaymentPage() {
                   <div className="flex items-center">
                     <Check className="w-5 h-5 text-green-600 mr-2" />
                     <div>
-                      <p className="font-medium text-green-900">Wallet Connected</p>
+                      <p className="font-medium text-green-900">
+                        Wallet Connected
+                      </p>
                       <p className="text-sm text-green-700">{address}</p>
                     </div>
                   </div>
                 </div>
 
                 <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Select Network</label>
-                  <Select value={selectedChain} onValueChange={setSelectedChain}>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Select Network
+                  </label>
+                  <Select
+                    value={selectedChain}
+                    onValueChange={setSelectedChain}
+                  >
                     <SelectTrigger className="w-full">
                       <SelectValue placeholder="Choose a blockchain network" />
                     </SelectTrigger>
@@ -260,22 +366,29 @@ export default function PaymentPage() {
 
                 {selectedChain && (
                   <div className="mb-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Select Token</label>
-                    <Select value={selectedToken} onValueChange={setSelectedToken}>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Select Token
+                    </label>
+                    <Select
+                      value={selectedToken}
+                      onValueChange={setSelectedToken}
+                    >
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Choose a token to pay with" />
                       </SelectTrigger>
                       <SelectContent>
-                        {tokens[selectedChain as keyof typeof tokens]?.map((token) => (
-                          <SelectItem key={token.id} value={token.id}>
-                            <div className="flex items-center justify-between w-full">
-                              <div className="flex items-center">
-                                {/* <span className="mr-2">{token.icon}</span> */}
-                                {token.name}
+                        {tokens[selectedChain as keyof typeof tokens]?.map(
+                          (token) => (
+                            <SelectItem key={token.id} value={token.id}>
+                              <div className="flex items-center justify-between w-full">
+                                <div className="flex items-center">
+                                  {/* <span className="mr-2">{token.icon}</span> */}
+                                  {token.name}
+                                </div>
                               </div>
-                            </div>
-                          </SelectItem>
-                        ))}
+                            </SelectItem>
+                          )
+                        )}
                       </SelectContent>
                     </Select>
                   </div>
@@ -283,21 +396,35 @@ export default function PaymentPage() {
 
                 {selectedTokenData && (
                   <div className="bg-gray-50 rounded-xl p-6 mb-6">
-                    <h3 className="font-semibold text-gray-900 mb-4">Payment Summary</h3>
+                    <h3 className="font-semibold text-gray-900 mb-4">
+                      Payment Summary
+                    </h3>
                     <div className="space-y-3">
                       <div className="flex justify-between">
-                        <span className="text-gray-600">Amount ({invoiceData?.currency})</span>
-                        <span className="font-medium">{invoiceData?.currency}{invoiceData?.amount.toLocaleString()}</span>
+                        <span className="text-gray-600">
+                          Amount ({invoiceData?.currency})
+                        </span>
+                        <span className="font-medium">
+                          {invoiceData?.currency}
+                          {invoiceData?.amount.toLocaleString()}
+                        </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-600">You Pay</span>
                         <span className="font-medium">
-                          {isPriceLoading ? <Loader2 className="w-4 h-4 animate-spin inline" /> : convertedAmount || "N/A"} {selectedTokenData.name}
+                          {isPriceLoading ? (
+                            <Loader2 className="w-4 h-4 animate-spin inline" />
+                          ) : (
+                            convertedAmount || "N/A"
+                          )}{" "}
+                          {selectedTokenData.name}
                         </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-600">Network</span>
-                        <span className="font-medium">{chains.find((c) => c.id === selectedChain)?.name}</span>
+                        <span className="font-medium">
+                          {chains.find((c) => c.id === selectedChain)?.name}
+                        </span>
                       </div>
                       <div className="flex justify-between">
                         <span className="text-gray-600">Gas Fees</span>
@@ -305,7 +432,9 @@ export default function PaymentPage() {
                       </div>
                       <div className="border-t pt-3 flex justify-between">
                         <span className="font-semibold">Total</span>
-                        <span className="font-semibold">{convertedAmount || "N/A"} {selectedTokenData.name}</span>
+                        <span className="font-semibold">
+                          {convertedAmount || "N/A"} {selectedTokenData.name}
+                        </span>
                       </div>
                     </div>
                     {convertedAmount && (
@@ -313,7 +442,12 @@ export default function PaymentPage() {
                         <div className="flex items-center text-sm">
                           <AlertCircle className="w-4 h-4 text-blue-600 mr-2" />
                           <span className="text-blue-800">
-                            Live rate: 1 {selectedTokenData.name} = {invoiceData?.currency}{(invoiceData?.amount / Number.parseFloat(convertedAmount)).toFixed(0)}
+                            Live rate: 1 {selectedTokenData.name} ={" "}
+                            {invoiceData?.currency}
+                            {(
+                              invoiceData?.amount /
+                              Number.parseFloat(convertedAmount)
+                            ).toFixed(0)}
                           </span>
                         </div>
                       </div>
@@ -323,7 +457,12 @@ export default function PaymentPage() {
 
                 <Button
                   onClick={handlePayment}
-                  disabled={!selectedChain || !selectedToken || isPaying || !convertedAmount}
+                  disabled={
+                    !selectedChain ||
+                    !selectedToken ||
+                    isPaying ||
+                    !convertedAmount
+                  }
                   className="w-full bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 py-3"
                 >
                   {isPaying ? (
@@ -334,7 +473,10 @@ export default function PaymentPage() {
                   ) : (
                     <>
                       <Wallet className="w-4 h-4 mr-2" />
-                      Pay {selectedTokenData && convertedAmount ? `${convertedAmount} ${selectedTokenData.name}` : ""}
+                      Pay{" "}
+                      {selectedTokenData && convertedAmount
+                        ? `${convertedAmount} ${selectedTokenData.name}`
+                        : ""}
                     </>
                   )}
                 </Button>
@@ -345,7 +487,13 @@ export default function PaymentPage() {
 
         <div className="text-center mt-8">
           <p className="text-sm text-gray-500">
-            Powered by <Link href="/" className="text-blue-600 hover:text-blue-700 font-medium">EgyptFi</Link>
+            Powered by{" "}
+            <Link
+              href="/"
+              className="text-blue-600 hover:text-blue-700 font-medium"
+            >
+              EgyptFi
+            </Link>
           </p>
         </div>
       </div>
