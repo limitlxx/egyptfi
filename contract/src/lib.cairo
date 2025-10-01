@@ -1,4 +1,5 @@
-use starknet::ContractAddress; 
+use starknet::ContractAddress;  
+use core::byte_array::ByteArray;
 
 #[starknet::interface]
 pub trait IEgyptFi<TContractState> {
@@ -6,7 +7,7 @@ pub trait IEgyptFi<TContractState> {
     fn register_merchant(
         ref self: TContractState,
         withdrawal_address: ContractAddress,
-        metadata_hash: felt252,
+        metadata_hash: ByteArray,
     );
     fn update_merchant_withdrawal_address(
         ref self: TContractState,
@@ -14,7 +15,7 @@ pub trait IEgyptFi<TContractState> {
     );
     fn update_merchant_metadata(
         ref self: TContractState,
-        new_metadata_hash: felt252
+        new_metadata_hash: ByteArray
     );
     fn deactivate_merchant(ref self: TContractState);
 
@@ -62,14 +63,14 @@ pub trait IEgyptFi<TContractState> {
 }
 
  // CustomeTypes
-    #[derive(Drop, Serde, Copy, starknet::Store)]
+    #[derive(Drop, Serde, starknet::Store)]
     struct Merchant {
         is_active: bool, 
         usdc_balance: u256,
         total_payments_received: u256,
         total_payments_count: u64,
         withdrawal_address: ContractAddress,
-        metadata_hash: felt252, // in basis points (10000 = 100%)
+        metadata_hash: ByteArray,
         joined_timestamp: u64,
     }
 
@@ -113,7 +114,8 @@ mod EgyptFi {
     use openzeppelin_upgrades::interface::IUpgradeable;
     use core::traits::Into;
     use core::hash::{HashStateTrait};
-    use core::{poseidon::PoseidonTrait};
+    use core::{poseidon::PoseidonTrait}; 
+    use core::byte_array::ByteArray;
     use starknet::ClassHash;
   
 
@@ -286,7 +288,7 @@ mod EgyptFi {
     fn register_merchant(
         ref self: ContractState, 
         withdrawal_address: ContractAddress,
-        metadata_hash: felt252,
+        metadata_hash: ByteArray,
     ) {
         self.reentrancy_guard.start();
         let caller = get_caller_address();
@@ -329,7 +331,7 @@ mod EgyptFi {
 
     fn update_merchant_metadata(
         ref self: ContractState,
-        new_metadata_hash: felt252
+        new_metadata_hash: ByteArray
     ) {
         self.reentrancy_guard.start();
         let caller = get_caller_address();
@@ -481,16 +483,18 @@ mod EgyptFi {
         assert(amount > 0, 'Amount must be positive');
         assert(amount <= merchant.usdc_balance, 'Insufficient balance');
 
+        let withdrawal_addr = merchant.withdrawal_address;
+
         merchant.usdc_balance -= amount;
         self.merchants.write(caller, merchant);
 
         let usdc_contract = IERC20Dispatcher { contract_address: self.usdc_token.read() };
-        usdc_contract.transfer(merchant.withdrawal_address, amount);
+        usdc_contract.transfer(withdrawal_addr, amount);
 
         self.emit(WithdrawalMade {
             merchant: caller,
             amount,
-            to_address: merchant.withdrawal_address,
+            to_address: withdrawal_addr,
             timestamp: get_block_timestamp(),
         });
         self.reentrancy_guard.end();
