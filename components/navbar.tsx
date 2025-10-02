@@ -12,11 +12,13 @@ import { SignedOut, SignInButton, SignedIn, UserButton } from "@clerk/nextjs";
 
 interface NavbarProps {
   onGetStarted: () => void;
+  onLogin: () => void;
   onScrollToSection: (sectionId: string) => void;
 }
 
 export const Navbar: React.FC<NavbarProps> = ({
   onGetStarted,
+  onLogin,
   onScrollToSection,
 }) => {
   const [isOpen, setIsOpen] = useState(false);
@@ -24,10 +26,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   const router = useRouter();
 
   const navItems = [
-    // { name: "Features", href: "#features", action: "scroll" },
-    // { name: "About", href: "#about", action: "scroll" },
-    { name: "Get Started", href: "#get-started", action: "modal" },
-    { name: "Monitoring", href: "/admin/monitoring", action: "link" },
+    // { name: "Get Started", href: "#get-started", action: "modal" },
     { name: "Docs", href: "/docs", action: "link" },
     { name: "Pricing", href: "/pricing", action: "scroll" },
   ];
@@ -49,99 +48,111 @@ export const Navbar: React.FC<NavbarProps> = ({
   };
 
   return (
-    <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-md border-b border-border">
-      <div className="container mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
-          <div className="flex-shrink-0">
-            <Link href="/" className="flex items-center">
-              <Image
-                src="/egyptfi_logo-03.png"
-                alt="EGYPTFI"
-                width={840}
-                height={280}
-                className="h-56 w-auto dark:hidden"
-              />
-              <Image
-                src="/egyptfi_white-03.png"
-                alt="EGYPTFI"
-                width={840}
-                height={280}
-                className="h-56 w-auto hidden dark:block"
-              />
-            </Link>
-          </div>
+    <nav className="border-b bg-white backdrop-blur-sm sticky top-0 z-50 dark:bg-background/80 dark:border-border">
+      <div className="container mx-auto px-4 py-4 flex items-center justify-between">
+        {/* Logo */}
+        <div className="flex-shrink-0">
+          <Link href="/" className="flex items-center">
+            <Image
+              // src="/egyptfi_logo-03.png"
+              src= "/egyptfi.jpeg"
+              alt="EGYPTFI"
+              width={150}
+              height={150}
+              priority
+              className="dark:hidden"
+            />
+            <Image
+              src="/egyptfi_white-03.png"
+              alt="EGYPTFI"
+              width={150}
+              height={150}
+              priority
+              className="h-10 w-10 rounded-full hidden dark:block"
+            />
+          </Link>
+        </div>
 
-          {/* Desktop Navigation */}
-          <div className="hidden md:block">
-            <div className="flex items-baseline space-x-8">
-              {navItems.map((item) => (
-                <button
-                  key={item.name}
-                  onClick={() => handleNavClick(item)}
-                  className="text-foreground hover:text-primary px-3 py-2 rounded-md text-sm font-medium transition-colors duration-200 cursor-pointer"
-                >
-                  {item.name}
-                </button>
-              ))}
-
-              <SignedOut>
-                <SignInButton />
-                {/* <button
-                  onClick={onGetStarted}
-                  className="bg-[#6c47ff] text-ceramic-white rounded-full font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 cursor-pointer"
-                >
-                  Sign Up
-                </button> */}
-              </SignedOut>
-              <SignedIn>
-                <UserButton />
-              </SignedIn>
-            </div>
-          </div>
-
-          {/* Theme Toggle & Mobile Menu */}
-          <div className="flex items-center space-x-4">
-            {/* Theme Toggle */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={toggleTheme}
-              className="text-foreground hover:text-primary"
+        {/* Desktop Navigation */}
+        <nav className="hidden md:flex items-center space-x-8">
+          {navItems.map((item) => (
+            <button
+              key={item.name}
+              onClick={() => handleNavClick(item)}
+              className="text-gray-600 hover:text-gray-900 dark:text-foreground/80 dark:hover:text-foreground transition-colors text-sm font-medium"
             >
-              <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
-              <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
-              <span className="sr-only">Toggle theme</span>
-            </Button>
+              {item.name}
+            </button>
+          ))}
+        </nav>
 
-            {/* Mobile menu button */}
-            <div className="md:hidden">
-              <Sheet open={isOpen} onOpenChange={setIsOpen}>
-                <SheetTrigger asChild>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-foreground"
-                  >
-                    <Menu className="h-6 w-6" />
-                    <span className="sr-only">Open menu</span>
-                  </Button>
-                </SheetTrigger>
-                <SheetContent side="right" className="w-[300px] sm:w-[400px]">
-                  <div className="flex flex-col space-y-4 mt-8">
-                    {navItems.map((item) => (
-                      <button
-                        key={item.name}
-                        onClick={() => handleNavClick(item)}
-                        className="text-foreground hover:text-primary px-3 py-2 rounded-md text-lg font-medium transition-colors duration-200 text-left"
-                      >
-                        {item.name}
-                      </button>
-                    ))}
-                  </div>
-                </SheetContent>
-              </Sheet>
-            </div>
+        {/* Right side: Auth, Theme Toggle & Mobile Menu */}
+        <div className="flex items-center space-x-3">
+          <SignedOut>
+            <Button
+              onClick={onLogin}
+              variant="outline"
+              className="text-sm font-medium"
+            >
+              Sign In
+            </Button>
+            <Button
+              onClick={onGetStarted}
+              className="text-sm font-medium"
+            >
+              Get Started
+            </Button>
+          </SignedOut>
+          <SignedIn>
+          <Link href="/dashboard" className="flex items-center">
+          <Button
+              className="text-sm font-medium"
+            >
+              Dashboard
+            </Button>
+          </Link>
+            <UserButton />
+          </SignedIn>
+
+          {/* Theme Toggle */}
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleTheme}
+            className="text-gray-600 hover:text-gray-900 dark:text-foreground/80 dark:hover:text-foreground"
+          >
+            <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+            <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+            <span className="sr-only">Toggle theme</span>
+          </Button>
+
+          {/* Mobile menu button */}
+          <div className="md:hidden">
+            <Sheet open={isOpen} onOpenChange={setIsOpen}>
+              <SheetTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-gray-600 hover:text-gray-900 dark:text-foreground/80 dark:hover:text-foreground"
+                >
+                  <Menu className="h-6 w-6" />
+                  <span className="sr-only">Open menu</span>
+                </Button>
+              </SheetTrigger>
+              <SheetContent side="right" className="w-[300px] sm:w-[400px]">
+                <div className="flex flex-col space-y-4 mt-8">
+                  {navItems.map((item) => (
+                    <button
+                      key={item.name}
+                      onClick={() => handleNavClick(item)}
+                      className="text-gray-600 hover:text-gray-900 dark:text-foreground/80 dark:hover:text-foreground px-3 py-2 rounded-md text-lg font-medium transition-colors duration-200 text-left"
+                    >
+                      {item.name}
+                    </button>
+                  ))}
+                </div>
+              </SheetContent>
+            </Sheet>
           </div>
         </div>
       </div>
