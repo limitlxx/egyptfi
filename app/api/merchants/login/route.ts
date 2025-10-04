@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import pool from '@/lib/db'; 
 
 interface LoginRequest {
-  walletAddress: string;
+  email: string;
   environment?: 'testnet' | 'mainnet';
 }
 
@@ -28,13 +28,15 @@ export async function POST(request: NextRequest) {
 
   try {
     const data: LoginRequest = await request.json();
+    console.log('DATABASE', data);
+    
 
     // Validate input
-    if (!data.walletAddress) {
+    if (!data.email) {
       return NextResponse.json(
         { success: false, error: 'Wallet address is required' },
         { status: 400 }
-      );
+      );0
     }
 
     // Check environment secrets
@@ -60,8 +62,8 @@ export async function POST(request: NextRequest) {
         local_currency,
         created_at
        FROM merchants 
-       WHERE LOWER(wallet_address) = LOWER($1)`,
-      [data.walletAddress]
+       WHERE LOWER(business_email) = LOWER($1)`,
+      [data.email]
     );
 
     if (merchantResult.rows.length === 0) {

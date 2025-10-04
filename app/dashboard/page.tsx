@@ -29,6 +29,8 @@ import {
   X,
   Save,
   Shield,
+  Sun,
+  Moon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -84,6 +86,8 @@ import {
   Withdrawal,
 } from "@/services/withdrawalService";
 import Image from "next/image";
+import { useTheme } from "next-themes";
+import { SignedIn, UserButton } from "@clerk/nextjs";
 
 const initialMerchantData = {
   name: "Coffee Shop Lagos",
@@ -118,10 +122,15 @@ export default function DashboardPage() {
 
   const [payments, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
+  const { theme, setTheme } = useTheme();
 
   // Transaction state
   const [transactions, setTransactions] = useState([]);
   const [loadingTransactions, setLoadingTransactions] = useState(true);
+
+  const toggleTheme = () => {
+    setTheme(theme === "dark" ? "light" : "dark");
+  };
 
   // Merchant data state
   const [businessName, setBusinessName] = useState(
@@ -949,61 +958,44 @@ export default function DashboardPage() {
       <header className="border-b bg-background/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            {/* <div className="flex-shrink-0"> */}
+            <div className="flex-shrink-0">
             <Link href="/" className="flex items-center">
               <Image
-                src="/egyptfi_logo-03.png"
+                src="/egyptfi.jpeg"
                 alt="EGYPTFI"
-                width={840}
-                height={280}
-                className="h-56 w-auto dark:hidden"
+                width={150}
+                height={150}
+                className="dark:hidden"
               />
               <Image
                 src="/egyptfi_white-03.png"
                 alt="EGYPTFI"
-                width={840}
-                height={280}
+                width={150}
+                height={150}
                 className="h-56 w-auto hidden dark:block"
               />
             </Link>
-            {/* </div> */}
+            </div>
             <div className="hidden md:flex items-center space-x-2 text-sm text-muted-foreground">
               <span>/</span>
               <span>Dashboard</span>
             </div>
-          </div>
-          <div className="flex items-center space-x-4">
-            <div className="w-8 h-8 bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg flex items-center justify-center text-sm">
-              {logoPreview ? (
-                <img
-                  src={logoPreview}
-                  alt="Business logo"
-                  className="w-full h-full object-cover rounded-lg"
-                />
-              ) : typeof businessLogo === "string" &&
-                businessLogo.startsWith("/") ? (
-                <img
-                  src={businessLogo}
-                  alt="Business logo"
-                  className="w-full h-full object-cover rounded-lg"
-                />
-              ) : (
-                businessLogo
-              )}
-            </div>
-
-            <span className="font-medium text-foreground">{businessName}</span>
-            {isConnected && (
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowAccountModal(true)}
-                className="text-xs"
-              >
-                <Wallet className="w-3 h-3 mr-1" />
-                {address?.slice(0, 6)}...{address?.slice(-4)}
-              </Button>
-            )}
+          </div> 
+          <div className="flex items-right">
+          <SignedIn> 
+            <UserButton />
+          </SignedIn>
+           {/* Theme Toggle */}
+           <Button
+            variant="ghost"
+            size="icon"
+            onClick={toggleTheme}
+            className="text-gray-600 hover:text-gray-900 dark:text-foreground/80 dark:hover:text-foreground"
+          >
+            <Sun className="h-5 w-5 rotate-0 scale-100 transition-all dark:-rotate-90 dark:scale-0" />
+            <Moon className="absolute h-5 w-5 rotate-90 scale-0 transition-all dark:rotate-0 dark:scale-100" />
+            <span className="sr-only">Toggle theme</span>
+          </Button>
           </div>
         </div>
       </header>
