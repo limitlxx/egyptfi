@@ -34,7 +34,6 @@ import {
 
 import { useUser, useAuth, useSignUp } from "@clerk/nextjs";
 import { useCreateWallet, useCallAnyContract } from "@chipi-stack/chipi-react";
-import { keccak256, toUtf8Bytes } from "ethers";
 import { AuthManager } from "@/lib/auth-utils";
 
 interface SignupModalProps {
@@ -86,7 +85,13 @@ export const SignupModal: React.FC<SignupModalProps> = ({
     process.env.NEXT_PUBLIC_EGYPT_MAINNET_CONTRACT_ADDRESS ||
     "0x04bb1a742ac72a9a72beebe1f608c508fce6dfa9250b869018b6e157dccb46e8";
 
-  // Helper: hash merchant metadata
+  // Helper: prepare merchant metadata
+  // NOTE: The contract ABI declares `metadata_hash` as a ByteArray. The
+  // Starknet JS ABI encoder expects a plain string for ByteArray parameters
+  // and will convert it internally. Passing the internal byteArray object
+  // (the result of byteArrayFromString) causes runtime deserialization
+  // errors. So we return the raw JSON string here and let the encoder
+  // perform the ByteArray packing.
   const getMetadataHash = (merchant: any) => {
     const metadataString = JSON.stringify({
       email: merchant.business_email,
@@ -94,7 +99,7 @@ export const SignupModal: React.FC<SignupModalProps> = ({
       business_type: merchant.business_type || "retail",
     });
 
-    return keccak256(toUtf8Bytes(metadataString));
+    return metadataString;
   };
 
   const steps = [
@@ -418,7 +423,7 @@ export const SignupModal: React.FC<SignupModalProps> = ({
           await callAnyContractAsync({
             params: {
               encryptKey: signupData.pin,
-              wallet: walletData,
+              wallet: walletData as any,
               contractAddress: CONTRACT_ADDRESS,
               calls: [
                 {
