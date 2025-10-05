@@ -29,6 +29,7 @@ import {
   X,
   Save,
   Shield,
+  Plane,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -1031,10 +1032,14 @@ export default function DashboardPage() {
         )}
 
         <Tabs defaultValue="payments" className="w-full">
-          <TabsList className="grid w-full grid-cols-4">
+          <TabsList className="grid w-full grid-cols-5">
             <TabsTrigger value="payments" className="flex items-center">
               <CreditCard className="w-4 h-4 mr-2" />
               Payments
+            </TabsTrigger>
+            <TabsTrigger value="yields" className="flex items-center">
+              <Plane className="w-4 h-4 mr-2" />
+              Yields 
             </TabsTrigger>
             <TabsTrigger value="developer" className="flex items-center">
               <Code className="w-4 h-4 mr-2" />
@@ -1713,6 +1718,18 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
           </TabsContent>
+
+          {/* YIELD OPTIONS*/}
+          <TabsContent value="yields" className="space-y-6">
+            <div className="space-y-6">
+              <div className="flex items-center justify-between">
+                  <h3 className="text-xl font-semibold text-foreground">
+                    Yield Options
+                  </h3>
+              </div>
+            </div>
+          </TabsContent>
+
 
           {/* Developer Tab */}
           <TabsContent value="developer" className="space-y-6">
