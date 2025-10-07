@@ -85,6 +85,7 @@ import {
   Withdrawal,
 } from "@/services/withdrawalService";
 import Image from "next/image";
+import YieldOptionsPage from "./components/yield-view";
 
 const initialMerchantData = {
   name: "Coffee Shop Lagos",
@@ -1039,7 +1040,7 @@ export default function DashboardPage() {
             </TabsTrigger>
             <TabsTrigger value="yields" className="flex items-center">
               <Plane className="w-4 h-4 mr-2" />
-              Yields 
+              Yields
             </TabsTrigger>
             <TabsTrigger value="developer" className="flex items-center">
               <Code className="w-4 h-4 mr-2" />
@@ -1529,20 +1530,11 @@ export default function DashboardPage() {
 
             {/* Withdrawal History */}
             <WithdrawalHistory />
-
           </TabsContent>
 
           {/* YIELD OPTIONS*/}
           <TabsContent value="yields" className="space-y-6">
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-semibold text-foreground">
-                    Yield Options
-                  </h3>
-              </div>
-            </div>
-
-            {/* Yield Farming - Improved UX (Coming Soon) */}
+            {/* Yield Farming - Improved UX (Coming Soon)
             <Card className="border border-dashed border-purple-200 bg-card">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
@@ -1728,13 +1720,14 @@ export default function DashboardPage() {
                   </p>
                 </div>
               </CardContent>
-            </Card>
-          </TabsContent>
+            </Card> */}
 
+            <YieldOptionsPage />
+          </TabsContent>
 
           {/* Developer Tab */}
           <TabsContent value="developer" className="space-y-6">
-            <DeveloperTab webhook={webhookUrl} /> 
+            <DeveloperTab webhook={webhookUrl} />
           </TabsContent>
 
           {/* Branding Tab */}
