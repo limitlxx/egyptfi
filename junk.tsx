@@ -28,8 +28,6 @@ import {
   Upload,
   X,
   Save,
-  Shield,
-  Plane,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -74,17 +72,13 @@ import WalletModal from "@/components/WalletModal";
 import { useAccount, useProvider } from "@starknet-react/core";
 import { useRouter } from "next/navigation";
 
-import { InvoiceService, Invoice } from "@/services/invoiceService";
-import ContractMerchantService from "@/services/contractMerchantService";
+import { InvoiceService, Invoice } from "@/services/invoiceService"; 
+import ContractMerchantService from "@/services/contractMerchantService"; 
 import { PaymentModeIndicator } from "@/components/PaymentModeIndicator";
 import { useWithdrawMerchantCalls } from "@/hooks/useWithdrawMerchantCalls"; // New import
 import { usePaymaster } from "@/hooks/usePayMaster";
 import { WithdrawalService } from "@/services/WithdrawService";
-import {
-  WithdrawalService as listwithdraw,
-  Withdrawal,
-} from "@/services/withdrawalService";
-import Image from "next/image";
+import { WithdrawalService as listwithdraw, Withdrawal } from "@/services/withdrawalService"
 
 const initialMerchantData = {
   name: "Coffee Shop Lagos",
@@ -115,20 +109,14 @@ export default function DashboardPage() {
   const [totalBalance, setTotalAmount] = useState<number>(0);
   const [monthBalance, setMonthAmount] = useState<number>(0);
   const [successRate, setsuccessRate] = useState<number>(0);
-  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([]);
+  const [withdrawals, setWithdrawals] = useState<Withdrawal[]>([])
 
   const [payments, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
 
-  // Transaction state
-  const [transactions, setTransactions] = useState([]);
-  const [loadingTransactions, setLoadingTransactions] = useState(true);
-
   // Merchant data state
   const [businessName, setBusinessName] = useState(
-    AuthManager.getMerchantInfo()?.businessName ||
-      AuthManager.getMerchantInfo()?.businessName ||
-      initialMerchantData.name
+    AuthManager.getMerchantInfo()?.businessName || initialMerchantData.name
   );
   const [businessLogo, setBusinessLogo] = useState(
     AuthManager.getMerchantInfo()?.businessLogo || initialMerchantData.logo
@@ -182,32 +170,28 @@ export default function DashboardPage() {
   >("balanced");
   const [isYieldWaitlistOpen, setIsYieldWaitlistOpen] = useState(false);
   const [yieldEmail, setYieldEmail] = useState("");
-  const [showKycModal, setShowKycModal] = useState(false);
-  const [showKycTypeModal, setShowKycTypeModal] = useState(false);
-  const [kycStatus, setKycStatus] = useState<string | null>(null);
 
   const { provider } = useProvider();
 
-  useEffect(() => {
+   useEffect(() => {
     async function fetchData() {
-      const data = await listwithdraw.getWithdrawalstats();
-      console.log(data);
+      const data = await listwithdraw.getWithdrawalstats()
       setTotalAmount(data.total_payments);
-      setMonthAmount(data.current_month_payments);
-      setsuccessRate(data.success_rate);
-
+      setMonthAmount(data.current_month_payments)
+      setsuccessRate(data.success_rate)
+      
       // setWithdrawals(data)
-      setLoading(false);
+      setLoading(false)
     }
-    fetchData();
-  }, []);
+    fetchData()
+  }, [])
 
   useEffect(() => {
     async function fetchInvoices() {
       try {
         const data = await InvoiceService.getInvoices();
         console.log("Invoice Data", data);
-
+        
         setInvoices(data);
       } catch (error) {
         console.error("Error loading invoices:", error);
@@ -217,61 +201,6 @@ export default function DashboardPage() {
     }
 
     fetchInvoices();
-  }, []);
-
-  // Fetch transactions from backend
-  // useEffect(() => {
-  //   const fetchTransactions = async () => {
-  //     try {
-  //       const currentEnv = AuthManager.getCurrentEnvironment();
-  //       const keys = AuthManager.getApiKeys(currentEnv);
-  //       if (!keys || !keys.secretKey) {
-  //         console.error("No API keys found");
-  //         return;
-  //       }
-
-  //       const response = await fetch("/api/merchants/transactions", {
-  //         headers: {
-  //           "x-api-key": keys.secretKey,
-  //           "x-environment": currentEnv,
-  //         },
-  //       });
-
-  //       if (!response.ok) {
-  //         throw new Error("Failed to fetch transactions");
-  //       }
-
-  //       const data = await response.json();
-  //       console.log(data);
-  //       setTransactions(data);
-  //     } catch (error) {
-  //       console.error("Error fetching transactions:", error);
-  //     } finally {
-  //       setLoadingTransactions(false);
-  //     }
-  //   };
-
-  //   fetchTransactions();
-  // }, []);
-
-  // Fetch KYC status
-  useEffect(() => {
-    const fetchKycStatus = async () => {
-      try {
-        const response = await fetch("/api/merchants/kyc/submit", {
-          method: "GET",
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          setKycStatus(data.kycStatus);
-        }
-      } catch (error) {
-        console.error("Error fetching KYC status:", error);
-      }
-    };
-
-    fetchKycStatus();
   }, []);
 
   const strategyApy = useMemo(() => {
@@ -318,12 +247,11 @@ export default function DashboardPage() {
   }, [phone, originalValues.phone]);
 
   // Utility to convert u256 to number (assuming 6 decimals)
-  const bigintToNumber = (value?: bigint, decimals = 6): number => {
-    if (!value) return 0;
-    return Number(value) / 10 ** decimals;
-  };
+ const bigintToNumber = (value?: bigint, decimals = 6): number => {
+  if (!value) return 0;
+  return Number(value) / 10 ** decimals;
+};
 
-  // Authentication check commented out for development
   useEffect(() => {
     const checkAuth = async () => {
       setIsCheckingAuth(true);
@@ -336,9 +264,6 @@ export default function DashboardPage() {
           const merchant = AuthManager.getMerchantInfo();
           const currentEnv = AuthManager.getCurrentEnvironment();
           const keys = AuthManager.getApiKeys(currentEnv);
-          console.log(merchant);
-          console.log(currentEnv);
-          console.log(keys);
 
           if (merchant && keys) {
             console.log(
@@ -347,14 +272,13 @@ export default function DashboardPage() {
             setIsSessionExpired(true);
           } else {
             console.log("No stored auth data - redirecting to login");
-            router.push("/");
+            router.push("/login");
           }
           setIsCheckingAuth(false);
           return;
         }
 
         const merchant = AuthManager.getMerchantInfo();
-        console.log(merchant);
         if (!merchant) {
           toast({
             title: "Authentication required",
@@ -383,9 +307,9 @@ export default function DashboardPage() {
 
         await refetchMerchantInfo(); // Fetch balance on load
 
-        setmerchantwallet(merchant.walletAddress.toLowerCase());
+        setmerchantwallet(merchant.walletAddress.toLowerCase())      
 
-        setmerchantwallet(merchant.walletAddress.toLowerCase());
+        setmerchantwallet(merchant.walletAddress.toLowerCase())       
 
         // Verify wallet matches merchant
         if (merchant.walletAddress.toLowerCase() !== address.toLowerCase()) {
@@ -415,22 +339,6 @@ export default function DashboardPage() {
 
     checkAuth();
   }, [router, isConnected, address]);
-
-  // Set default merchant data for development (bypassing auth)
-  useEffect(() => {
-    setOriginalValues({
-      businessName: initialMerchantData.name,
-      phone: "",
-      defaultCurrency: initialMerchantData.defaultCurrency,
-      businessLogo: initialMerchantData.logo,
-    });
-
-    // Set default merchant wallet for development
-    setmerchantwallet("0x1234567890abcdef1234567890abcdef12345678");
-
-    // Skip wallet connection check for development
-    setIsCheckingAuth(false);
-  }, []);
 
   // Logo upload handler
   const handleLogoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -471,11 +379,9 @@ export default function DashboardPage() {
   const refetchMerchantInfo = async () => {
     try {
       const contractService = new ContractMerchantService(provider);
-      const contractMerchant = await contractService.getMerchant(
-        merchantwallet
-      );
+      const contractMerchant = await contractService.getMerchant(merchantwallet);
       console.log("contractMerchant", contractMerchant);
-
+      
       const balance = bigintToNumber(contractMerchant?.merchant?.usdc_balance);
       setAvailableBalance(balance);
       console.log("Fetched balance:", balance);
@@ -494,19 +400,13 @@ export default function DashboardPage() {
     const formData = new FormData();
     formData.append("logo", file);
 
-    // Commented out AuthManager for development - using regular fetch
-    // const response = await AuthManager.makeAuthenticatedRequest(
-    //   "/api/merchants/upload-logo",
-    //   {
-    //     method: "POST",
-    //     body: formData, // Don't set Content-Type header for FormData
-    //   }
-    // );
-
-    const response = await fetch("/api/merchants/upload-logo", {
-      method: "POST",
-      body: formData, // Don't set Content-Type header for FormData
-    });
+    const response = await AuthManager.makeAuthenticatedRequest(
+      "/api/merchants/upload-logo",
+      {
+        method: "POST",
+        body: formData, // Don't set Content-Type header for FormData
+      }
+    );
 
     if (!response.ok) {
       throw new Error("Failed to upload logo");
@@ -551,7 +451,6 @@ export default function DashboardPage() {
         local_currency: defaultCurrency,
       };
 
-      // Commented out AuthManager for development - using regular fetch
       const response = await AuthManager.makeAuthenticatedRequest(
         "/api/merchants/profile",
         {
@@ -562,14 +461,6 @@ export default function DashboardPage() {
           body: JSON.stringify(updates),
         }
       );
-
-      // const response = await fetch("/api/merchants/profile", {
-      //   method: "PUT",
-      //   headers: {
-      //     "Content-Type": "application/json",
-      //   },
-      //   body: JSON.stringify(updates),
-      // });
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -644,25 +535,16 @@ export default function DashboardPage() {
         phone: phone ? formatPhoneNumber(phone) : null,
       };
 
-      // Commented out AuthManager for development - using regular fetch
-      // const response = await AuthManager.makeAuthenticatedRequest(
-      //   "/api/merchants/profile",
-      //   {
-      //     method: "PUT",
-      //     headers: {
-      //       "Content-Type": "application/json",
-      //     },
-      //     body: JSON.stringify(updates),
-      //   }
-      // );
-
-      const response = await fetch("/api/merchants/profile", {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(updates),
-      });
+      const response = await AuthManager.makeAuthenticatedRequest(
+        "/api/merchants/profile",
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(updates),
+        }
+      );
 
       if (!response.ok) {
         const errorData = await response.json();
@@ -709,16 +591,11 @@ export default function DashboardPage() {
   // Prepare withdrawal calls (enabled only when dialog is open)
   const { calls: withdrawCalls } = useWithdrawMerchantCalls({
     amount: withdrawAmount,
-    enabled:
-      isWithdrawOpen && !!withdrawAmount && parseFloat(withdrawAmount) > 0,
+    enabled: isWithdrawOpen && !!withdrawAmount && parseFloat(withdrawAmount) > 0,
   });
 
   // Use paymaster for transaction (sponsored or free mode)
-  const {
-    executeTransaction: executeWithdraw,
-    isLoading: isWithdrawTxLoading,
-    paymentMode,
-  } = usePaymaster({
+  const { executeTransaction: executeWithdraw, isLoading: isWithdrawTxLoading, paymentMode } = usePaymaster({
     calls: withdrawCalls,
     enabled: !!withdrawCalls,
     onSuccess: (transactionHash: string) => {
@@ -780,8 +657,7 @@ export default function DashboardPage() {
       console.error("Withdrawal failed:", error);
       toast({
         title: "Withdrawal failed",
-        description:
-          error instanceof Error ? error.message : "An error occurred",
+        description: error instanceof Error ? error.message : "An error occurred",
         variant: "destructive",
       });
     } finally {
@@ -793,92 +669,45 @@ export default function DashboardPage() {
 
   if (isCheckingAuth) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
+      <div className="min-h-screen flex items-center justify-center">
         <div className="text-center">
           <Loader2 className="w-6 h-6 animate-spin mx-auto mb-2" />
-          <p className="text-muted-foreground">Checking authentication...</p>
+          <p className="text-gray-600">Checking authentication...</p>
         </div>
       </div>
     );
   }
 
-  // if (isSessionExpired) {
-  //   return (
-  //     <div className="min-h-screen flex items-center justify-center bg-background">
-  //       <div className="text-center">
-  //         <AlertCircle className="w-12 h-12 text-red-600 mx-auto mb-4" />
-  //         <h2 className="text-2xl font-bold text-foreground mb-2">
-  //           Session Expired
-  //         </h2>
-  //         <p className="text-muted-foreground mb-6">
-  //           Your session has expired or is invalid. Please log in again to
-  //           continue.
-  //         </p>
-  //         <Button
-  //           onClick={() => {
-  //             AuthManager.clearAuth();
-  //             router.push("/login");
-  //           }}
-  //           className="bg-gradient-to-r from-blue-600 to-purple-600"
-  //         >
-  //           Log In Again
-  //         </Button>
-  //       </div>
-  //     </div>
-  //   );
-  // }
+  if (isSessionExpired) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <AlertCircle className="w-12 h-12 text-red-600 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            Session Expired
+          </h2>
+          <p className="text-gray-600 mb-6">
+            Your session has expired or is invalid. Please log in again to
+            continue.
+          </p>
+          <Button
+            onClick={() => {
+              AuthManager.clearAuth();
+              router.push("/login");
+            }}
+            className="bg-gradient-to-r from-blue-600 to-purple-600"
+          >
+            Log In Again
+          </Button>
+        </div>
+      </div>
+    );
+  }
 
   const copyToClipboard = async (text: string, id: string) => {
     await navigator.clipboard.writeText(text);
     setCopiedItem(id);
     setTimeout(() => setCopiedItem(null), 2000);
-  };
-
-  // Export payments to CSV
-  const exportToCSV = () => {
-    if (payments.length === 0) {
-      toast({
-        title: "No data to export",
-        description: "There are no payments to export.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const headers = [
-      "Payment Ref",
-      "Amount",
-      "Token Paid",
-      "Chain",
-      "Status",
-      "Date",
-    ];
-    const csvContent = [
-      headers.join(","),
-      ...payments.map((payment) =>
-        [
-          payment.payment_ref,
-          `${payment.local_currency} ${payment.amount}`,
-          payment.tokenPaid,
-          payment.chain,
-          payment.status,
-          payment.created_at,
-        ].join(",")
-      ),
-    ].join("\n");
-
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute(
-      "download",
-      `payment_history_${new Date().toISOString().split("T")[0]}.csv`
-    );
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
   const filteredPayments = payments.filter((payment) => {
@@ -940,35 +769,23 @@ export default function DashboardPage() {
         description: "Please connect your wallet to continue.",
         variant: "destructive",
       });
-      // router.push("/login");
+      router.push("/login");
     }
   };
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
       {/* Header */}
-      <header className="border-b bg-background/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="container mx-auto px-4 h-16 flex items-center justify-between">
+      <header className="border-b bg-white/80 backdrop-blur-sm sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-4">
-            {/* <div className="flex-shrink-0"> */}
-            <Link href="/" className="flex items-center">
-              <Image
-                src="/egyptfi_logo-03.png"
-                alt="EGYPTFI"
-                width={840}
-                height={280}
-                className="h-56 w-auto dark:hidden"
-              />
-              <Image
-                src="/egyptfi_white-03.png"
-                alt="EGYPTFI"
-                width={840}
-                height={280}
-                className="h-56 w-auto hidden dark:block"
-              />
+            <Link href="/" className="flex items-center space-x-2">
+              <div className="w-8 h-8 bg-gradient-to-br from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
+                <span className="text-white font-bold text-sm">N</span>
+              </div>
+              <span className="text-xl font-bold text-gray-900">EgyptFi</span>
             </Link>
-            {/* </div> */}
-            <div className="hidden md:flex items-center space-x-2 text-sm text-muted-foreground">
+            <div className="hidden md:flex items-center space-x-2 text-sm text-gray-500">
               <span>/</span>
               <span>Dashboard</span>
             </div>
@@ -993,7 +810,7 @@ export default function DashboardPage() {
               )}
             </div>
 
-            <span className="font-medium text-foreground">{businessName}</span>
+            <span className="font-medium text-gray-900">{businessName}</span>
             {isConnected && (
               <Button
                 variant="outline"
@@ -1010,36 +827,11 @@ export default function DashboardPage() {
       </header>
 
       <div className="container mx-auto px-4 py-8 max-w-7xl">
-        {/* KYC Completion CTA - Only show if not verified */}
-        {kycStatus !== "verified" && (
-          <div className="mb-6">
-            <div className="bg-gradient-to-r from-primary to-yellow-600 rounded-lg p-6 text-center">
-              <h2 className="text-2xl font-bold text-primary-foreground mb-2">
-                Complete Your KYC
-              </h2>
-              <p className="text-primary-foreground/90 mb-4">
-                Verify your identity to unlock full access to all EgyptFi
-                features and increase your transaction limits.
-              </p>
-              <Button
-                onClick={() => setShowKycModal(true)}
-                className="bg-primary-foreground text-primary hover:bg-primary-foreground/90 font-semibold px-8 py-3"
-              >
-                Start KYC Verification
-              </Button>
-            </div>
-          </div>
-        )}
-
         <Tabs defaultValue="payments" className="w-full">
-          <TabsList className="grid w-full grid-cols-5">
+          <TabsList className="grid w-full grid-cols-4">
             <TabsTrigger value="payments" className="flex items-center">
               <CreditCard className="w-4 h-4 mr-2" />
               Payments
-            </TabsTrigger>
-            <TabsTrigger value="yields" className="flex items-center">
-              <Plane className="w-4 h-4 mr-2" />
-              Yields 
             </TabsTrigger>
             <TabsTrigger value="developer" className="flex items-center">
               <Code className="w-4 h-4 mr-2" />
@@ -1069,13 +861,13 @@ export default function DashboardPage() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">
+                      <p className="text-sm font-medium text-gray-600">
                         Available Balance
                       </p>
-                      <p className="text-2xl font-bold text-foreground">
+                      <p className="text-2xl font-bold text-gray-900">
                         {availableBalance.toFixed(1)} USDC
                       </p>
-                      <p className="text-xs text-muted-foreground mt-1">
+                      <p className="text-xs text-gray-500 mt-1">
                         Ready to withdraw
                       </p>
                     </div>
@@ -1089,9 +881,8 @@ export default function DashboardPage() {
                   >
                     <DialogTrigger asChild>
                       <Button
-                        className="w-full mt-4 bg-background text-foreground border-2"
-                        style={{ borderColor: "#d4af37" }}
-                        // disabled={availableBalance <= 0}
+                        className="w-full mt-4 bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700"
+                        disabled={availableBalance <= 0}
                       >
                         <ArrowDownToLine className="w-4 h-4 mr-2" />
                         Withdraw USDC
@@ -1170,8 +961,7 @@ export default function DashboardPage() {
                             <div className="flex justify-between">
                               <span className="text-gray-600">Destination</span>
                               <span className="font-medium font-mono text-xs">
-                                {merchantwallet.slice(0, 6)}...
-                                {merchantwallet.slice(-4)}
+                                {merchantwallet.slice(0, 6)}...{merchantwallet.slice(-4)}
                               </span>
                             </div>
                             {/* <div className="flex justify-between">
@@ -1192,24 +982,19 @@ export default function DashboardPage() {
                           <PaymentModeIndicator showDetails={false} />
                         )}
                         <Button
-                          onClick={handleWithdraw}
-                          disabled={
-                            isWithdrawing ||
-                            isWithdrawTxLoading ||
-                            !withdrawAmount
-                          }
-                          className="w-full bg-background text-foreground border-2"
-                          style={{ borderColor: "#d4af37" }}
-                        >
-                          {isWithdrawing || isWithdrawTxLoading ? (
-                            <>
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                              Withdrawing...
-                            </>
-                          ) : (
-                            "Withdraw Now"
-                          )}
-                        </Button>
+                            onClick={handleWithdraw}
+                            disabled={isWithdrawing || isWithdrawTxLoading || !withdrawAmount}
+                            className="w-full bg-gradient-to-r from-blue-600 to-purple-600"
+                          >
+                            {isWithdrawing || isWithdrawTxLoading ? (
+                              <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Withdrawing...
+                              </>
+                            ) : (
+                              "Withdraw Now"
+                            )}
+                          </Button>
                       </div>
                     </DialogContent>
                   </Dialog>
@@ -1219,12 +1004,11 @@ export default function DashboardPage() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">
+                      <p className="text-sm font-medium text-gray-600">
                         Total Payments
                       </p>
-                      <p className="text-2xl font-bold text-foreground">
-                        {/* ₦{totalBalance} */}
-                        {totalBalance}
+                      <p className="text-2xl font-bold text-gray-900">
+                        ₦{totalBalance}
                       </p>
                     </div>
                     <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
@@ -1237,12 +1021,11 @@ export default function DashboardPage() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">
+                      <p className="text-sm font-medium text-gray-600">
                         This Month
                       </p>
-                      <p className="text-2xl font-bold text-foreground">
-                        {monthBalance}
-                        {/* ₦{monthBalance} */}
+                      <p className="text-2xl font-bold text-gray-900">
+                        ₦{monthBalance}
                       </p>
                     </div>
                     <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
@@ -1255,12 +1038,10 @@ export default function DashboardPage() {
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-sm font-medium text-muted-foreground">
+                      <p className="text-sm font-medium text-gray-600">
                         Success Rate
                       </p>
-                      <p className="text-2xl font-bold text-foreground">
-                        {successRate}%
-                      </p>
+                      <p className="text-2xl font-bold text-gray-900">{successRate}%</p>
                     </div>
                     <div className="w-12 h-12 bg-purple-100 rounded-full flex items-center justify-center">
                       <Badge className="w-6 h-6 text-purple-600" />
@@ -1272,7 +1053,7 @@ export default function DashboardPage() {
 
             {/* Create Payment Button */}
             <div className="flex justify-between items-center">
-              <h2 className="text-2xl font-bold text-foreground">
+              <h2 className="text-2xl font-bold text-gray-900">
                 Payment Links
               </h2>
               <Dialog
@@ -1280,10 +1061,7 @@ export default function DashboardPage() {
                 onOpenChange={setIsCreatePaymentOpen}
               >
                 <DialogTrigger asChild>
-                  <Button
-                    className="bg-background text-foreground border-2"
-                    style={{ borderColor: "#d4af37" }}
-                  >
+                  <Button className="bg-gradient-to-r from-blue-600 to-purple-600">
                     <Plus className="w-4 h-4 mr-2" />
                     Create Payment Link
                   </Button>
@@ -1335,10 +1113,7 @@ export default function DashboardPage() {
                         }
                       />
                     </div>
-                    <Button
-                      className="w-full bg-background text-foreground border-2"
-                      style={{ borderColor: "#d4af37" }}
-                    >
+                    <Button className="w-full bg-gradient-to-r from-blue-600 to-purple-600">
                       Create Payment Link
                     </Button>
                   </div>
@@ -1369,12 +1144,7 @@ export default function DashboardPage() {
                   <SelectItem value="failed">Failed</SelectItem>
                 </SelectContent>
               </Select>
-              <Button
-                variant="outline"
-                className="bg-background text-foreground border-2"
-                style={{ borderColor: "#d4af37" }}
-                onClick={exportToCSV}
-              >
+              <Button variant="outline">
                 <Download className="w-4 h-4 mr-2" />
                 Export
               </Button>
@@ -1391,27 +1161,27 @@ export default function DashboardPage() {
               <CardContent className="p-0">
                 <div className="overflow-x-auto">
                   <table className="w-full">
-                    <thead className="border-b bg-muted/50">
+                    <thead className="border-b bg-gray-50">
                       <tr>
-                        <th className="text-left p-4 font-semibold text-foreground">
+                        <th className="text-left p-4 font-semibold text-gray-900">
                           Payment Ref
                         </th>
-                        <th className="text-left p-4 font-semibold text-foreground">
+                        <th className="text-left p-4 font-semibold text-gray-900">
                           Amount
                         </th>
-                        <th className="text-left p-4 font-semibold text-foreground">
+                        <th className="text-left p-4 font-semibold text-gray-900">
                           Token Paid
                         </th>
-                        <th className="text-left p-4 font-semibold text-foreground">
+                        <th className="text-left p-4 font-semibold text-gray-900">
                           Chain
                         </th>
-                        <th className="text-left p-4 font-semibold text-foreground">
+                        <th className="text-left p-4 font-semibold text-gray-900">
                           Status
                         </th>
-                        <th className="text-left p-4 font-semibold text-foreground">
+                        <th className="text-left p-4 font-semibold text-gray-900">
                           Date
                         </th>
-                        <th className="text-left p-4 font-semibold text-foreground">
+                        <th className="text-left p-4 font-semibold text-gray-900">
                           Actions
                         </th>
                       </tr>
@@ -1421,31 +1191,31 @@ export default function DashboardPage() {
                         filteredPayments.map((payment) => (
                           <tr
                             key={payment.payment_ref}
-                            className="border-b hover:bg-muted/50"
+                            className="border-b hover:bg-gray-50"
                           >
                             <td className="p-4">
                               <div>
-                                <code className="text-sm bg-muted px-2 py-1 rounded">
+                                <code className="text-sm bg-gray-100 px-2 py-1 rounded">
                                   {payment.payment_ref}
                                 </code>
-                                <p className="text-xs text-muted-foreground mt-1">
+                                <p className="text-xs text-gray-500 mt-1">
                                   {payment.description}
                                 </p>
                               </div>
                             </td>
                             <td className="p-4">
-                              <span className="font-medium text-foreground">
+                              <span className="font-medium">
                                 {payment.local_currency}{" "}
                                 {payment.amount.toLocaleString()}
                               </span>
                             </td>
                             <td className="p-4">
-                              <span className="font-medium text-foreground">
+                              <span className="font-medium">
                                 {payment.tokenPaid}
                               </span>
                             </td>
                             <td className="p-4">
-                              <span className="text-muted-foreground">
+                              <span className="text-gray-600">
                                 {payment.chain}
                               </span>
                             </td>
@@ -1455,7 +1225,7 @@ export default function DashboardPage() {
                               </Badge>
                             </td>
                             <td className="p-4">
-                              <span className="text-muted-foreground text-sm">
+                              <span className="text-gray-600 text-sm">
                                 {payment.created_at}
                               </span>
                             </td>
@@ -1509,15 +1279,11 @@ export default function DashboardPage() {
                         <tr>
                           <td
                             colSpan={7}
-                            className="p-6 text-center text-muted-foreground"
-                          >
-                            <ArrowDownToLine className="w-12 h-12 text-muted-foreground/50 mx-auto mb-4" />
-                            <p className="text-muted-foreground">
-                              No Payment yet
-                            </p>
-                            <p className="text-sm text-muted-foreground/70">
-                              Your Payment history will appear here
-                            </p>
+                            className="p-6 text-center text-gray-500"
+                          > 
+                            <ArrowDownToLine className="w-12 h-12 text-gray-300 mx-auto mb-4" />
+                            <p className="text-gray-500">No Payment yet</p>
+                            <p className="text-sm text-gray-400">Your Payment history will appear here</p> 
                           </td>
                         </tr>
                       )}
@@ -1530,20 +1296,8 @@ export default function DashboardPage() {
             {/* Withdrawal History */}
             <WithdrawalHistory />
 
-          </TabsContent>
-
-          {/* YIELD OPTIONS*/}
-          <TabsContent value="yields" className="space-y-6">
-            <div className="space-y-6">
-              <div className="flex items-center justify-between">
-                  <h3 className="text-xl font-semibold text-foreground">
-                    Yield Options
-                  </h3>
-              </div>
-            </div>
-
             {/* Yield Farming - Improved UX (Coming Soon) */}
-            <Card className="border border-dashed border-purple-200 bg-card">
+            <Card className="border border-dashed border-purple-200 bg-white">
               <CardHeader className="pb-2">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
@@ -1552,13 +1306,13 @@ export default function DashboardPage() {
                     </div>
                     <div>
                       <CardTitle>Invest in Yield</CardTitle>
-                      <p className="text-sm text-muted-foreground">
+                      <p className="text-sm text-gray-600">
                         Earn passive yield on idle USDC with on-chain
                         strategies.
                       </p>
                     </div>
                   </div>
-                  <Badge className="bg-muted text-muted-foreground">
+                  <Badge className="bg-gray-200 text-gray-800">
                     Coming Soon
                   </Badge>
                 </div>
@@ -1626,25 +1380,21 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  <div className="rounded-lg bg-muted/50 p-3">
-                    <p className="text-xs text-muted-foreground">Est. APY</p>
-                    <p className="font-semibold text-foreground">
+                  <div className="rounded-lg bg-gray-50 p-3">
+                    <p className="text-xs text-gray-500">Est. APY</p>
+                    <p className="font-semibold text-gray-900">
                       {strategyApy.toFixed(1)}%
                     </p>
                   </div>
-                  <div className="rounded-lg bg-muted/50 p-3">
-                    <p className="text-xs text-muted-foreground">
-                      Projected Monthly
-                    </p>
-                    <p className="font-semibold text-foreground">
+                  <div className="rounded-lg bg-gray-50 p-3">
+                    <p className="text-xs text-gray-500">Projected Monthly</p>
+                    <p className="font-semibold text-gray-900">
                       {projectedMonthly.toFixed(2)} USDC
                     </p>
                   </div>
-                  <div className="rounded-lg bg-muted/50 p-3">
-                    <p className="text-xs text-muted-foreground">
-                      Projected Yearly
-                    </p>
-                    <p className="font-semibold text-foreground">
+                  <div className="rounded-lg bg-gray-50 p-3">
+                    <p className="text-xs text-gray-500">Projected Yearly</p>
+                    <p className="font-semibold text-gray-900">
                       {projectedYearly.toFixed(2)} USDC
                     </p>
                   </div>
@@ -1652,8 +1402,7 @@ export default function DashboardPage() {
                 <div className="mt-4 grid gap-2 sm:grid-cols-2">
                   <Button
                     disabled
-                    style={{ backgroundColor: "#d4af37" }}
-                    className="disabled:opacity-70"
+                    className="bg-gradient-to-r from-blue-600 to-purple-600 disabled:opacity-70"
                   >
                     <Lock className="w-4 h-4 mr-2" />
                     Invest (Coming Soon)
@@ -1731,10 +1480,9 @@ export default function DashboardPage() {
             </Card>
           </TabsContent>
 
-
           {/* Developer Tab */}
           <TabsContent value="developer" className="space-y-6">
-            <DeveloperTab webhook={webhookUrl} /> 
+            <DeveloperTab webhook={webhookUrl} />
           </TabsContent>
 
           {/* Branding Tab */}
@@ -1817,8 +1565,6 @@ export default function DashboardPage() {
                             variant="outline"
                             onClick={() => fileInputRef.current?.click()}
                             disabled={isUploadingLogo}
-                            className="bg-background text-foreground border-2"
-                            style={{ borderColor: "#d4af37" }}
                           >
                             <Upload className="w-4 h-4 mr-2" />
                             {logoPreview ? "Change Logo" : "Upload Logo"}
@@ -1828,8 +1574,6 @@ export default function DashboardPage() {
                               variant="outline"
                               onClick={handleRemoveLogo}
                               disabled={isUploadingLogo}
-                              className="bg-background text-foreground border-2"
-                              style={{ borderColor: "#d4af37" }}
                             >
                               <X className="w-4 h-4" />
                             </Button>
@@ -1856,11 +1600,11 @@ export default function DashboardPage() {
                   </div>
                 </div>
 
-                <div className="bg-muted/50 rounded-lg p-6">
-                  <h3 className="font-semibold text-foreground mb-4">
+                <div className="bg-gray-50 rounded-lg p-6">
+                  <h3 className="font-semibold text-gray-900 mb-4">
                     Payment Page Preview
                   </h3>
-                  <div className="bg-card rounded-lg p-6 border max-w-md mx-auto">
+                  <div className="bg-white rounded-lg p-6 border max-w-md mx-auto">
                     <div className="flex items-center space-x-3 mb-4">
                       <div className="w-12 h-12 bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg flex items-center justify-center text-lg overflow-hidden">
                         {logoPreview ? (
@@ -1881,16 +1625,14 @@ export default function DashboardPage() {
                         )}
                       </div>
                       <div>
-                        <h4 className="font-semibold text-foreground">
+                        <h4 className="font-semibold text-gray-900">
                           {businessName}
                         </h4>
-                        <p className="text-sm text-muted-foreground">
-                          Payment Invoice
-                        </p>
+                        <p className="text-sm text-gray-500">Payment Invoice</p>
                       </div>
                     </div>
                     <div className="text-center">
-                      <p className="text-2xl font-bold text-foreground">
+                      <p className="text-2xl font-bold text-gray-900">
                         {defaultCurrency === "NGN"
                           ? "₦"
                           : defaultCurrency === "USD"
@@ -1906,9 +1648,7 @@ export default function DashboardPage() {
                           : ""}
                         5,000
                       </p>
-                      <p className="text-sm text-muted-foreground">
-                        ≈ 3.2 USDC
-                      </p>
+                      <p className="text-sm text-gray-500">≈ 3.2 USDC</p>
                     </div>
                   </div>
                 </div>
@@ -1921,8 +1661,7 @@ export default function DashboardPage() {
                       isUpdatingProfile ||
                       isUploadingLogo
                     }
-                    className="flex-1 bg-background text-foreground border-2"
-                    style={{ borderColor: "#d4af37" }}
+                    className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600"
                   >
                     {isUpdatingProfile ? (
                       <>
@@ -1946,8 +1685,6 @@ export default function DashboardPage() {
                         handleRemoveLogo();
                       }}
                       disabled={isUpdatingProfile}
-                      className="bg-background text-foreground border-2"
-                      style={{ borderColor: "#d4af37" }}
                     >
                       Reset
                     </Button>
@@ -1984,7 +1721,7 @@ export default function DashboardPage() {
                       onChange={(e) => setEmail(e.target.value)}
                       disabled
                     />
-                    <p className="text-sm text-muted-foreground mt-1">
+                    <p className="text-sm text-gray-500 mt-1">
                       Email cannot be changed from this dashboard
                     </p>
                   </div>
@@ -2001,7 +1738,7 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="border-t pt-6">
-                  <h3 className="font-semibold text-foreground mb-4">
+                  <h3 className="font-semibold text-gray-900 mb-4">
                     Notification Preferences
                   </h3>
                   <div className="space-y-3">
@@ -2011,7 +1748,7 @@ export default function DashboardPage() {
                         defaultChecked
                         className="rounded"
                       />
-                      <span className="text-sm text-foreground">
+                      <span className="text-sm">
                         Email notifications for successful payments
                       </span>
                     </label>
@@ -2021,13 +1758,13 @@ export default function DashboardPage() {
                         defaultChecked
                         className="rounded"
                       />
-                      <span className="text-sm text-foreground">
+                      <span className="text-sm">
                         Email notifications for failed payments
                       </span>
                     </label>
                     <label className="flex items-center space-x-3">
                       <input type="checkbox" className="rounded" />
-                      <span className="text-sm text-foreground">
+                      <span className="text-sm">
                         Weekly payment summary reports
                       </span>
                     </label>
@@ -2035,7 +1772,7 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="border-t pt-6">
-                  <h3 className="font-semibold text-foreground mb-4">
+                  <h3 className="font-semibold text-gray-900 mb-4">
                     Withdrawal Settings
                   </h3>
                   <div className="space-y-4">
@@ -2050,7 +1787,7 @@ export default function DashboardPage() {
                         className="font-mono text-sm"
                         disabled
                       />
-                      <p className="text-sm text-muted-foreground mt-1">
+                      <p className="text-sm text-gray-500 mt-1">
                         USDC withdrawals will be sent to this StarkNet wallet
                         address
                       </p>
@@ -2073,8 +1810,7 @@ export default function DashboardPage() {
                   <Button
                     onClick={handleUpdateSettings}
                     disabled={!hasSettingsChanges || isUpdatingSettings}
-                    className="flex-1 bg-background text-foreground border-2"
-                    style={{ borderColor: "#d4af37" }}
+                    className="flex-1 bg-gradient-to-r from-blue-600 to-purple-600"
                   >
                     {isUpdatingSettings ? (
                       <>
@@ -2095,8 +1831,6 @@ export default function DashboardPage() {
                         setPhone(originalValues.phone);
                       }}
                       disabled={isUpdatingSettings}
-                      className="bg-background text-foreground border-2"
-                      style={{ borderColor: "#d4af37" }}
                     >
                       Reset
                     </Button>
@@ -2107,155 +1841,17 @@ export default function DashboardPage() {
           </TabsContent>
         </Tabs>
 
-        {/* // Wallet Modal
+        {/* Wallet Modal */}
         <WalletModal
           isOpen={showWalletModal}
           onClose={handleWalletModalClose}
-        /> */}
+        />
 
         {/* Account Modal */}
         <AccountModal
           isOpen={showAccountModal}
           onClose={() => setShowAccountModal(false)}
         />
-
-        {/* KYC Modal */}
-        <Dialog open={showKycModal} onOpenChange={setShowKycModal}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle className="text-center">
-                Complete Your KYC
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-6">
-              <div className="text-center">
-                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                  <Shield className="h-8 w-8 text-primary" />
-                </div>
-                <h3 className="text-lg font-semibold text-foreground mb-2">
-                  Identity Verification Required
-                </h3>
-                <p className="text-muted-foreground text-sm">
-                  To comply with regulations and unlock full platform features,
-                  we need to verify your identity.
-                </p>
-              </div>
-
-              <div className="space-y-4">
-                <div className="bg-muted/50 rounded-lg p-4">
-                  <h4 className="font-medium text-foreground mb-2">
-                    What you'll need:
-                  </h4>
-                  <ul className="text-sm text-muted-foreground space-y-1">
-                    <li>• Government-issued ID (passport, driver's license)</li>
-                    <li>• Proof of address (utility bill, bank statement)</li>
-                    <li>• Selfie with your ID</li>
-                  </ul>
-                </div>
-
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                  <h4 className="font-medium text-green-900 mb-2">
-                    Benefits of KYC:
-                  </h4>
-                  <ul className="text-sm text-green-800 space-y-1">
-                    <li>• Higher transaction limits</li>
-                    <li>• Access to advanced features</li>
-                    <li>• Enhanced security</li>
-                    <li>• Priority support</li>
-                  </ul>
-                </div>
-              </div>
-
-              <div className="flex gap-3">
-                <Button
-                  variant="outline"
-                  onClick={() => setShowKycModal(false)}
-                  className="flex-1"
-                >
-                  Maybe Later
-                </Button>
-                <Button
-                  onClick={() => {
-                    setShowKycModal(false);
-                    setShowKycTypeModal(true);
-                  }}
-                  className="flex-1 bg-primary hover:bg-primary/90"
-                >
-                  Start Verification
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-
-        {/* KYC Type Selection Modal */}
-        <Dialog open={showKycTypeModal} onOpenChange={setShowKycTypeModal}>
-          <DialogContent className="sm:max-w-md">
-            <DialogHeader>
-              <DialogTitle className="text-center">
-                Select Verification Type
-              </DialogTitle>
-            </DialogHeader>
-            <div className="space-y-6">
-              <div className="text-center">
-                <p className="text-muted-foreground text-sm">
-                  Choose the type of verification that applies to you
-                </p>
-              </div>
-
-              <div className="space-y-4">
-                <Button
-                  onClick={() => {
-                    setShowKycTypeModal(false);
-                    router.push("/kyc?type=individual");
-                  }}
-                  className="w-full h-auto p-6 flex flex-col items-center space-y-3 bg-background text-foreground border-2 hover:bg-muted/50"
-                  style={{ borderColor: "#d4af37" }}
-                  variant="outline"
-                >
-                  <div className="w-12 h-12 bg-blue-100 rounded-full flex items-center justify-center">
-                    <Shield className="w-6 h-6 text-blue-600" />
-                  </div>
-                  <div className="text-center">
-                    <h3 className="font-semibold text-lg">Individual</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Personal identity verification for individual users
-                    </p>
-                  </div>
-                </Button>
-
-                <Button
-                  onClick={() => {
-                    setShowKycTypeModal(false);
-                    router.push("/kyc?type=business");
-                  }}
-                  className="w-full h-auto p-6 flex flex-col items-center space-y-3 bg-background text-foreground border-2 hover:bg-muted/50"
-                  style={{ borderColor: "#d4af37" }}
-                  variant="outline"
-                >
-                  <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
-                    <Shield className="w-6 h-6 text-green-600" />
-                  </div>
-                  <div className="text-center">
-                    <h3 className="font-semibold text-lg">Business</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Business entity verification for companies and
-                      organizations
-                    </p>
-                  </div>
-                </Button>
-              </div>
-
-              <Button
-                variant="outline"
-                onClick={() => setShowKycTypeModal(false)}
-                className="w-full"
-              >
-                Cancel
-              </Button>
-            </div>
-          </DialogContent>
-        </Dialog>
       </div>
     </div>
   );

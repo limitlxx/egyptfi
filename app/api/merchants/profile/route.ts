@@ -77,6 +77,9 @@ export async function PUT(request: NextRequest) {
   try {
     // Get authentication headers
     const { apiKey, environment } = getAuthHeaders(request);
+
+    console.log("PUT request received with headers:", { apiKey, environment });
+    
     
     if (!apiKey || !environment) {
       return NextResponse.json(

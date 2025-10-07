@@ -36,6 +36,7 @@ import { useUser, useAuth, useSignUp } from "@clerk/nextjs";
 import { useCreateWallet, useCallAnyContract } from "@chipi-stack/chipi-react";
 import { AuthManager } from "@/lib/auth-utils";
 
+
 interface SignupModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -80,6 +81,7 @@ export const SignupModal: React.FC<SignupModalProps> = ({
   const { getToken } = useAuth();
   const { signUp, isLoaded, setActive } = useSignUp();
   const { callAnyContractAsync, data } = useCallAnyContract();
+const [isResending, setIsResending] = useState(false);
 
   const CONTRACT_ADDRESS =
     process.env.NEXT_PUBLIC_EGYPT_MAINNET_CONTRACT_ADDRESS ||
@@ -247,6 +249,9 @@ export const SignupModal: React.FC<SignupModalProps> = ({
         // Handle email verification requirement
         console.log("Email verification required");
 
+        // Prepare and send the verification email
+        await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
+
         // Show email verification step
         setCurrentStep("email-verification");
 
@@ -325,6 +330,9 @@ export const SignupModal: React.FC<SignupModalProps> = ({
 
   const resendVerificationEmail = async () => {
     if (!signupAttempt || !isLoaded || !signUp) return;
+
+    setIsResending(true);
+    setError("");
 
     try {
       await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
@@ -593,9 +601,10 @@ export const SignupModal: React.FC<SignupModalProps> = ({
                 <button
                   type="button"
                   onClick={resendVerificationEmail}
-                  className="text-sm text-primary hover:underline"
+                  disabled={isResending}
+                  className="text-sm text-primary hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Didn't receive the code? Resend
+                  {isResending ? "Sending..." : "Didn't receive the code? Resend"}
                 </button>
               </div>
             </div>

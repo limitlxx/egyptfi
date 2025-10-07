@@ -117,14 +117,16 @@ export class AuthManager {
     const keys = this.getApiKeys(currentEnv);
     const merchant = this.getMerchantInfo();
 
+    console.log("Making authenticated request with keys:", keys);    
+
     if (!keys?.publicKey || !merchant?.walletAddress) {
       throw new Error("No public key or wallet address found");
     }
 
     const headers = {
       ...options.headers,
-      "X-API-Key": keys.publicKey,
-      "X-Wallet-Address": merchant.walletAddress,
+      "x-api-key": keys.publicKey,
+      // "X-Wallet-Address": merchant.walletAddress,
       "X-Environment": currentEnv,
     };
 
