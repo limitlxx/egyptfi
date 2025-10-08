@@ -1,5 +1,6 @@
 // lib/auth-helpers.ts
 import pool from '@/lib/db';
+import { log } from 'console';
 
 interface AuthResult {
   success: boolean;
@@ -20,6 +21,8 @@ export async function authenticateApiKey(
   try {
     const client = await pool.connect();
     try {
+      console.log('Authenticating API key:', { apiKey, environment });
+      
       // Verify the API key belongs to the merchant with the given wallet address
       const result = await client.query(
         `SELECT 
@@ -34,6 +37,9 @@ export async function authenticateApiKey(
         [apiKey]
       );
 
+      console.log('Auth query result:', result.rows);
+      
+
       if (result.rows.length === 0) {
         return {
           success: false,
@@ -44,13 +50,13 @@ export async function authenticateApiKey(
       const merchant = result.rows[0];
 
       // Verify environment matches key prefix
-      const expectedEnv = apiKey.startsWith('pk_test_') ? 'testnet' : 'mainnet';
-      if (environment !== expectedEnv) {
-        return {
-          success: false,
-          error: 'Environment mismatch with API key'
-        };
-      }
+      // const expectedEnv = apiKey.startsWith('pk_test_') ? 'testnet' : 'mainnet';
+      // if (environment !== expectedEnv) {
+      //   return {
+      //     success: false,
+      //     error: 'Environment mismatch with API key'
+      //   };
+      // }
 
       return {
         success: true,

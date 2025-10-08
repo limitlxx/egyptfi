@@ -16,6 +16,7 @@ import Link from "next/link";
 import { Navbar } from "@/components/navbar";
 import { Footer } from "@/components/footer";
 import PrismBackground from "@/components/prism-background";
+import { get_payment } from "@/services/paymentService";
 
 export default function InvoicePage() {
   const params = useParams();
@@ -52,54 +53,23 @@ export default function InvoicePage() {
       setIsLoading(true);
 
       // Fetch invoice data from the GET endpoint defined in route.ts
-      const response = await fetch(
-        `/api/payments/initiate?payment_ref=${payment_ref}`
-      );
-
-      // Comment out error handling for testing
-      // if (!response.ok) {
-      //   if (response.status === 404) {
-      //     setError("Payment not found or has expired");
-      //   } else {
-      //     setError("Failed to load payment information");
-      //   }
-      //   return;
-      // }
-
-      // const result = await response.json();
-      // const invoice = result.data;
-
-      // Use dummy data for testing
-      const invoice = {
-        merchant_name: "Demo Store",
-        merchant_logo: "🛒",
-        amount: 100,
-        currency: "NGN",
-        description: "Demo Purchase",
-        payment_ref: payment_ref,
-        secondary_endpoint: "http://localhost:3000/confirm",
-        qrCode: null,
-        paymentUrl: `http://localhost:3000/pay?ref=${payment_ref}`,
-        walletUrl: `http://localhost:3000/pay?ref=${payment_ref}`,
-        created_at: new Date().toISOString(),
-        status: "pending",
-      };
+      const invoice = await get_payment(payment_ref);
 
       // Check if invoice has expired (24 hours)
       const createdAt = new Date(invoice.created_at);
       const expiryTime = new Date(createdAt.getTime() + 24 * 60 * 60 * 1000);
 
       // TRY AGAIN
-      // if (new Date() > expiryTime) {
-      //   setError("This payment link has expired");
-      //   return;
-      // }
+      if (new Date() > expiryTime) {
+        setError("This payment link has expired");
+        return;
+      }
 
       // Check if already paid
-      // if (invoice.status === "paid") {
-      //   router.push(`/confirm?ref=${payment_ref}`);
-      //   return;
-      // }
+      if (invoice.status === "paid") {
+        router.push(`/confirm?ref=${payment_ref}`);
+        return;
+      }
 
       // Format currency symbol based on currency code
       const currencySymbol = invoice.currency === "NGN" ? "₦" : "$";

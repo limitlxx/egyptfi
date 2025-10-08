@@ -10,6 +10,7 @@ import { ShoppingCart } from "@/components/shopping-cart";
 import { Loader2, AlertCircle, Zap } from "lucide-react";
 import Link from "next/link";
 import PrismBackground from "@/components/prism-background";
+import { initiate_payment } from "@/services/paymentService";
 
 export default function DemoPage() {
   const [showSignupModal, setShowSignupModal] = useState(false);
@@ -85,50 +86,34 @@ export default function DemoPage() {
     setIsInitiating(true);
     setError(null);
 
-    // Comment out API call for testing modal
-    // try {
-    //   const response = await fetch("/api/payments/initiate", {
-    //     method: "POST",
-    //     headers: {
-    //       "X-API-Key": "pk_test_6ed622bcc595a78b06a765e35be3be7a", // Mock API key for demo
-    //       "X-Wallet-Address":
-    //         "0x74987eb3d45bb7d9dbd23f766d42786ac8e883af72ff6e34275ca74b3d897b7", // Mock wallet address
-    //       "X-Environment": "testnet",
-    //       "Content-Type": "application/json",
-    //     },
-    //     body: JSON.stringify({
-    //       payment_ref: `order-${Date.now()}`,
-    //       local_amount: cartType === "ecommerce" ? 100 : 1000,
-    //       local_currency: "NGN",
-    //       description:
-    //         cartType === "ecommerce" ? "Ecommerce Purchase" : "Game Purchase",
-    //       chain: "starknet",
-    //       secondary_endpoint: "http://localhost:3000/confirm",
-    //       email: "demo@egyptfi.com",
-    //     }),
-    //   });
+    try {
+      const paymentData = await initiate_payment({
+        payment_ref: `egyptfi-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        local_amount: cartType === "ecommerce" ? 100 : 15000,
+        local_currency: "NGN",
+        description:
+          cartType === "ecommerce" ? "Ecommerce Purchase" : "Game Purchase",
+        chain: "starknet",
+        secondary_endpoint: "https://yourapp.com/webhook",
+        email: "customer@example.com",
+        api_key: "pk_test_...",
+        wallet_address: "0x...",
+      });
 
-    //   if (!response.ok) {
-    //     const errorData = await response.json();
-    //     throw new Error(errorData.error || "Failed to initiate payment");
-    //   }
-
-    //   const { authorization_url } = await response.json();
-
-    //   // Redirect to hosted payment page
-    //   window.location.href = authorization_url;
-    // } catch (err) {
-    //   console.error("Payment initiation error:", err);
-    //   setError(
-    //     err instanceof Error ? err.message : "Failed to initiate payment"
-    //   );
-    // } finally {
-    //   setIsInitiating(false);
-    // }
+      // Redirect to hosted payment page
+      window.location.href = paymentData.authorization_url;
+    } catch (err) {
+      console.error("Payment initiation error:", err);
+      setError(
+        err instanceof Error ? err.message : "Failed to initiate payment"
+      );
+    } finally {
+      setIsInitiating(false);
+    }
 
     // For testing modal, redirect to invoice page
-    const paymentRef = `order-${Date.now()}`;
-    window.location.href = `/invoice/${paymentRef}`;
+    // const paymentRef = `order-${Date.now()}`;
+    // window.location.href = `/invoice/${paymentRef}`;
     setIsInitiating(false);
   };
 

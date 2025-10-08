@@ -39,8 +39,11 @@ export async function POST(request: NextRequest) {
   try {
     // Get authentication headers
     const { apiKey, environment } = getAuthHeaders(request)
+
+    console.log("Headers:", { apiKey, environment });
     
-    if (!apiKey || !environment) {
+    
+    if (!apiKey) {
       return NextResponse.json(
         { error: 'Missing authentication headers' },
         { status: 401 }
@@ -73,12 +76,18 @@ export async function POST(request: NextRequest) {
     } = validatedData
 
     // Check if payment_ref already exists for this merchant
-    const client = await pool.connect()
+    if (payment_ref.length < 5) {
+      var ref = `egyptfi-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+    } else {
+      var ref = payment_ref
+    }
+    const client = await pool.connect();
+
     try {
       const existingInvoice = await client.query(
         `SELECT *, m.business_name, m.business_logo, m.business_email, m.webhook FROM invoices i
             JOIN merchants m ON i.merchant_id = m.id WHERE i.merchant_id = $1 AND i.payment_ref = $2`,
-        [authResult.merchant!.id, payment_ref]
+        [authResult.merchant!.id, ref]
       )
 
       if (existingInvoice.rows.length > 0) {
@@ -96,8 +105,8 @@ export async function POST(request: NextRequest) {
       }
 
       // Create the hosted payment URL
-      const hostedUrl = `${process.env.NEXT_PUBLIC_APP_URL}/invoice/${payment_ref}`
-      const paymentUrl = `${process.env.NEXT_PUBLIC_APP_URL}/pay?ref=${payment_ref}`
+      const hostedUrl = `${process.env.NEXT_PUBLIC_APP_URL}/invoice/${ref}`
+      const paymentUrl = `${process.env.NEXT_PUBLIC_APP_URL}/pay?ref=${ref}`
       
       // Generate QR code for the hosted URL
       const qrCode = await generateQRCode(paymentUrl)
@@ -105,9 +114,12 @@ export async function POST(request: NextRequest) {
       // Calculate expiry time (24 hours from now)
       const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000)  
 
-      const feeRate = 0.0108;   // 1.08%
+      const feeRate = 0.005;   // 1.08%
 
       const total_amount = local_amount + local_amount * feeRate;
+      
+      console.log({ total_amount, local_amount, fee: local_amount * feeRate });
+      
 
       // Insert new invoice into database using your existing schema
       const result = await client.query(
@@ -117,7 +129,7 @@ export async function POST(request: NextRequest) {
          RETURNING *`,
         [
           authResult.merchant!.id,
-          payment_ref,
+          ref,
           total_amount,
           local_currency,
           description || null,
@@ -151,11 +163,16 @@ export async function POST(request: NextRequest) {
         })
       }
 
+      console.log('Payment initiated:', { ref, amount: total_amount, currency: local_currency, merchant_id: authResult.merchant!.id });      
+
+      console.log('invoice:', invoice);
+      
+
       // Return the response in the exact format you requested
       return NextResponse.json({
-        reference: payment_ref,
+        reference: invoice.payment_ref,
         authorization_url: hostedUrl,
-        qr_code: qrCode,
+        qr_code: invoice.qr_url,
         expires_at: expiresAt.toISOString()
       }, { status: 201 })
 
