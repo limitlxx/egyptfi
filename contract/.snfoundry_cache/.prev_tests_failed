@@ -1,2 +1,1 @@
-safebox_integrationtest::test_contract::tests::test_process_payment_not_found
 safebox_integrationtest::test_contract::tests::test_refund_payment

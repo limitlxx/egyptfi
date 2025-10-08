@@ -509,7 +509,7 @@ pub mod EgyptFi {
 
         let mut merchant = self.merchants.read(caller);
         assert(merchant.usdc_balance >= payment.usdc_amount, 'Insufficient merchant balance');
-        //NOTE: merchant usd bal will b lower than payment usd bal since platform fee taken
+        //NOTE: merchant usd bal will be lower than payment usd bal since platform fee taken
 
         merchant.usdc_balance -= payment.usdc_amount; //NOTE: will cause an underflow since merchant usd bal lower than payment usd bal
         self.merchants.write(caller, merchant);
@@ -582,11 +582,15 @@ pub mod EgyptFi {
         self.ownable.assert_only_owner();
         assert(new_fee_percentage <= 500, 'Fee too high'); // Max 5%
         self.platform_fee_percentage.write(new_fee_percentage);
+
+        //NOTE: no event emitted for platform fee update
     }
 
     fn update_min_payment_amount(ref self: ContractState, new_min_amount: u256) {
         self.ownable.assert_only_owner();
         self.min_payment_amount_usd.write(new_min_amount);
+
+        //NOTE: no event emitted for min payment amount update
     }
 
     fn is_paused(self: @ContractState) -> bool {
