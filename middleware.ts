@@ -16,6 +16,8 @@ const isPublicApiRoute = createRouteMatcher([
   "/api/merchants/login",
   "/api/merchants/check",
   "/api/merchants/update-wallet",
+  "/api/merchants/kyc/submit",
+  "/api/merchants/kyc/verify",
 ]);
 
 export default clerkMiddleware(async (auth, request) => {
@@ -36,7 +38,11 @@ export default clerkMiddleware(async (auth, request) => {
     const environment = request.headers.get("x-environment");
 
     // Basic header validation - detailed auth will be done in each API route
-    if (!apiKey || !environment) {
+    console.log("Request received with headers:", request.headers);
+    
+    console.log("API request received with headers:", { apiKey, environment });
+    
+    if (!apiKey) {
       return NextResponse.json(
         { error: "API key and environment headers required" },
         { status: 401 }

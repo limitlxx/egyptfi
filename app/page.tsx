@@ -7,13 +7,19 @@ import { FeaturesSection } from "@/components/features-section";
 import { PreFooter } from "@/components/pre-footer";
 import { Footer } from "@/components/footer";
 import { SignupModal } from "@/components/signup-modal";
+import { LoginModal } from "@/components/signin-modal";
 import PrismBackground from "@/components/prism-background";
 
 export default function HomePage() {
   const [showSignupModal, setShowSignupModal] = useState(false);
+  const [showLoginModal, setShowLoginModal] = useState(false);
 
   const handleGetStarted = () => {
     setShowSignupModal(true);
+  };
+
+  const handleLogin = () => {
+    setShowLoginModal(true);
   };
 
   const scrollToSection = (sectionId: string) => {
@@ -52,6 +58,7 @@ export default function HomePage() {
       {/* Navbar */}
       <Navbar
         onGetStarted={handleGetStarted}
+        onLogin={handleLogin}
         onScrollToSection={scrollToSection}
       />
 
@@ -71,6 +78,16 @@ export default function HomePage() {
       <SignupModal
         isOpen={showSignupModal}
         onClose={() => setShowSignupModal(false)}
+      />
+
+      {/* Login Modal */}
+      <LoginModal
+        isOpen={showLoginModal}
+        onClose={() => setShowLoginModal(false)}
+        onSwitchToSignup={() => {
+          setShowLoginModal(false);
+          setShowSignupModal(true);
+        }}
       />
     </div>
   );

@@ -34,12 +34,18 @@ import {
 
 import { useUser, useAuth, useSignUp } from "@clerk/nextjs";
 import { useCreateWallet, useCallAnyContract } from "@chipi-stack/chipi-react";
-import { keccak256, toUtf8Bytes } from "ethers";
+import { AuthManager } from "@/lib/auth-utils";
+
 
 interface SignupModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
+
+type WalletData = {
+  publicKey: string;
+  encryptedPrivateKey: string;
+};
 
 type SignupStep = "email" | "pin" | "confirm" | "email-verification" | "wallet";
 
@@ -75,20 +81,27 @@ export const SignupModal: React.FC<SignupModalProps> = ({
   const { getToken } = useAuth();
   const { signUp, isLoaded, setActive } = useSignUp();
   const { callAnyContractAsync, data } = useCallAnyContract();
+const [isResending, setIsResending] = useState(false);
 
   const CONTRACT_ADDRESS =
-    process.env.NEXT_PUBLIC_EGYPT_SEPOLIA_CONTRACT_ADDRESS ||
-    "0x02680191ae87ed05ee564c8e468495c760ba1764065de451fe51bb097e64d062";
+    process.env.NEXT_PUBLIC_EGYPT_MAINNET_CONTRACT_ADDRESS ||
+    "0x04bb1a742ac72a9a72beebe1f608c508fce6dfa9250b869018b6e157dccb46e8";
 
-  // Helper: hash merchant metadata
+  // Helper: prepare merchant metadata
+  // NOTE: The contract ABI declares `metadata_hash` as a ByteArray. The
+  // Starknet JS ABI encoder expects a plain string for ByteArray parameters
+  // and will convert it internally. Passing the internal byteArray object
+  // (the result of byteArrayFromString) causes runtime deserialization
+  // errors. So we return the raw JSON string here and let the encoder
+  // perform the ByteArray packing.
   const getMetadataHash = (merchant: any) => {
     const metadataString = JSON.stringify({
       email: merchant.business_email,
       business_name: merchant.business_name || "New Business",
       business_type: merchant.business_type || "retail",
     });
-  
-    return keccak256(toUtf8Bytes(metadataString));
+
+    return metadataString;
   };
 
   const steps = [
@@ -236,6 +249,9 @@ export const SignupModal: React.FC<SignupModalProps> = ({
         // Handle email verification requirement
         console.log("Email verification required");
 
+        // Prepare and send the verification email
+        await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
+
         // Show email verification step
         setCurrentStep("email-verification");
 
@@ -315,6 +331,9 @@ export const SignupModal: React.FC<SignupModalProps> = ({
   const resendVerificationEmail = async () => {
     if (!signupAttempt || !isLoaded || !signUp) return;
 
+    setIsResending(true);
+    setError("");
+
     try {
       await signUp.prepareEmailAddressVerification({ strategy: "email_code" });
       setError("");
@@ -383,7 +402,6 @@ export const SignupModal: React.FC<SignupModalProps> = ({
         );
 
         console.log("CreateWallet Result", walletResult);
-        
 
         if (walletResult.success) {
           // 🔑 Get withdrawal address from created wallet
@@ -398,11 +416,22 @@ export const SignupModal: React.FC<SignupModalProps> = ({
             metadataHash,
           });
 
+          console.log("PIN MODDAL", signupData.pin);
+
+          if (!walletResult.publicKey || !walletResult.secretKey) {
+            throw new Error("Wallet generation failed: missing keys");
+          }
+
+          const walletData: WalletData = {
+            publicKey: walletResult.publicKey,
+            encryptedPrivateKey: walletResult.secretKey,
+          };
+
           // Call smart contract
           await callAnyContractAsync({
             params: {
               encryptKey: signupData.pin,
-              wallet: withdrawalAddress,
+              wallet: walletData as any,
               contractAddress: CONTRACT_ADDRESS,
               calls: [
                 {
@@ -414,8 +443,41 @@ export const SignupModal: React.FC<SignupModalProps> = ({
             },
             bearerToken: token ?? "",
           });
+          console.log(merchantData);
+          console.log(signupData);
+          console.log("wallet result", walletResult);
+          console.log("wallet response", walletResult.walletResponse);
+          // set Auth
+          AuthManager.setMerchantInfo({
+            id: merchantData.merchant.id,
+            businessEmail: merchantData.merchant.business_email,
+            walletAddress:
+              walletResult?.walletResponse?.wallet?.publicKey ?? "",
+          });
+          AuthManager.setApiKeys("testnet", {
+            publicKey: walletResult?.apiKey ?? "",
+            // secretKey:
+            //   walletResult.walletResponse?.wallet?.encryptedPrivateKey ?? "",
+          });
+          AuthManager.setCurrentEnvironment("testnet");
+          // Call smart contract
+          // await callAnyContractAsync({
+          //   params: {
+          //     encryptKey: signupData.pin,
+          //     wallet: withdrawalAddress,
+          //     contractAddress: CONTRACT_ADDRESS,
+          //     calls: [
+          //       {
+          //         contractAddress: CONTRACT_ADDRESS,
+          //         entrypoint: "register_merchant",
+          //         calldata: [withdrawalAddress, metadataHash],
+          //       },
+          //     ],
+          //   },
+          //   bearerToken: token ?? "",
+          // });
 
-          console.log("✅ Merchant successfully registered on-chain!");
+          // console.log("✅ Merchant successfully registered on-chain!");
 
           // Success - redirect to dashboard
           setTimeout(() => {
@@ -539,9 +601,10 @@ export const SignupModal: React.FC<SignupModalProps> = ({
                 <button
                   type="button"
                   onClick={resendVerificationEmail}
-                  className="text-sm text-primary hover:underline"
+                  disabled={isResending}
+                  className="text-sm text-primary hover:underline disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  Didn't receive the code? Resend
+                  {isResending ? "Sending..." : "Didn't receive the code? Resend"}
                 </button>
               </div>
             </div>

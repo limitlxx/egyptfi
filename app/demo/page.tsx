@@ -85,45 +85,51 @@ export default function DemoPage() {
     setIsInitiating(true);
     setError(null);
 
-    try {
-      const response = await fetch("/api/payments/initiate", {
-        method: "POST",
-        headers: {
-          "X-API-Key": "pk_test_e20af044678ed83d9d1b151f93403e90", // Mock API key for demo
-          "X-Wallet-Address":
-            "0x065982b15bc87abdaa2da7db5f2164792b6c2e497bd80f4b7ace9e799be4beb0", // Mock wallet address
-          "X-Environment": "testnet",
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          payment_ref: `order-${Date.now()}`,
-          local_amount: cartType === "ecommerce" ? 100 : 1000,
-          local_currency: "NGN",
-          description:
-            cartType === "ecommerce" ? "Ecommerce Purchase" : "Game Purchase",
-          chain: "starknet",
-          secondary_endpoint: "http://localhost:3000/confirm",
-          email: "demo@egyptfi.com",
-        }),
-      });
+    // Comment out API call for testing modal
+    // try {
+    //   const response = await fetch("/api/payments/initiate", {
+    //     method: "POST",
+    //     headers: {
+    //       "X-API-Key": "pk_test_6ed622bcc595a78b06a765e35be3be7a", // Mock API key for demo
+    //       "X-Wallet-Address":
+    //         "0x74987eb3d45bb7d9dbd23f766d42786ac8e883af72ff6e34275ca74b3d897b7", // Mock wallet address
+    //       "X-Environment": "testnet",
+    //       "Content-Type": "application/json",
+    //     },
+    //     body: JSON.stringify({
+    //       payment_ref: `order-${Date.now()}`,
+    //       local_amount: cartType === "ecommerce" ? 100 : 1000,
+    //       local_currency: "NGN",
+    //       description:
+    //         cartType === "ecommerce" ? "Ecommerce Purchase" : "Game Purchase",
+    //       chain: "starknet",
+    //       secondary_endpoint: "http://localhost:3000/confirm",
+    //       email: "demo@egyptfi.com",
+    //     }),
+    //   });
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to initiate payment");
-      }
+    //   if (!response.ok) {
+    //     const errorData = await response.json();
+    //     throw new Error(errorData.error || "Failed to initiate payment");
+    //   }
 
-      const { authorization_url } = await response.json();
+    //   const { authorization_url } = await response.json();
 
-      // Redirect to hosted payment page
-      window.location.href = authorization_url;
-    } catch (err) {
-      console.error("Payment initiation error:", err);
-      setError(
-        err instanceof Error ? err.message : "Failed to initiate payment"
-      );
-    } finally {
-      setIsInitiating(false);
-    }
+    //   // Redirect to hosted payment page
+    //   window.location.href = authorization_url;
+    // } catch (err) {
+    //   console.error("Payment initiation error:", err);
+    //   setError(
+    //     err instanceof Error ? err.message : "Failed to initiate payment"
+    //   );
+    // } finally {
+    //   setIsInitiating(false);
+    // }
+
+    // For testing modal, redirect to invoice page
+    const paymentRef = `order-${Date.now()}`;
+    window.location.href = `/invoice/${paymentRef}`;
+    setIsInitiating(false);
   };
 
   return (
@@ -253,12 +259,12 @@ export default function DemoPage() {
             </TabsContent>
           </Tabs>
 
-          {error && (
+          {/* {error && (
             <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center justify-center max-w-md mx-auto">
               <AlertCircle className="w-4 h-4 text-red-600 mr-2" />
               <p className="text-sm text-red-600">{error}</p>
             </div>
-          )}
+          )} */}
         </div>
       </main>
 

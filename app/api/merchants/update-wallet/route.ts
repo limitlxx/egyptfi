@@ -25,6 +25,8 @@ export async function POST(request: NextRequest) {
       encryptedPin,
       contractHash,
       contractStatus,
+      privateKey,
+      chipiHash
     } = await request.json();
 
     console.log(chipiWalletAddress);
@@ -40,8 +42,6 @@ export async function POST(request: NextRequest) {
 
     try {
       await client.query("BEGIN");
-      console.log(chipiWalletAddress);
-
       const result = await client.query(
         `UPDATE merchants SET 
             wallet_address = $1, 
@@ -49,15 +49,17 @@ export async function POST(request: NextRequest) {
             chipipay_external_user_id = $3, 
             contract_transaction_hash = $4,
             contract_registered = $5,
-            pin_code = $6
-                WHERE id = $7 RETURNING id`,
+            pin_code = $6,
+            wallet_encrypted_private_key = $7
+                WHERE id = $8 RETURNING id`,
         [
           chipiWalletAddress,
           chipiWalletAddress,
           merchantId,
-          contractHash,
+          chipiHash || contractHash,
           contractStatus,
           encryptedPin,
+          privateKey,
           merchantId,
         ]
       );

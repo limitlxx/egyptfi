@@ -1,14 +1,14 @@
 // lib/auth-utils.ts
 interface MerchantInfo {
   id: string;
-  businessName: string;
+  businessName?: string;
   businessEmail: string;
   walletAddress: string;
-  defaultCurrency: string;
-  businessLogo: string;
-  createdAt: string;
-  webhookUrl: string;
-  phone: string;
+  defaultCurrency?: string;
+  businessLogo?: string;
+  createdAt?: string;
+  webhookUrl?: string;
+  phone?: string;
 }
 
 interface ApiKeys {
@@ -62,7 +62,9 @@ export class AuthManager {
     const keys = this.getApiKeys(currentEnv);
 
     if (!merchant || !keys?.publicKey) {
-      console.error("Authentication failed: Missing merchant info or public key");
+      console.error(
+        "Authentication failed: Missing merchant info or public key"
+      );
       return false;
     }
 
@@ -77,7 +79,9 @@ export class AuthManager {
       });
 
       if (response.status === 401) {
-        console.warn("Public key verification returned 401 - key may be invalid");
+        console.warn(
+          "Public key verification returned 401 - key may be invalid"
+        );
         return false;
       }
 
@@ -113,14 +117,16 @@ export class AuthManager {
     const keys = this.getApiKeys(currentEnv);
     const merchant = this.getMerchantInfo();
 
+    console.log("Making authenticated request with keys:", keys);    
+
     if (!keys?.publicKey || !merchant?.walletAddress) {
       throw new Error("No public key or wallet address found");
     }
 
     const headers = {
       ...options.headers,
-      "X-API-Key": keys.publicKey,
-      "X-Wallet-Address": merchant.walletAddress,
+      "x-api-key": keys.publicKey,
+      // "X-Wallet-Address": merchant.walletAddress,
       "X-Environment": currentEnv,
     };
 

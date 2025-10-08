@@ -29,6 +29,7 @@ export async function GET(request: NextRequest) {
       const result = await client.query(
         `SELECT 
           id, wallet_address, business_name, business_logo, business_email, phone,
+          wallet_public_key, wallet_encrypted_private_key,
           webhook, local_currency, supported_currencies, metadata, created_at, updated_at
          FROM merchants WHERE id = $1`,
         [authResult.merchant!.id]
@@ -76,6 +77,9 @@ export async function PUT(request: NextRequest) {
   try {
     // Get authentication headers
     const { apiKey, environment } = getAuthHeaders(request);
+
+    console.log("PUT request received with headers:", { apiKey, environment });
+    
     
     if (!apiKey || !environment) {
       return NextResponse.json(

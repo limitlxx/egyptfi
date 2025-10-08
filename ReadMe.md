@@ -42,7 +42,7 @@ With support for **no-code** and **low-code tools**, **developer-friendly APIs**
 * Refund support: Secure, trackable refunds for customer protection
 * Developer APIs & SDKs: Build custom integrations or plug crypto payments into Web2 platforms
 * On-chain yield: Earn passive yield by allocating unused balances to on-chain strategies which include flexible access to funds, clear on-chain visibility and withdrawal at any time
-* Multi-chain support: Accept payments across multiple blockchain networks
+* Multi-chain support: Accept payments across multiple blockchain networks, including Bitcoin L1 and L2 flows
 
 ---
 
@@ -84,6 +84,15 @@ npm run dev
 2. Pay using QR code, wallet integration, or direct transfer
 3. Click **“I have paid”**
 4. Get an auto-generated receipt with all transaction details
+
+### ₿ **Bitcoin Payment Flows**
+
+EgyptFi supports Bitcoin payments through both L1 and L2 flows:
+
+- **BTC L1 (Native BTC)**: Direct Bitcoin transactions on the Bitcoin network for maximum security and decentralization.
+- **BTC L2 (Custodial/Bridge)**: Layered solutions using custodial services or bridges for faster, lower-cost transactions with L2-enabled wallets.
+
+Merchants can set their preferred BTC flow (L1 or L2) which serves as the default for payers, but payers can still select their preferred option during payment.
 
 ---
 

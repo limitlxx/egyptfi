@@ -13,6 +13,9 @@ import {
 } from "@/components/ui/dialog";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import Link from "next/link";
+import { Navbar } from "@/components/navbar";
+import { Footer } from "@/components/footer";
+import PrismBackground from "@/components/prism-background";
 
 export default function InvoicePage() {
   const params = useParams();
@@ -23,6 +26,16 @@ export default function InvoicePage() {
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [isOpen, setIsOpen] = useState(true);
+
+  const handleGetStarted = () => {
+    // For invoice page, perhaps redirect to home or do nothing
+    router.push("/");
+  };
+
+  const scrollToSection = (sectionId: string) => {
+    // For invoice page, no sections to scroll to
+    // Could scroll to dialog or do nothing
+  };
 
   useEffect(() => {
     if (!payment_ref) {
@@ -43,17 +56,34 @@ export default function InvoicePage() {
         `/api/payments/initiate?payment_ref=${payment_ref}`
       );
 
-      if (!response.ok) {
-        if (response.status === 404) {
-          setError("Payment not found or has expired");
-        } else {
-          setError("Failed to load payment information");
-        }
-        return;
-      }
+      // Comment out error handling for testing
+      // if (!response.ok) {
+      //   if (response.status === 404) {
+      //     setError("Payment not found or has expired");
+      //   } else {
+      //     setError("Failed to load payment information");
+      //   }
+      //   return;
+      // }
 
-      const result = await response.json();
-      const invoice = result.data;
+      // const result = await response.json();
+      // const invoice = result.data;
+
+      // Use dummy data for testing
+      const invoice = {
+        merchant_name: "Demo Store",
+        merchant_logo: "🛒",
+        amount: 100,
+        currency: "NGN",
+        description: "Demo Purchase",
+        payment_ref: payment_ref,
+        secondary_endpoint: "http://localhost:3000/confirm",
+        qrCode: null,
+        paymentUrl: `http://localhost:3000/pay?ref=${payment_ref}`,
+        walletUrl: `http://localhost:3000/pay?ref=${payment_ref}`,
+        created_at: new Date().toISOString(),
+        status: "pending",
+      };
 
       // Check if invoice has expired (24 hours)
       const createdAt = new Date(invoice.created_at);
@@ -66,10 +96,10 @@ export default function InvoicePage() {
       // }
 
       // Check if already paid
-      if (invoice.status === "paid") {
-        router.push(`/confirm?ref=${payment_ref}`);
-        return;
-      }
+      // if (invoice.status === "paid") {
+      //   router.push(`/confirm?ref=${payment_ref}`);
+      //   return;
+      // }
 
       // Format currency symbol based on currency code
       const currencySymbol = invoice.currency === "NGN" ? "₦" : "$";
@@ -78,7 +108,7 @@ export default function InvoicePage() {
       const formattedData = {
         merchantName: invoice.merchant_name,
         merchantLogo: invoice.merchant_logo,
-        amountFiat: `${currencySymbol}${invoice.amount.toLocaleString()}`, 
+        amountFiat: `${currencySymbol}${invoice.amount.toLocaleString()}`,
         invoiceId: `IE-${invoice.payment_ref}`,
         description: invoice.description || "Payment",
         paymentRef: invoice.payment_ref,
@@ -115,7 +145,6 @@ export default function InvoicePage() {
           // Optionally include transaction hash or other details
         }),
       });
-
     } catch (error) {
       console.error("Failed to update payment status:", error);
     }
@@ -123,11 +152,48 @@ export default function InvoicePage() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600 mx-auto mb-4" />
-          <p className="text-gray-600">Loading payment information...</p>
+      <div className="min-h-screen bg-background">
+        {/* Background Animation */}
+        <div
+          style={{
+            width: "100%",
+            height: "100vh",
+            position: "fixed",
+            top: 0,
+            left: 0,
+            pointerEvents: "none",
+          }}
+        >
+          <PrismBackground
+            animationType="3drotate"
+            timeScale={0.5}
+            height={3.5}
+            baseWidth={4.5}
+            scale={3.6}
+            hueShift={0.125}
+            colorFrequency={0.8}
+            noise={0.2}
+            glow={0.5}
+          />
         </div>
+
+        {/* Navbar */}
+        <Navbar
+          onGetStarted={handleGetStarted}
+          onScrollToSection={scrollToSection}
+        />
+
+        <div className="relative z-10 flex items-center justify-center min-h-screen pt-32 pb-16">
+          <div className="text-center">
+            <Loader2 className="w-8 h-8 animate-spin text-primary mx-auto mb-4" />
+            <p className="text-muted-foreground">
+              Loading payment information...
+            </p>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <Footer />
       </div>
     );
   }
@@ -136,96 +202,194 @@ export default function InvoicePage() {
     console.log("ERROR", error);
 
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="text-center max-w-md mx-auto p-6">
-          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <h1 className="text-xl font-semibold text-gray-900 mb-2">
-            Payment Error
-          </h1>
-          <p className="text-gray-600 mb-4">{error}</p>
-          <div className="absolute top-4 left-4">
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={() => router.back()}
-              asChild
-            >
-              <Link href="/">
-                <ArrowLeft className="w-4 h-4 mr-2" />
-                Back to Home
-              </Link>
-            </Button>
-          </div>
-          <p className="flex items-center justify-center">
-            <svg
-              xmlns="http://www.w3.org/2000/svg"
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="mr-1"
-            >
-              <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
-              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-            </svg>
-            Secured by{" "}
-            <Link
-              href="/"
-              className="text-blue-600 hover:text-blue-700 font-medium ml-1"
-            >
-              EgyptFi
-            </Link>
-          </p>
+      <div className="min-h-screen bg-background">
+        {/* Background Animation */}
+        <div
+          style={{
+            width: "100%",
+            height: "100vh",
+            position: "fixed",
+            top: 0,
+            left: 0,
+            pointerEvents: "none",
+          }}
+        >
+          <PrismBackground
+            animationType="3drotate"
+            timeScale={0.5}
+            height={3.5}
+            baseWidth={4.5}
+            scale={3.6}
+            hueShift={0.125}
+            colorFrequency={0.8}
+            noise={0.2}
+            glow={0.5}
+          />
         </div>
+
+        {/* Navbar */}
+        <Navbar
+          onGetStarted={handleGetStarted}
+          onScrollToSection={scrollToSection}
+        />
+
+        {/* Back to Home Button */}
+        <div className="absolute top-20 left-4 z-20">
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/">← Back to Home</Link>
+          </Button>
+        </div>
+
+        <div className="relative z-10 flex items-center justify-center min-h-screen pt-32 pb-16">
+          <div className="text-center max-w-md mx-auto p-6">
+            <AlertCircle className="w-12 h-12 text-destructive mx-auto mb-4" />
+            <h1 className="text-xl font-semibold text-foreground mb-2">
+              Payment Error
+            </h1>
+            <p className="text-muted-foreground mb-4">{error}</p>
+            <p className="flex items-center justify-center">
+              <svg
+                xmlns="http://www.w3.org/2000/svg"
+                width="16"
+                height="16"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="mr-1"
+              >
+                <rect width="18" height="11" x="3" y="11" rx="2" ry="2" />
+                <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+              </svg>
+              Secured by{" "}
+              <Link
+                href="/"
+                className="text-primary hover:text-primary/90 font-medium ml-1"
+              >
+                EgyptFi
+              </Link>
+            </p>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <Footer />
       </div>
     );
   }
 
   if (!invoiceData) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <p className="text-gray-600">No payment data found</p>
+      <div className="min-h-screen bg-background">
+        {/* Background Animation */}
+        <div
+          style={{
+            width: "100%",
+            height: "100vh",
+            position: "fixed",
+            top: 0,
+            left: 0,
+            pointerEvents: "none",
+          }}
+        >
+          <PrismBackground
+            animationType="3drotate"
+            timeScale={0.5}
+            height={3.5}
+            baseWidth={4.5}
+            scale={3.6}
+            hueShift={0.125}
+            colorFrequency={0.8}
+            noise={0.2}
+            glow={0.5}
+          />
+        </div>
+
+        {/* Navbar */}
+        <Navbar
+          onGetStarted={handleGetStarted}
+          onScrollToSection={scrollToSection}
+        />
+
+        {/* Back to Home Button */}
+        <div className="absolute top-20 left-4 z-20">
+          <Button variant="ghost" size="sm" asChild>
+            <Link href="/">← Back to Home</Link>
+          </Button>
+        </div>
+
+        <div className="relative z-10 flex items-center justify-center min-h-screen pt-32 pb-16">
+          <p className="text-muted-foreground">No payment data found</p>
+        </div>
+
+        {/* Footer */}
+        <Footer />
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen">
-      {/* Header */}
-      {/* <div className="bg-white border-b border-gray-200">
-        <div className="container mx-auto px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center space-x-2">
-              <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">N</span>
-              </div>
-              <span className="font-semibold text-gray-900">EgyptFi Pay</span>
-            </div>
-            <div className="text-sm text-gray-500">Secure Payment</div>
-          </div>
-        </div>
-      </div> */}
+    <div className="min-h-screen bg-background">
+      {/* Background Animation */}
+      <div
+        style={{
+          width: "100%",
+          height: "100vh",
+          position: "fixed",
+          top: 0,
+          left: 0,
+          pointerEvents: "none",
+        }}
+      >
+        <PrismBackground
+          animationType="3drotate"
+          timeScale={0.5}
+          height={3.5}
+          baseWidth={4.5}
+          scale={3.6}
+          hueShift={0.125}
+          colorFrequency={0.8}
+          noise={0.2}
+          glow={0.5}
+        />
+      </div>
+
+      {/* Navbar */}
+      <Navbar
+        onGetStarted={handleGetStarted}
+        onScrollToSection={scrollToSection}
+      />
+
+      {/* Back to Home Button */}
+      <div className="absolute top-20 left-4 z-20">
+        <Button variant="ghost" size="sm" asChild>
+          <Link href="/">← Back to Home</Link>
+        </Button>
+      </div>
 
       {/* Main Content */}
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogContent
-          className="max-w-3xl w-[95vw] max-h-[95vh] p-0 overflow-hidden overflow-y-auto"
-          onInteractOutside={(e) => e.preventDefault()} // disable outside click close
-          onEscapeKeyDown={(e) => e.preventDefault()} // disable escape key close (optional)
-        >
-          <VisuallyHidden>
-            <DialogTitle>Invoice Payment</DialogTitle>
-          </VisuallyHidden>
-          <InvoiceContent
-            invoiceData={invoiceData}
-            onPaymentConfirmed={handlePaymentConfirmed}
-          />
-        </DialogContent>
-      </Dialog>
+      <main className="relative z-10 pt-32 pb-16">
+        <Dialog open={isOpen} onOpenChange={setIsOpen}>
+          <DialogContent
+            className="max-w-3xl w-[95vw] max-h-[95vh] p-0 overflow-hidden overflow-y-auto"
+            onInteractOutside={(e) => e.preventDefault()} // disable outside click close
+            onEscapeKeyDown={(e) => e.preventDefault()} // disable escape key close (optional)
+          >
+            <VisuallyHidden>
+              <DialogTitle>Invoice Payment</DialogTitle>
+            </VisuallyHidden>
+            <InvoiceContent
+              invoiceData={invoiceData}
+              onPaymentConfirmed={handlePaymentConfirmed}
+            />
+          </DialogContent>
+        </Dialog>
+      </main>
+
+      {/* Footer */}
+      <Footer />
     </div>
   );
 }
