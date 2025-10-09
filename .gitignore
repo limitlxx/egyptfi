@@ -54,3 +54,7 @@ CONTRACT_FIRST_REGISTRATION_FLOW.md
 egyptfi_complete.zip
 # clerk configuration (can include secrets)
 /.clerk/
+
+
+../contract/target
+.kilocode
