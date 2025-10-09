@@ -77,15 +77,16 @@ import { useRouter } from "next/navigation";
 import { InvoiceService, Invoice } from "@/services/invoiceService";
 import ContractMerchantService from "@/services/contractMerchantService";
 import { PaymentModeIndicator } from "@/components/PaymentModeIndicator";
-import { useWithdrawMerchantCalls } from "@/hooks/useWithdrawMerchantCalls"; // New import
-import { usePaymaster } from "@/hooks/usePayMaster";
-import { WithdrawalService } from "@/services/WithdrawService";
 import {
   WithdrawalService as listwithdraw,
   Withdrawal,
 } from "@/services/withdrawalService";
+import WithdrawalDialog from "@/components/WithdrawalDialog";
+import WithdrawFromPoolDialog from "@/components/WithdrawFromPoolDialog";
+import WithdrawFromVaultDialog from "@/components/WithdrawFromVaultDialog";
 import Image from "next/image";
 import YieldOptionsPage from "./components/yield-view";
+import { useUser, useAuth, useSignUp } from "@clerk/nextjs";
 
 const initialMerchantData = {
   name: "Coffee Shop Lagos",
@@ -96,6 +97,11 @@ const initialMerchantData = {
   webhookUrl: "https://yoursite.com/webhook",
 };
 
+const USDC_TOKEN = {
+  address: "0x053c91253bc9682c04929ca02ed00b3e423f6710d2ee7e0d5ebb06f3ecf368a8",
+  decimals: 6,
+};
+
 export default function DashboardPage() {
   const { toast } = useToast();
   const router = useRouter();
@@ -104,15 +110,14 @@ export default function DashboardPage() {
 
   // Existing state
   const [copiedItem, setCopiedItem] = useState<string | null>(null);
-  const [showTestKey, setShowTestKey] = useState(false);
-  const [showLiveKey, setShowLiveKey] = useState(false);
+  // const [showTestKey, setShowTestKey] = useState(false);
+  // const [showLiveKey, setShowLiveKey] = useState(false);
   const [isCreatePaymentOpen, setIsCreatePaymentOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [isWithdrawOpen, setIsWithdrawOpen] = useState(false);
-  const [isWithdrawing, setIsWithdrawing] = useState(false);
-  const [withdrawAmount, setWithdrawAmount] = useState("");
-  const [availableBalance, setAvailableBalance] = useState<number>(0);
+  const [availableBalance, setAvailableBalance] = useState<number>(500);
+  const [poolBalance, setPoolBalance] = useState<number>(0);
+  const [vaultBalance, setVaultBalance] = useState<number>(0);
   const [totalBalance, setTotalAmount] = useState<number>(0);
   const [monthBalance, setMonthAmount] = useState<number>(0);
   const [successRate, setsuccessRate] = useState<number>(0);
@@ -120,6 +125,22 @@ export default function DashboardPage() {
 
   const [payments, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState(true);
+  const { getToken } = useAuth();
+
+  // Sender
+  const senderWallet = useMemo(
+    () => ({
+      publicKey: "0xYourCustodialPublicKeyHere", // e.g., platform-managed wallet holding the balance
+      encryptedPrivateKey: "YourEncryptedPrivateKeyDataHere", // Securely stored/fetched
+    }),
+    []
+  );
+  // const {
+  //   transferAsync,
+  //   data: transferData,
+  //   isLoading: isTransferLoading,
+  //   error: transferError,
+  // } = useTransfer();
 
   // Transaction state
   const [transactions, setTransactions] = useState([]);
@@ -150,7 +171,6 @@ export default function DashboardPage() {
   const [merchantwallet, setmerchantwallet] = useState(
     AuthManager.getMerchantInfo()?.walletAddress || "0x0"
   );
-
   // Update states
   const [isUpdatingProfile, setIsUpdatingProfile] = useState(false);
   const [isUpdatingSettings, setIsUpdatingSettings] = useState(false);
@@ -383,6 +403,8 @@ export default function DashboardPage() {
         }
 
         await refetchMerchantInfo(); // Fetch balance on load
+        await fetchPoolBalance(); // Fetch pool balance on load
+        await fetchVaultBalance(); // Fetch vault balance on load
 
         setmerchantwallet(merchant.walletAddress.toLowerCase());
 
@@ -487,6 +509,34 @@ export default function DashboardPage() {
         description: "Failed to load available balance. Please try again.",
         variant: "destructive",
       });
+    }
+  };
+
+  // Fetch pool balance
+  const fetchPoolBalance = async () => {
+    try {
+      // TODO: Replace with actual pool contract call
+      // const poolContract = new PoolContractService(provider);
+      // const balance = await poolContract.getBalance(merchantwallet);
+      // setPoolBalance(bigintToNumber(balance));
+      setPoolBalance(250); // Placeholder balance
+    } catch (error) {
+      console.error("Error fetching pool balance:", error);
+      setPoolBalance(0);
+    }
+  };
+
+  // Fetch vault balance
+  const fetchVaultBalance = async () => {
+    try {
+      // TODO: Replace with actual vault contract call
+      // const vaultContract = new VaultContractService(provider);
+      // const balance = await vaultContract.getBalance(merchantwallet);
+      // setVaultBalance(bigintToNumber(balance));
+      setVaultBalance(150); // Placeholder balance
+    } catch (error) {
+      console.error("Error fetching vault balance:", error);
+      setVaultBalance(0);
     }
   };
 
@@ -707,91 +757,6 @@ export default function DashboardPage() {
     }
   };
 
-  // Prepare withdrawal calls (enabled only when dialog is open)
-  const { calls: withdrawCalls } = useWithdrawMerchantCalls({
-    amount: withdrawAmount,
-    enabled:
-      isWithdrawOpen && !!withdrawAmount && parseFloat(withdrawAmount) > 0,
-  });
-
-  // Use paymaster for transaction (sponsored or free mode)
-  const {
-    executeTransaction: executeWithdraw,
-    isLoading: isWithdrawTxLoading,
-    paymentMode,
-  } = usePaymaster({
-    calls: withdrawCalls,
-    enabled: !!withdrawCalls,
-    onSuccess: (transactionHash: string) => {
-      toast({
-        title: "Withdrawal initiated",
-        description: `Transaction hash: ${transactionHash}. Funds will arrive shortly.`,
-      });
-      refetchMerchantInfo(); // Refetch balance after success
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Withdrawal error",
-        description: error.message || "Transaction failed. Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
-
-  // Handle withdrawal
-  const handleWithdraw = async () => {
-    const amountNum = parseFloat(withdrawAmount);
-    if (amountNum <= 0 || amountNum > availableBalance) {
-      toast({
-        title: "Invalid amount",
-        description: "Please enter a valid amount within your balance.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    if (!withdrawCalls) {
-      toast({
-        title: "Transaction not ready",
-        description: "Please try again.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    setIsWithdrawing(true);
-    try {
-      // Execute withdrawal and record in database
-      const withdrawal = await WithdrawalService.createWithdrawal({
-        merchantWallet: merchantwallet,
-        amount: withdrawAmount,
-        executeWithdraw,
-        calls: withdrawCalls,
-        paymentMode,
-      });
-
-      // Update balance optimistically
-      setAvailableBalance((prev) => prev - amountNum);
-
-      toast({
-        title: "Withdrawal successful",
-        description: `${withdrawAmount} USDC withdrawn to ${withdrawal.to_address}. Transaction hash: ${withdrawal.txHash}`,
-      });
-    } catch (error) {
-      console.error("Withdrawal failed:", error);
-      toast({
-        title: "Withdrawal failed",
-        description:
-          error instanceof Error ? error.message : "An error occurred",
-        variant: "destructive",
-      });
-    } finally {
-      setIsWithdrawing(false);
-      setIsWithdrawOpen(false);
-      setWithdrawAmount("");
-    }
-  };
-
   if (isCheckingAuth) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
@@ -903,35 +868,6 @@ export default function DashboardPage() {
         return "bg-gray-100 text-gray-800";
     }
   };
-
-  // const handleWithdraw = async () => {
-  //   setIsWithdrawing(true);
-  //   try {
-  //     await AuthManager.makeAuthenticatedRequest("/api/withdraw", {
-  //       method: "POST",
-  //       headers: { "Content-Type": "application/json" },
-  //       body: JSON.stringify({ amount: withdrawAmount }),
-  //     });
-  //     setAvailableBalance(
-  //       (prev) => prev - Number.parseFloat(withdrawAmount || "0")
-  //     );
-  //     toast({
-  //       title: "Withdrawal successful",
-  //       description: `${withdrawAmount} USDC withdrawn to your wallet.`,
-  //     });
-  //   } catch (error) {
-  //     toast({
-  //       title: "Withdrawal failed",
-  //       description:
-  //         error instanceof Error ? error.message : "An error occurred",
-  //       variant: "destructive",
-  //     });
-  //   } finally {
-  //     setIsWithdrawing(false);
-  //     setIsWithdrawOpen(false);
-  //     setWithdrawAmount("");
-  //   }
-  // };
 
   const handleWalletModalClose = () => {
     setShowWalletModal(false);
@@ -1084,139 +1020,18 @@ export default function DashboardPage() {
                       <Wallet className="w-6 h-6 text-green-600" />
                     </div>
                   </div>
-                  <Dialog
-                    open={isWithdrawOpen}
-                    onOpenChange={setIsWithdrawOpen}
-                  >
-                    <DialogTrigger asChild>
-                      <Button
-                        className="w-full mt-4 bg-background text-foreground border-2"
-                        style={{ borderColor: "#d4af37" }}
-                        // disabled={availableBalance <= 0}
-                      >
-                        <ArrowDownToLine className="w-4 h-4 mr-2" />
-                        Withdraw USDC
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-md">
-                      <DialogHeader>
-                        <DialogTitle>Withdraw USDC</DialogTitle>
-                      </DialogHeader>
-                      <div className="space-y-4">
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                          <div className="flex items-center">
-                            <AlertCircle className="w-5 h-5 text-blue-600 mr-2" />
-                            <div>
-                              <p className="font-medium text-blue-900">
-                                Available Balance
-                              </p>
-                              <p className="text-sm text-blue-700">
-                                {availableBalance.toFixed(1)} USDC on StarkNet
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                        <div>
-                          <Label htmlFor="withdraw-amount">
-                            Amount to Withdraw
-                          </Label>
-                          <div className="relative">
-                            <Input
-                              id="withdraw-amount"
-                              placeholder="0.0"
-                              type="number"
-                              max={availableBalance}
-                              value={withdrawAmount}
-                              onChange={(e) =>
-                                setWithdrawAmount(e.target.value)
-                              }
-                              className="pr-16"
-                            />
-                            <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-sm text-gray-500">
-                              USDC
-                            </span>
-                          </div>
-                          <div className="flex justify-between mt-2">
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setWithdrawAmount(
-                                  (availableBalance * 0.5).toFixed(1)
-                                )
-                              }
-                              className="text-xs text-blue-600 hover:text-blue-700"
-                            >
-                              50%
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setWithdrawAmount(availableBalance.toFixed(1))
-                              }
-                              className="text-xs text-blue-600 hover:text-blue-700"
-                            >
-                              Max
-                            </button>
-                          </div>
-                        </div>
-                        <div className="bg-gray-50 rounded-lg p-4">
-                          <h4 className="font-semibold text-gray-900 mb-2">
-                            Withdrawal Details
-                          </h4>
-                          <div className="space-y-2 text-sm">
-                            <div className="flex justify-between">
-                              <span className="text-gray-600">Network</span>
-                              <span className="font-medium">StarkNet</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-gray-600">Destination</span>
-                              <span className="font-medium font-mono text-xs">
-                                {merchantwallet.slice(0, 6)}...
-                                {merchantwallet.slice(-4)}
-                              </span>
-                            </div>
-                            {/* <div className="flex justify-between">
-                              <span className="text-gray-600">Gas Fees</span>
-                              <span className="font-medium text-green-600">
-                                Sponsored
-                              </span>
-                            </div> */}
-                            <div className="flex justify-between">
-                              <span className="text-gray-600">
-                                Processing Time
-                              </span>
-                              <span className="font-medium">~30 seconds</span>
-                            </div>
-                          </div>
-                        </div>
-                        {merchantwallet && (
-                          <PaymentModeIndicator showDetails={false} />
-                        )}
-                        <Button
-                          onClick={handleWithdraw}
-                          disabled={
-                            isWithdrawing ||
-                            isWithdrawTxLoading ||
-                            !withdrawAmount
-                          }
-                          className="w-full bg-background text-foreground border-2"
-                          style={{ borderColor: "#d4af37" }}
-                        >
-                          {isWithdrawing || isWithdrawTxLoading ? (
-                            <>
-                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                              Withdrawing...
-                            </>
-                          ) : (
-                            "Withdraw Now"
-                          )}
-                        </Button>
-                      </div>
-                    </DialogContent>
-                  </Dialog>
+                  <WithdrawalDialog
+                    availableBalance={availableBalance}
+                    merchantwallet={merchantwallet}
+                    refetchMerchantInfo={refetchMerchantInfo}
+                    settlementWallet={settlementWallet || ""}
+                    kycStatus={kycStatus}
+                    setShowKycModal={setShowKycModal}
+                    getToken={getToken}
+                  />
                 </CardContent>
               </Card>
-              <Card>
+              {/* <Card>
                 <CardContent className="p-6">
                   <div className="flex items-center justify-between">
                     <div>
@@ -1224,7 +1039,7 @@ export default function DashboardPage() {
                         Total Payments
                       </p>
                       <p className="text-2xl font-bold text-foreground">
-                        {/* ₦{totalBalance} */}
+                        ₦{totalBalance}
                         {totalBalance}
                       </p>
                     </div>
@@ -1243,7 +1058,7 @@ export default function DashboardPage() {
                       </p>
                       <p className="text-2xl font-bold text-foreground">
                         {monthBalance}
-                        {/* ₦{monthBalance} */}
+                        ₦{monthBalance}
                       </p>
                     </div>
                     <div className="w-12 h-12 bg-green-100 rounded-full flex items-center justify-center">
@@ -1267,6 +1082,60 @@ export default function DashboardPage() {
                       <Badge className="w-6 h-6 text-purple-600" />
                     </div>
                   </div>
+                </CardContent>
+              </Card> */}
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Withdraw from Vault
+                      </p>
+                      <p className="text-2xl font-bold text-foreground">
+                        {vaultBalance.toFixed(1)} USDC
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Ready to withdraw
+                      </p>
+                    </div>
+                    <div className="w-12 h-12  bg-green-100 rounded-full flex items-center justify-center">
+                      {/* <Badge className="w-6 h-6 text-purple-600" /> */}
+                      <Wallet className="w-6 h-6 text-green-600" />
+                    </div>
+                  </div>
+                  <WithdrawFromVaultDialog
+                    availableBalance={vaultBalance}
+                    merchantwallet={merchantwallet}
+                    refetchMerchantInfo={refetchMerchantInfo}
+                    getToken={getToken}
+                  />
+                </CardContent>
+              </Card>
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-muted-foreground">
+                        Withdraw from pool
+                      </p>
+                      <p className="text-2xl font-bold text-foreground">
+                        {poolBalance.toFixed(1)} USDC
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Ready to withdraw
+                      </p>
+                    </div>
+                    <div className="w-12 h-12  bg-green-100 rounded-full flex items-center justify-center">
+                      {/* <Badge className="w-6 h-6 text-purple-600" /> */}
+                      <Wallet className="w-6 h-6 text-green-600" />
+                    </div>
+                  </div>
+                  <WithdrawFromPoolDialog
+                    availableBalance={poolBalance}
+                    merchantwallet={merchantwallet}
+                    refetchMerchantInfo={refetchMerchantInfo}
+                    getToken={getToken}
+                  />
                 </CardContent>
               </Card>
             </div>
@@ -2032,14 +1901,16 @@ export default function DashboardPage() {
                     Withdrawal Settings
                   </h3>
                   <div className="space-y-4">
-                    <div>
+                    {/* <div>
                       <Label htmlFor="settlement-wallet">
                         Settlement Wallet Address (StarkNet)
                       </Label>
                       <Input
                         id="settlement-wallet"
-                        value={settlementWallet || ""}
-                        onChange={(e) => setSettlementWallet(e.target.value)}
+                        value={customSettlementAddress}
+                        onChange={(e) =>
+                          setCustomSettlementAddress(e.target.value)
+                        }
                         className="font-mono text-sm"
                         disabled
                       />
@@ -2047,7 +1918,7 @@ export default function DashboardPage() {
                         USDC withdrawals will be sent to this StarkNet wallet
                         address
                       </p>
-                    </div>
+                    </div> */}
                     <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
                       <h4 className="font-semibold text-yellow-900 mb-2">
                         Withdrawal Information

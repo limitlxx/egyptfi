@@ -20,6 +20,9 @@ importers:
       '@avnu/gasless-sdk':
         specifier: ^0.1.8
         version: 0.1.8(ethers@6.15.0)(qs@6.14.0)(starknet@8.5.4)
+      '@chipi-stack/chipi-expo':
+        specifier: ^11.4.0
+        version: 11.4.0(encoding@0.1.13)(ethers@6.15.0)(qs@6.14.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
       '@chipi-stack/chipi-react':
         specifier: ^11.2.0
         version: 11.2.0(encoding@0.1.13)(ethers@6.15.0)(qs@6.14.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
@@ -624,8 +627,26 @@ packages:
     resolution: {integrity: sha512-Xm2t6+glGu2NFMtBMWOJu3ymT5QRUifnwBKtQJEN9EAjZpcQYq/+61AX+kzGQ1PH1AJIC8Q4bd3sHq1e7JJ/uQ==}
     engines: {node: '>=18.17.0'}
 
+  '@chipi-stack/backend@11.4.0':
+    resolution: {integrity: sha512-JTmoXh17LAneYEZFPu9oIQVbUN7pjwtX02imIPb/WplNME+7Sj4e/d5teOBx8zsrahiEz2njkdvEigxe1iHqBA==}
+    engines: {node: '>=18.17.0'}
+
+  '@chipi-stack/chipi-expo@11.4.0':
+    resolution: {integrity: sha512-IaYI1T2Jv/qWBgta05pPQcT9Aop9PJZAeFh/xbMAR+yBJHj3EHu++uA+7NEWMbUgNd6go3H6MP+mfWMXDgFO1Q==}
+    engines: {node: '>=18.17.0'}
+    peerDependencies:
+      react: '>=16.8.0'
+      react-dom: '>=16.8.0'
+
   '@chipi-stack/chipi-react@11.2.0':
     resolution: {integrity: sha512-GtQACrbARZvjmWvrMpzINFkJs5weqEzCPATLis9kYAjboJgjKXk1r/bor6sTDKs9k6kl9ZJ7BRRkPXC2/CE5sQ==}
+    engines: {node: '>=18.17.0'}
+    peerDependencies:
+      react: '>=16.8.0'
+      react-dom: '>=16.8.0'
+
+  '@chipi-stack/chipi-react@11.4.0':
+    resolution: {integrity: sha512-gTotO5EYSlkgS9ezewgunLN6/ksiyFP8vEmh1bw48hc6VdPux5P/AFU/fIR26yoKaSHnxpaoPwqCJLw4i5B9Ng==}
     engines: {node: '>=18.17.0'}
     peerDependencies:
       react: '>=16.8.0'
@@ -643,8 +664,16 @@ packages:
     resolution: {integrity: sha512-4ZjubFLVP1Z2xoZJNag2jPe+qTVcx+PJLb7nnIiS2Gu2UUyZkwmR6hK5gTGQ0eUlADnFv03GwLgyvlx1Dd5Z3g==}
     engines: {node: '>=18.17.0'}
 
+  '@chipi-stack/shared@11.4.0':
+    resolution: {integrity: sha512-qk8BTFOSRwP/GbKepcWmEoT6zH3n/vAPUPalo49dH7qe6MvajUIFNGEnU+jXMSYkeSDKDguaTZq8H9Gg0OJzAw==}
+    engines: {node: '>=18.17.0'}
+
   '@chipi-stack/types@11.2.0':
     resolution: {integrity: sha512-TWWxpBLHDU0DFIYlFjddzx/ZUSLCgTVKC6xTbPMvYD4JKfAvnqMNM+X7r4S1rZqKexu8xWpgtUIJnqZO1cC3lQ==}
+    engines: {node: '>=18.17.0'}
+
+  '@chipi-stack/types@11.4.0':
+    resolution: {integrity: sha512-IrvqyTjwsiwu5rWct3fReenCMi+Ffo03ptr0dQDokbYUHuwYB5l3GkS8Fm62rLbrdsuINiNqdKkzAJECs0vKew==}
     engines: {node: '>=18.17.0'}
 
   '@clerk/backend@2.14.0':
@@ -6643,11 +6672,50 @@ snapshots:
       - ethers
       - qs
 
+  '@chipi-stack/backend@11.4.0(encoding@0.1.13)(ethers@6.15.0)(qs@6.14.0)':
+    dependencies:
+      '@avnu/gasless-sdk': 0.1.8(ethers@6.15.0)(qs@6.14.0)(starknet@6.11.0(encoding@0.1.13))
+      '@chipi-stack/shared': 11.4.0
+      '@chipi-stack/types': 11.4.0
+      crypto-es: 2.1.0
+      starknet: 6.11.0(encoding@0.1.13)
+    transitivePeerDependencies:
+      - encoding
+      - ethers
+      - qs
+
+  '@chipi-stack/chipi-expo@11.4.0(encoding@0.1.13)(ethers@6.15.0)(qs@6.14.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+    dependencies:
+      '@chipi-stack/backend': 11.4.0(encoding@0.1.13)(ethers@6.15.0)(qs@6.14.0)
+      '@chipi-stack/chipi-react': 11.4.0(encoding@0.1.13)(ethers@6.15.0)(qs@6.14.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)
+      '@chipi-stack/shared': 11.4.0
+      '@chipi-stack/types': 11.4.0
+      '@tanstack/react-query': 5.89.0(react@18.3.1)
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
+    transitivePeerDependencies:
+      - encoding
+      - ethers
+      - qs
+
   '@chipi-stack/chipi-react@11.2.0(encoding@0.1.13)(ethers@6.15.0)(qs@6.14.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
     dependencies:
       '@chipi-stack/backend': 11.2.0(encoding@0.1.13)(ethers@6.15.0)(qs@6.14.0)
       '@chipi-stack/shared': 11.2.0
       '@chipi-stack/types': 11.2.0
+      '@tanstack/react-query': 5.89.0(react@18.3.1)
+      react: 18.3.1
+      react-dom: 18.3.1(react@18.3.1)
+    transitivePeerDependencies:
+      - encoding
+      - ethers
+      - qs
+
+  '@chipi-stack/chipi-react@11.4.0(encoding@0.1.13)(ethers@6.15.0)(qs@6.14.0)(react-dom@18.3.1(react@18.3.1))(react@18.3.1)':
+    dependencies:
+      '@chipi-stack/backend': 11.4.0(encoding@0.1.13)(ethers@6.15.0)(qs@6.14.0)
+      '@chipi-stack/shared': 11.4.0
+      '@chipi-stack/types': 11.4.0
       '@tanstack/react-query': 5.89.0(react@18.3.1)
       react: 18.3.1
       react-dom: 18.3.1(react@18.3.1)
@@ -6677,7 +6745,17 @@ snapshots:
       starknet: 8.5.4
       zod: 4.1.8
 
+  '@chipi-stack/shared@11.4.0':
+    dependencies:
+      '@chipi-stack/types': 11.4.0
+      starknet: 8.5.4
+      zod: 4.1.8
+
   '@chipi-stack/types@11.2.0':
+    dependencies:
+      starknet: 8.5.4
+
+  '@chipi-stack/types@11.4.0':
     dependencies:
       starknet: 8.5.4
 
