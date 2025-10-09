@@ -224,7 +224,7 @@ export function InvoiceContent({
       interval = setInterval(async () => {
         try {
           const response = await fetch(
-            `/api/payments/initiate?payment_ref=${invoiceData.paymentRef}`
+            `/api/payments/verify?payment_ref=${invoiceData.paymentRef}`
           );
           if (!response.ok) {
             setError("Failed to check payment status");

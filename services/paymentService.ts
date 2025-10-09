@@ -4,6 +4,8 @@ import { EGYPT_SEPOLIA_CONTRACT_ADDRESS } from "@/lib/utils";
 
 // Interface for payment data (unchanged)
 interface PaymentData {
+  paymentUrl: any;
+  walletUrl: any;
   payment_ref: string;
   amount: number;
   currency: string;
@@ -113,8 +115,66 @@ export async function prepare_payment_call({
 }
 
 // Fetch payment details (unchanged)
+export async function initiate_payment({
+  payment_ref,
+  local_amount,
+  local_currency,
+  description,
+  chain = "starknet",
+  secondary_endpoint,
+  email,
+  api_key,
+  wallet_address,
+  environment = "testnet",
+}: {
+  payment_ref: string;
+  local_amount: number;
+  local_currency: string;
+  description?: string;
+  chain?: string;
+  secondary_endpoint?: string;
+  email: string;
+  api_key: string;
+  wallet_address: string;
+  environment?: string;
+}): Promise<{
+  reference: string;
+  authorization_url: string;
+  qr_code: string;
+  expires_at: string;
+}> {
+  const response = await fetch("/api/payments/initiate", {
+    method: "POST",
+    headers: {
+      "x-api-key": api_key,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      payment_ref,
+      local_amount,
+      local_currency,
+      description,
+      chain,
+      secondary_endpoint,
+      email,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json();
+    throw new Error(errorData.error || "Failed to initiate payment");
+  }
+
+  return await response.json();
+}
+
 export async function get_payment(payment_ref: string): Promise<PaymentData> {
-  const response = await fetch(`/api/payments/initiate?payment_ref=${payment_ref}`);
+  const response = await fetch(`/api/payments/verify?payment_ref=${payment_ref}`, {
+    method: "GET", 
+    headers: { 
+      "Content-Type": "application/json",
+    },
+  });
   if (!response.ok) {
     throw new Error("Failed to fetch payment");
   }

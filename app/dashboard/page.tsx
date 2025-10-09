@@ -86,6 +86,7 @@ import {
 } from "@/services/withdrawalService";
 import Image from "next/image";
 import YieldOptionsPage from "./components/yield-view";
+import { initiate_payment } from "@/services/paymentService";
 
 const initialMerchantData = {
   name: "Coffee Shop Lagos",
@@ -187,6 +188,15 @@ export default function DashboardPage() {
   const [showKycTypeModal, setShowKycTypeModal] = useState(false);
   const [kycStatus, setKycStatus] = useState<string | null>(null);
 
+  const [createPaymentEmail, setCreatePaymentEmail] = useState("");
+  const [isCreatingPayment, setIsCreatingPayment] = useState(false);
+  const [paymentLinkResult, setPaymentLinkResult] = useState<{
+    authorization_url: string;
+    qr_code: string;
+    expires_at: string;
+    reference: string;
+  } | null>(null);
+
   const { provider } = useProvider();
 
   useEffect(() => {
@@ -274,6 +284,138 @@ export default function DashboardPage() {
 
     fetchKycStatus();
   }, []);
+
+  // 2. Add validation helper
+  const validatePaymentForm = () => {
+    if (!createPaymentAmount || parseFloat(createPaymentAmount) <= 0) {
+      toast({
+        title: "Invalid amount",
+        description: "Please enter a valid amount greater than 0",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    if (!createPaymentEmail || !/^\S+@\S+\.\S+$/.test(createPaymentEmail)) {
+      toast({
+        title: "Invalid email",
+        description: "Please enter a valid email address",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    if (!createPaymentDescription.trim()) {
+      toast({
+        title: "Description required",
+        description: "Please add a description for this payment",
+        variant: "destructive",
+      });
+      return false;
+    }
+
+    return true;
+  };
+
+  // Download QR code as image
+  const downloadQRCode = (qrCodeData: string, reference: string) => {
+    const link = document.createElement("a");
+    link.href = qrCodeData;
+    link.download = `payment-qr-${reference}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    toast({
+      title: "QR Code downloaded",
+      description: "QR code saved to your downloads folder",
+    });
+  };
+
+  // Copy to clipboard helper
+  const copyPaymentLink = async (url: string) => {
+    await navigator.clipboard.writeText(url);  
+    toast({
+      title: "Link copied!",
+      description: "Payment link copied to clipboard",
+    });
+  };
+
+  // Create payment handler
+  const handleCreatePayment = async () => {
+    if (!validatePaymentForm()) return;
+
+    setIsCreatingPayment(true);
+
+    try {
+      const currentEnv = AuthManager.getCurrentEnvironment();
+      const keys = AuthManager.getApiKeys(currentEnv);
+      const merchantInfo = AuthManager.getMerchantInfo();
+
+      if (!keys || !keys.publicKey || !merchantInfo) {
+        throw new Error("Authentication required");
+      }
+
+      const payment_ref = `egyptfi-${Date.now()}-${Math.random()
+        .toString(36)
+        .substr(2, 9)}`;
+
+        console.log("DATAHEED", { payment_ref, createPaymentAmount, createPaymentCurrency, createPaymentDescription, createPaymentEmail, webhookUrl });
+        
+
+      const result = await initiate_payment({
+        payment_ref,
+        local_amount: parseFloat(createPaymentAmount),
+        local_currency: createPaymentCurrency,
+        description: createPaymentDescription.trim(),
+        chain: "starknet",
+        secondary_endpoint: webhookUrl  || "https://egyptfi.online/confirm"|| undefined,
+        email: createPaymentEmail.trim(),
+        api_key: keys.publicKey,
+        wallet_address: merchantInfo.walletAddress,
+      });
+
+      // if (!response.ok) {
+      //   const errorData = await response.json();
+      //   throw new Error(errorData.error || "Failed to create payment link");
+      // }
+
+      // const result = await response.json();
+      console.log(result);      
+
+      // Store the result to display
+      setPaymentLinkResult(result);
+
+      // Refresh the payments list
+      const invoicesData = await InvoiceService.getInvoices();
+      setInvoices(invoicesData);
+    } catch (error) {
+      console.error("Error creating payment link:", error);
+      toast({
+        title: "Failed to create payment link",
+        description:
+          error instanceof Error ? error.message : "An error occurred",
+        variant: "destructive",
+      });
+    } finally {
+      setIsCreatingPayment(false);
+    }
+  };
+
+  // Reset form handler
+  const handleResetForm = () => {
+    setCreatePaymentAmount("");
+    setCreatePaymentDescription("");
+    setCreatePaymentEmail("");
+    setPaymentLinkResult(null);
+  };
+
+  // Close dialog handler
+  const handleCloseDialog = (open: boolean) => {
+    setIsCreatePaymentOpen(open);
+    // Reset after animation completes
+    setTimeout(handleResetForm, 300);
+  };
 
   const strategyApy = useMemo(() => {
     switch (yieldStrategy) {
@@ -1278,7 +1420,7 @@ export default function DashboardPage() {
               </h2>
               <Dialog
                 open={isCreatePaymentOpen}
-                onOpenChange={setIsCreatePaymentOpen}
+                onOpenChange={handleCloseDialog}
               >
                 <DialogTrigger asChild>
                   <Button
@@ -1289,60 +1431,296 @@ export default function DashboardPage() {
                     Create Payment Link
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="sm:max-w-md">
+                <DialogContent className="sm:max-w-4xl max-h-[90vh] overflow-y-auto">
                   <DialogHeader>
-                    <DialogTitle>Create Payment Link</DialogTitle>
+                    <DialogTitle>
+                      {paymentLinkResult
+                        ? "Payment Link Created"
+                        : "Create Payment Link"}
+                    </DialogTitle>
                   </DialogHeader>
-                  <div className="space-y-4">
-                    <div>
-                      <Label htmlFor="amount">Amount</Label>
-                      <Input
-                        id="amount"
-                        placeholder="5000"
-                        type="number"
-                        value={createPaymentAmount}
-                        onChange={(e) => setCreatePaymentAmount(e.target.value)}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="currency">Currency</Label>
-                      <Select
-                        value={createPaymentCurrency}
-                        onValueChange={setCreatePaymentCurrency}
+
+                  {!paymentLinkResult ? (
+                    // Form view
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="amount">Amount *</Label>
+                          <div className="relative">
+                            <Input
+                              id="amount"
+                              placeholder="Enter amount"
+                              type="number"
+                              min="0"
+                              step="0.01"
+                              value={createPaymentAmount}
+                              onChange={(e) =>
+                                setCreatePaymentAmount(e.target.value)
+                              }
+                            />
+                            <span className="absolute right-3 top-1/2 transform -translate-y-1/2 text-sm text-muted-foreground">
+                              {createPaymentCurrency}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div>
+                          <Label htmlFor="currency">Currency *</Label>
+                          <Select
+                            value={createPaymentCurrency}
+                            onValueChange={setCreatePaymentCurrency}
+                          >
+                            <SelectTrigger>
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="NGN">
+                                Nigerian Naira (NGN)
+                              </SelectItem>
+                              <SelectItem value="USD">
+                                US Dollar (USD)
+                              </SelectItem>
+                              <SelectItem value="EUR">Euro (EUR)</SelectItem>
+                              <SelectItem value="GBP">
+                                British Pound (GBP)
+                              </SelectItem>
+                              <SelectItem value="GHS">
+                                Ghanaian Cedi (GHS)
+                              </SelectItem>
+                              <SelectItem value="KES">
+                                Kenyan Shilling (KES)
+                              </SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="email">Customer Email *</Label>
+                        <Input
+                          id="email"
+                          placeholder="customer@example.com"
+                          type="email"
+                          value={createPaymentEmail}
+                          onChange={(e) =>
+                            setCreatePaymentEmail(e.target.value)
+                          }
+                        />
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Payment receipt will be sent to this email
+                        </p>
+                      </div>
+
+                      <div>
+                        <Label htmlFor="description">Description *</Label>
+                        <Textarea
+                          id="description"
+                          placeholder="e.g., Premium Coffee Blend x2, Monthly Subscription, etc."
+                          value={createPaymentDescription}
+                          onChange={(e) =>
+                            setCreatePaymentDescription(e.target.value)
+                          }
+                          rows={3}
+                        />
+                      </div>
+
+                      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                        <div className="flex items-start">
+                          <AlertCircle className="w-4 h-4 text-blue-600 mr-2 mt-0.5" />
+                          <div className="text-xs text-blue-900">
+                            <p className="font-medium mb-1">
+                              Payment Link Details:
+                            </p>
+                            <ul className="space-y-1">
+                              <li>• Link expires in 24 hours</li>
+                              <li>
+                                • Customer can pay with ETH, STRK, or USDC
+                              </li>
+                              <li>• You receive USDC on StarkNet</li>
+                              <li>• No gas fees for customers</li>
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+
+                      <Button
+                        onClick={handleCreatePayment}
+                        disabled={isCreatingPayment}
+                        className="w-full bg-background text-foreground border-2"
+                        style={{ borderColor: "#d4af37" }}
                       >
-                        <SelectTrigger>
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="NGN">
-                            Nigerian Naira (NGN)
-                          </SelectItem>
-                          <SelectItem value="USD">US Dollar (USD)</SelectItem>
-                          <SelectItem value="EUR">Euro (EUR)</SelectItem>
-                          <SelectItem value="GBP">
-                            British Pound (GBP)
-                          </SelectItem>
-                        </SelectContent>
-                      </Select>
+                        {isCreatingPayment ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Creating Link...
+                          </>
+                        ) : (
+                          <>
+                            <Plus className="w-4 h-4 mr-2" />
+                            Create Payment Link
+                          </>
+                        )}
+                      </Button>
                     </div>
-                    <div>
-                      <Label htmlFor="description">Description</Label>
-                      <Textarea
-                        id="description"
-                        placeholder="Premium Coffee Blend x2"
-                        value={createPaymentDescription}
-                        onChange={(e) =>
-                          setCreatePaymentDescription(e.target.value)
-                        }
-                      />
+                  ) : (
+                    // Result view
+                    <div className="space-y-6">
+                      <div className="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div className="flex items-center">
+                          <Check className="w-5 h-5 text-green-600 mr-2" />
+                          <div>
+                            <p className="font-medium text-green-900">
+                              Payment Link Created Successfully
+                            </p>
+                            <p className="text-sm text-green-700">
+                              Share this link with your customer to receive
+                              payment
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Left side - Payment details */}
+                        <div className="space-y-4">
+                          <div>
+                            <Label className="text-sm text-muted-foreground">
+                              Payment Link
+                            </Label>
+                            <div className="mt-2 flex gap-2">
+                              <Input
+                                value={paymentLinkResult.authorization_url}
+                                readOnly
+                                className="font-mono text-sm"
+                              />
+                              <Button
+                                variant="outline"
+                                size="icon"
+                                onClick={() =>
+                                  copyPaymentLink(
+                                    paymentLinkResult.authorization_url
+                                  )
+                                }
+                              >
+                                {copiedItem ===
+                                paymentLinkResult.authorization_url ? (
+                                  <Check className="w-4 h-4 text-green-600" />
+                                ) : (
+                                  <Copy className="w-4 h-4" />
+                                )}
+                              </Button>
+                            </div>
+                          </div>
+
+                          <div>
+                            <Label className="text-sm text-muted-foreground">
+                              Reference
+                            </Label>
+                            <div className="mt-2">
+                              <code className="text-sm bg-muted px-3 py-2 rounded block">
+                                {paymentLinkResult.reference}
+                              </code>
+                            </div>
+                          </div>
+
+                          <div>
+                            <Label className="text-sm text-muted-foreground">
+                              Expires At
+                            </Label>
+                            <div className="mt-2">
+                              <p className="text-sm">
+                                {new Date(
+                                  paymentLinkResult.expires_at
+                                ).toLocaleString()}
+                              </p>
+                            </div>
+                          </div>
+
+                          <div className="flex gap-2">
+                            <Button
+                              variant="outline"
+                              className="flex-1"
+                              onClick={() =>
+                                window.open(
+                                  paymentLinkResult.authorization_url,
+                                  "_blank"
+                                )
+                              }
+                            >
+                              <ExternalLink className="w-4 h-4 mr-2" />
+                              Open Link
+                            </Button>
+                            <Button
+                              variant="outline"
+                              className="flex-1"
+                              onClick={() =>
+                                copyPaymentLink(
+                                  paymentLinkResult.authorization_url
+                                )
+                              }
+                            >
+                              <Copy className="w-4 h-4 mr-2" />
+                              Copy Link
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Right side - QR code */}
+                        <div className="space-y-4">
+                          <div>
+                            <Label className="text-sm text-muted-foreground">
+                              QR Code
+                            </Label>
+                            <div className="mt-2 bg-white p-4 rounded-lg border flex items-center justify-center">
+                              <img
+                                src={paymentLinkResult.qr_code}
+                                alt="Payment QR Code"
+                                className="w-full max-w-[250px] h-auto"
+                              />
+                            </div>
+                          </div>
+
+                          <Button
+                            variant="outline"
+                            className="w-full"
+                            onClick={() =>
+                              downloadQRCode(
+                                paymentLinkResult.qr_code,
+                                paymentLinkResult.reference
+                              )
+                            }
+                          >
+                            <Download className="w-4 h-4 mr-2" />
+                            Download QR Code
+                          </Button>
+
+                          <div className="bg-muted/50 rounded-lg p-3 text-xs text-muted-foreground">
+                            <p>
+                              💡 Customers can scan this QR code to pay
+                              instantly
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="flex gap-3 pt-4 border-t">
+                        <Button
+                          variant="outline"
+                          onClick={handleResetForm}
+                          className="flex-1"
+                        >
+                          Create Another Link
+                        </Button>
+                        <Button
+                          onClick={handleCloseDialog}
+                          className="flex-1 bg-background text-foreground border-2"
+                          style={{ borderColor: "#d4af37" }}
+                        >
+                          Done
+                        </Button>
+                      </div>
                     </div>
-                    <Button
-                      className="w-full bg-background text-foreground border-2"
-                      style={{ borderColor: "#d4af37" }}
-                    >
-                      Create Payment Link
-                    </Button>
-                  </div>
+                  )}
                 </DialogContent>
               </Dialog>
             </div>
