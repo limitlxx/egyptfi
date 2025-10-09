@@ -3,6 +3,7 @@ import { truncateToFelt252, emailToFelt252 } from "@/lib/felt252-utils";
 import ContractMerchantService from './contractMerchantService';
 import { chipipayService } from './chipipayService';
 import { CreateWalletParams, CreateWalletResponse, ContractCallParams } from './types/chipipay.types';
+import { AuthManager } from "@/lib/auth-utils";
 
 export interface MerchantRegistrationData {
   business_name: string;
@@ -380,6 +381,17 @@ class MerchantRegistrationService {
   static storeMerchantData(merchant: any): void {
     localStorage.setItem('merchant', JSON.stringify(merchant));
   }
+
+
+  static async getProfile(): Promise<any[]> {
+      const response = await AuthManager.makeAuthenticatedRequest("/api/merchants/profile");
+  
+      if (!response.ok) {
+        throw new Error(`Failed to fetch Profile: ${response.statusText}`);
+      }
+  
+      return response.json();
+    }
 }
 
 export default MerchantRegistrationService;

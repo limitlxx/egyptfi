@@ -21,7 +21,7 @@ export async function authenticateApiKey(
   try {
     const client = await pool.connect();
     try {
-      console.log('Authenticating API key:', { apiKey, environment });
+      // console.log('Authenticating API key:', { apiKey, environment });
       
       // Verify the API key belongs to the merchant with the given wallet address
       const result = await client.query(
@@ -37,7 +37,7 @@ export async function authenticateApiKey(
         [apiKey]
       );
 
-      console.log('Auth query result:', result.rows);
+      // console.log('Auth query result:', result.rows);
       
 
       if (result.rows.length === 0) {

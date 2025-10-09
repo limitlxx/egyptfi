@@ -28,6 +28,11 @@ export interface DbResult {
   };
 }
 
+export interface PinVerificationResult {
+  success: boolean;
+  error?: string;
+}
+
 export interface WalletCreationParams {
   pin?: string; // Original PIN entered by user
   encryptKey?: string; // Pre-encrypted key (alternative to pin)
@@ -226,12 +231,8 @@ export const updateMerchantWallet = async (
   environment: string,
   privateKey?: string,
   chipiHash?: string
-): Promise<{ success: boolean; error?: string }> => {
-  console.log("merchantId", merchantId);
-  console.log("wallet address", walletAddress);
-  console.log("JWT MMMMMMMMMMMMMMMMMMMMMMMMMMMMM", jwtToken);
-  console.log("API KEY", apiKey);
-  console.log("Environment", environment);
+): Promise<{ success: boolean; error?: string }> => { 
+
   if (!walletAddress)
     return {
       success: false,
@@ -624,5 +625,42 @@ export const clearStoredEncryptionKey = (
   } catch (error) {
     console.warn("Failed to clear stored encryption key:", error);
     return false;
+  }
+};
+
+
+// Verification function
+export const verifyPin = async (
+  suppliedPin: string,
+  storedPinCode: string, // From API: privateinfo.pin_code
+  salt?: string // Optional; defaults to "chipi-wallet-salt"
+): Promise<PinVerificationResult> => {
+  // Validate input PIN format (reuse existing validator)
+  if (!validatePin(suppliedPin)) {
+    return {
+      success: false,
+      error: "Invalid PIN format (must be 4-32 characters)",
+    };
+  }
+
+  try {
+    // Regenerate the hash using the same logic as encryptPin
+    const regeneratedHash = await encryptPin(suppliedPin, salt);
+    
+    // Compare hashes (case-sensitive, exact match)
+    if (regeneratedHash === storedPinCode) {
+      return { success: true };
+    } else {
+      return {
+        success: false,
+        error: "PIN does not match",
+      };
+    }
+  } catch (error) {
+    console.error("PIN verification failed:", error);
+    return {
+      success: false,
+      error: "Verification error occurred",
+    };
   }
 };

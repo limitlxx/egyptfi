@@ -155,15 +155,11 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
       // Create password from PIN (same format as signup)
       const strongPassword = `${loginData.pin}EgyptFi2024!`;
 
-      console.log("Attempting Clerk login with email:", loginData.email);
-
       // Attempt to sign in with Clerk
       const result = await signIn.create({
         identifier: loginData.email,
         password: strongPassword,
       });
-
-      console.log("Clerk login result:", result);
 
       if (result.status === "complete") {
         // Set the active session
@@ -172,8 +168,6 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
         // Get authentication token
         const token = await getToken();
         const clerkUserId = result.id;
-
-        console.log("Login successful! Clerk user:", clerkUserId);
 
         if (!clerkUserId || !token) {
           throw new Error("Failed to create authenticated session");
@@ -232,6 +226,9 @@ export const LoginModal: React.FC<LoginModalProps> = ({ isOpen, onClose }) => {
         }
 
         AuthManager.setCurrentEnvironment("testnet");
+
+        localStorage.setItem("clerkUserId", clerkUserId);
+        localStorage.setItem("clerkToken", token);
 
         // Success - redirect to dashboard
         setTimeout(() => {

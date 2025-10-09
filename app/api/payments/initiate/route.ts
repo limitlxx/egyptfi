@@ -163,10 +163,9 @@ export async function POST(request: NextRequest) {
         })
       }
 
-      console.log('Payment initiated:', { ref, amount: total_amount, currency: local_currency, merchant_id: authResult.merchant!.id });      
+      // console.log('Payment initiated:', { ref, amount: total_amount, currency: local_currency, merchant_id: authResult.merchant!.id });      
 
-      console.log('invoice:', invoice);
-      
+      // console.log('invoice:', invoice);      
 
       // Return the response in the exact format you requested
       return NextResponse.json({
