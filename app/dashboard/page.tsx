@@ -115,7 +115,7 @@ export default function DashboardPage() {
   const [isCreatePaymentOpen, setIsCreatePaymentOpen] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState("all");
-  const [availableBalance, setAvailableBalance] = useState<number>(500);
+  const [availableBalance, setAvailableBalance] = useState<number>(0);
   const [poolBalance, setPoolBalance] = useState<number>(0);
   const [vaultBalance, setVaultBalance] = useState<number>(0);
   const [totalBalance, setTotalAmount] = useState<number>(0);
@@ -545,22 +545,14 @@ export default function DashboardPage() {
     const formData = new FormData();
     formData.append("logo", file);
 
-    // Commented out AuthManager for development - using regular fetch
-    // const response = await AuthManager.makeAuthenticatedRequest(
-    //   "/api/merchants/upload-logo",
-    //   {
-    //     method: "POST",
-    //     body: formData, // Don't set Content-Type header for FormData
-    //   }
-    // );
-
     const response = await fetch("/api/merchants/upload-logo", {
       method: "POST",
       body: formData, // Don't set Content-Type header for FormData
     });
 
     if (!response.ok) {
-      throw new Error("Failed to upload logo");
+      const errorData = await response.json();
+      throw new Error(errorData.error || "Failed to upload logo");
     }
 
     const result = await response.json();
@@ -589,7 +581,7 @@ export default function DashboardPage() {
     try {
       let logoUrl = businessLogo;
 
-      // Upload new logo if one was selected
+      // Upload new logo if one was selected (development mode - uses local URL)
       if (pendingLogoFile) {
         setIsUploadingLogo(true);
         logoUrl = await uploadLogo(pendingLogoFile);
@@ -912,25 +904,21 @@ export default function DashboardPage() {
           </div>
           <div className="flex items-center space-x-4">
             <div className="w-8 h-8 bg-gradient-to-br from-amber-400 to-orange-500 rounded-lg flex items-center justify-center text-sm">
-              {logoPreview ? (
+              {typeof originalValues.businessLogo === "string" &&
+              originalValues.businessLogo.startsWith("/") ? (
                 <img
-                  src={logoPreview}
-                  alt="Business logo"
-                  className="w-full h-full object-cover rounded-lg"
-                />
-              ) : typeof businessLogo === "string" &&
-                businessLogo.startsWith("/") ? (
-                <img
-                  src={businessLogo}
+                  src={originalValues.businessLogo}
                   alt="Business logo"
                   className="w-full h-full object-cover rounded-lg"
                 />
               ) : (
-                businessLogo
+                originalValues.businessLogo
               )}
             </div>
 
-            <span className="font-medium text-foreground">{businessName}</span>
+            <span className="font-medium text-foreground">
+              {originalValues.businessName}
+            </span>
             {isConnected && (
               <Button
                 variant="outline"

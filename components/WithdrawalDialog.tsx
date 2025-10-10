@@ -234,9 +234,7 @@ const WithdrawalDialog: React.FC<WithdrawalDialogProps> = ({
   const [isOpen, setIsOpen] = useState(false);
   const [withdrawAmount, setWithdrawAmount] = useState("");
   const [withdrawPin, setWithdrawPin] = useState("");
-  const [customSettlementAddress, setCustomSettlementAddress] = useState(
-    settlementWallet || ""
-  );
+  const [customSettlementAddress, setCustomSettlementAddress] = useState("");
   const {
     transferAsync,
     isLoading: isTransferLoading,
@@ -354,7 +352,8 @@ const WithdrawalDialog: React.FC<WithdrawalDialogProps> = ({
       console.error("Withdrawal failed:", error);
       toast({
         title: "Withdrawal failed",
-        description: error?.message || "An error occurred during the transfer.",
+        description:
+          (error as any)?.message || "An error occurred during the transfer.",
         variant: "destructive",
       });
     } finally {
@@ -420,16 +419,16 @@ const WithdrawalDialog: React.FC<WithdrawalDialogProps> = ({
               className="font-mono text-sm"
               disabled={isWalletLoading || isWithdrawing || isTransferLoading}
             />
-            <p className="text-sm text-muted-foreground mt-1">
+            {/* <p className="text-sm text-muted-foreground mt-1">
               Default: {settlementWallet || "Not set"}
-            </p>
+            </p> */}
             {!isValidStarknetAddress(customSettlementAddress) &&
               customSettlementAddress && (
                 <p className="text-sm text-red-600 mt-1">
                   Invalid Starknet address
                 </p>
               )}
-            <Button
+            {/* <Button
               variant="outline"
               onClick={() => setCustomSettlementAddress(settlementWallet || "")}
               disabled={isWalletLoading || isWithdrawing || isTransferLoading}
@@ -437,7 +436,7 @@ const WithdrawalDialog: React.FC<WithdrawalDialogProps> = ({
               style={{ borderColor: "#d4af37" }}
             >
               Use Default Address
-            </Button>
+            </Button> */}
           </div>
           <Button
             onClick={handleWithdraw}
