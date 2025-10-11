@@ -214,3 +214,24 @@ Include relevant screenshots or a link to a short demo video here. This helps us
 * **Abanonu Kosisochukwu Debora** – Developer
 
 ---
+
+
+## Summary Section
+
+### License: EgyptFi White Label Educational License (BWLEL-1.0)
+
+This project is licensed under the **EgyptFi White Label Educational License (BWLEL-1.0)**, which promotes open access for learning while safeguarding our intellectual property.
+
+#### What You **Can** Do:
+- Use, study, and run the code for **educational, research, or personal purposes**.
+- Modify and create derivative works for the same non-commercial uses.
+- Distribute copies or modified versions, as long as you follow the license conditions (e.g., include attribution and keep it non-commercial).
+
+#### What You **Cannot** Do:
+- Use the code for **commercial, enterprise, or for-profit activities** without a paid white-label license or written permission from EgyptFi.
+- Remove or alter **EgyptFi attribution** or branding.
+- Rebrand ("white-label") the software for any purpose without explicit approval.
+
+For commercial licensing, visit [EgyptFi Licensing](https://egyptfi.online) or email x@egyptfi.online. Always include proper credit: "Powered by EgyptFi under BWLEL-1.0." 
+
+See the full [LICENSE](LICENSE) file for details. No warranties are provided—use at your own risk!

@@ -111,9 +111,7 @@ export async function POST(request: NextRequest) {
       ]
     );
 
-    const newMerchant = merchantResult.rows[0];
-
-    console.log("Merchant", newMerchant);
+    const newMerchant = merchantResult.rows[0]; 
 
     // Generate API keys for both testnet and mainnet (only here)
     const testnetKeys = generateApiKeys(newMerchant.id, "testnet");
@@ -160,16 +158,6 @@ export async function POST(request: NextRequest) {
       apiKeys: {
         publicKey: testnetKeys.publicKey,
         jwt: testnetJWT,
-        // testnet: {
-        //   publicKey: testnetKeys.publicKey,
-        //   secretKey: testnetKeys.secretKey, // Unhashed, sent only once
-        //   jwt: testnetJWT
-        // },
-        // mainnet: {
-        //   publicKey: mainnetKeys.publicKey,
-        //   secretKey: mainnetKeys.secretKey, // Unhashed, sent only once
-        //   jwt: mainnetJWT
-        // }
       },
     });
   } catch (error) {

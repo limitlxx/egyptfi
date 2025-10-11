@@ -494,7 +494,7 @@ pub mod EgyptFi {
             timestamp: get_block_timestamp(),
         });
         self.reentrancy_guard.end();
-    }
+    } 
 
     fn refund_payment(ref self: ContractState, payment_id: felt252) {
         self.reentrancy_guard.start();

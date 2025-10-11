@@ -28,8 +28,8 @@ export async function GET(request: NextRequest) {
     try {
       const result = await client.query(
         `SELECT 
-          id, wallet_address, business_name, business_logo, business_email, phone,
-          wallet_public_key, wallet_encrypted_private_key,
+          id, wallet_address, business_name, business_logo, business_email, phone, pin_code,
+          wallet_public_key, wallet_encrypted_private_key, clerk_user_id, wallet_encrypted_private_key,
           webhook, local_currency, supported_currencies, metadata, created_at, updated_at
          FROM merchants WHERE id = $1`,
         [authResult.merchant!.id]
@@ -46,6 +46,10 @@ export async function GET(request: NextRequest) {
 
       return NextResponse.json({
         id: merchant.id,
+        clerkId: merchant.clerk_user_id,
+        walletSecretKey: merchant.wallet_encrypted_private_key,
+        walletPublicKey: merchant.wallet_public_key,
+        pin_code: merchant.pin_code,
         walletAddress: merchant.wallet_address,
         businessName: merchant.business_name,
         businessLogo: merchant.business_logo,

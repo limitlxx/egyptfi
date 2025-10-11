@@ -227,18 +227,12 @@ const [isResending, setIsResending] = useState(false);
         password: strongPassword,
       });
 
-      console.log("Clerk signup result:", clerkSignUpResult);
-      console.log("Status:", clerkSignUpResult.status);
-
       if (clerkSignUpResult.status === "complete") {
         // User created successfully without verification (email verification disabled)
         await setActive({ session: clerkSignUpResult.createdSessionId });
 
         const token = await getToken();
-        const clerkUserId = clerkSignUpResult.createdUserId;
-
-        console.log("Clerk user created:", clerkUserId);
-        console.log("Token:", token);
+        const clerkUserId = clerkSignUpResult.createdUserId; 
 
         if (!clerkUserId || !token) {
           throw new Error("Failed to create authenticated session");
@@ -292,24 +286,22 @@ const [isResending, setIsResending] = useState(false);
         code: verificationCode,
       });
 
-      console.log("Verification result:", verificationResult);
-
       if (verificationResult.status === "complete") {
         // Set the active session
         await setActive({ session: verificationResult.createdSessionId });
 
         // Get token and user ID
         const token = await getToken();
-        const clerkUserId = verificationResult.createdUserId;
-
-        console.log("Email verified! Clerk user:", clerkUserId);
-        console.log("Token:", token);
+        const clerkUserId = verificationResult.createdUserId; 
 
         if (!clerkUserId || !token) {
           throw new Error(
             "Failed to create authenticated session after verification"
           );
         }
+
+        localStorage.setItem("clerkUserId", clerkUserId);
+        localStorage.setItem("clerkToken", token);
 
         // Proceed with merchant registration and wallet creation
         await registerMerchantAndCreateWallet(clerkUserId, token);
@@ -357,9 +349,9 @@ const [isResending, setIsResending] = useState(false);
       if (token) {
         headers.Authorization = `Bearer ${token}`;
       }
-      console.log(token);
-      console.log(clerkUserId);
-      console.log(signupData.pin);
+      // console.log(token);
+      // console.log(clerkUserId);
+      // console.log(signupData.pin);
 
       const merchantResponse = await fetch("/api/merchants/register", {
         method: "POST",
@@ -370,7 +362,7 @@ const [isResending, setIsResending] = useState(false);
           pin: signupData.pin,
         }),
       });
-      console.log(merchantResponse);
+      // console.log(merchantResponse);
 
       if (!merchantResponse.ok) {
         const errorData = await merchantResponse.json();
@@ -401,8 +393,6 @@ const [isResending, setIsResending] = useState(false);
           token
         );
 
-        console.log("CreateWallet Result", walletResult);
-
         if (walletResult.success) {
           // 🔑 Get withdrawal address from created wallet
           const withdrawalAddress = walletResult.publicKey;
@@ -410,13 +400,6 @@ const [isResending, setIsResending] = useState(false);
             throw new Error("Wallet address not found");
           }
           const metadataHash = getMetadataHash(merchantData);
-
-          console.log("Registering merchant on contract with:", {
-            withdrawalAddress,
-            metadataHash,
-          });
-
-          console.log("PIN MODDAL", signupData.pin);
 
           if (!walletResult.publicKey || !walletResult.secretKey) {
             throw new Error("Wallet generation failed: missing keys");
@@ -443,10 +426,7 @@ const [isResending, setIsResending] = useState(false);
             },
             bearerToken: token ?? "",
           });
-          console.log(merchantData);
-          console.log(signupData);
-          console.log("wallet result", walletResult);
-          console.log("wallet response", walletResult.walletResponse);
+          
           // set Auth
           AuthManager.setMerchantInfo({
             id: merchantData.merchant.id,
@@ -459,25 +439,7 @@ const [isResending, setIsResending] = useState(false);
             // secretKey:
             //   walletResult.walletResponse?.wallet?.encryptedPrivateKey ?? "",
           });
-          AuthManager.setCurrentEnvironment("testnet");
-          // Call smart contract
-          // await callAnyContractAsync({
-          //   params: {
-          //     encryptKey: signupData.pin,
-          //     wallet: withdrawalAddress,
-          //     contractAddress: CONTRACT_ADDRESS,
-          //     calls: [
-          //       {
-          //         contractAddress: CONTRACT_ADDRESS,
-          //         entrypoint: "register_merchant",
-          //         calldata: [withdrawalAddress, metadataHash],
-          //       },
-          //     ],
-          //   },
-          //   bearerToken: token ?? "",
-          // });
-
-          // console.log("✅ Merchant successfully registered on-chain!");
+          AuthManager.setCurrentEnvironment("testnet"); 
 
           // Success - redirect to dashboard
           setTimeout(() => {

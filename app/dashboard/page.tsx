@@ -87,6 +87,14 @@ import {
 import Image from "next/image";
 import YieldOptionsPage from "./components/yield-view";
 import { initiate_payment } from "@/services/paymentService";
+import { useCallAnyContract, WalletData } from "@chipi-stack/chipi-react";
+import MerchantRegistrationService from "@/services/merchantRegistrationService";
+import { verifyPin } from "@/lib/wallet-auth-integration";
+import { PinVerificationDialog } from "@/components/PinVerificationDialog";
+
+import { SignedOut, SignInButton, SignedIn, UserButton } from "@clerk/nextjs";
+import { useAuth } from "@clerk/nextjs";
+import { cairo } from "starknet"; // For u256 splitting
 
 const initialMerchantData = {
   name: "Coffee Shop Lagos",
@@ -102,6 +110,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const { address, isConnected } = useAccount();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { getToken } = useAuth();
 
   // Existing state
   const [copiedItem, setCopiedItem] = useState<string | null>(null);
@@ -187,6 +196,7 @@ export default function DashboardPage() {
   const [showKycModal, setShowKycModal] = useState(false);
   const [showKycTypeModal, setShowKycTypeModal] = useState(false);
   const [kycStatus, setKycStatus] = useState<string | null>(null);
+  const [txHash, setTxHash] = useState<string | null>(null);
 
   const [createPaymentEmail, setCreatePaymentEmail] = useState("");
   const [isCreatingPayment, setIsCreatingPayment] = useState(false);
@@ -196,8 +206,48 @@ export default function DashboardPage() {
     expires_at: string;
     reference: string;
   } | null>(null);
+  const { callAnyContractAsync, data } = useCallAnyContract();
+  const [isResending, setIsResending] = useState(false);
+  const [showPinDialog, setShowPinDialog] = useState(false);
+  const [pendingPaymentData, setPendingPaymentData] = useState<{
+    amount: string;
+    currency: string;
+    description: string;
+    email: string;
+    paymentRef: string;
+  } | null>(null);
+  const [privateinfo, setPrivateinfo] = useState<any>(null); // Fetch once
 
   const { provider } = useProvider();
+
+  const CONTRACT_ADDRESS =
+    process.env.NEXT_PUBLIC_EGYPT_MAINNET_CONTRACT_ADDRESS ||
+    "0x04bb1a742ac72a9a72beebe1f608c508fce6dfa9250b869018b6e157dccb46e8";
+
+  // Helper to scale amount to u256 with decimals (adjust DECIMALS if needed, e.g., for USDC)
+  const DECIMALS = 6;
+  const scaleAmountToUint256 = (
+    amountStr: string
+  ): { low: string; high: string } => {
+    const scaled = BigInt(Math.round(Number(amountStr) * 10 ** DECIMALS));
+    const u = cairo.uint256(scaled); // Now correctly callable via cairo
+    return {
+      low: u.low.toString(), // Lower 128 bits as string (felt252)
+      high: u.high.toString(), // Upper 128 bits as string (felt252)
+    };
+  };
+
+  useEffect(() => {
+    const fetchPrivateInfo = async () => {
+      try {
+        const info = await MerchantRegistrationService.getProfile();
+        setPrivateinfo(info);
+      } catch (error) {
+        console.error("Failed to fetch private info:", error);
+      }
+    };
+    fetchPrivateInfo();
+  }, []);
 
   useEffect(() => {
     async function fetchData() {
@@ -334,7 +384,7 @@ export default function DashboardPage() {
 
   // Copy to clipboard helper
   const copyPaymentLink = async (url: string) => {
-    await navigator.clipboard.writeText(url);  
+    await navigator.clipboard.writeText(url);
     toast({
       title: "Link copied!",
       description: "Payment link copied to clipboard",
@@ -345,50 +395,118 @@ export default function DashboardPage() {
   const handleCreatePayment = async () => {
     if (!validatePaymentForm()) return;
 
+    // Generate ref early
+    const payment_ref = `egyptfi-${Date.now()}-${Math.random()
+      .toString(36)
+      .substr(2, 9)}`;
+
+    // Store pending data
+    setPendingPaymentData({
+      amount: createPaymentAmount,
+      currency: createPaymentCurrency,
+      description: createPaymentDescription,
+      email: createPaymentEmail,
+      paymentRef: payment_ref,
+    });
+
+    // Show PIN dialog
+    setShowPinDialog(true);
+  };
+
+  // New handler for PIN verification success
+  const handlePinVerified = async (plainPin: string) => {
+    if (!pendingPaymentData || !privateinfo) return;
+
     setIsCreatingPayment(true);
 
     try {
+      const { amount, currency, description, email, paymentRef } =
+        pendingPaymentData;
       const currentEnv = AuthManager.getCurrentEnvironment();
       const keys = AuthManager.getApiKeys(currentEnv);
       const merchantInfo = AuthManager.getMerchantInfo();
+      const merchantAddress = merchantInfo?.walletAddress || "";
 
-      if (!keys || !keys.publicKey || !merchantInfo) {
+      if (!keys || !keys.publicKey || !merchantInfo || !privateinfo) {
         throw new Error("Authentication required");
       }
 
-      const payment_ref = `egyptfi-${Date.now()}-${Math.random()
-        .toString(36)
-        .substr(2, 9)}`;
+      if (!merchantAddress) {
+        throw new Error("Merchant wallet address not found");
+      }
 
-        console.log("DATAHEED", { payment_ref, createPaymentAmount, createPaymentCurrency, createPaymentDescription, createPaymentEmail, webhookUrl });
-        
+      // Fetch a fresh token here (replaces localStorage.getItem)
+      const token = await getToken(); // Optional: Specify template for custom claims
+      if (!token) {
+        throw new Error("Failed to retrieve authentication token");
+      }
 
+      // Prepare u256 for amount
+      const { low, high } = scaleAmountToUint256(amount);
+
+      // Prepare calldata (flat array of strings/numbers for felt252/u256)
+      const calldata = [
+        merchantAddress, // merchant: ContractAddress (felt252)
+        low, // amount low (felt252)
+        high, // amount high (felt252)
+        paymentRef, // reference: felt252 (short string auto-converted)
+        description.trim(), // description: felt252 (short string auto-converted)
+      ];
+
+      const walletData: WalletData = {
+        publicKey: privateinfo.walletPublicKey,
+        encryptedPrivateKey: privateinfo.walletSecretKey,
+      };
+
+      // Call smart contract - NOW using PLAIN PIN as encryptKey
+      const callC = await callAnyContractAsync({
+        params: {
+          encryptKey: plainPin, // ✅ Plain PIN for decryption/signing
+          wallet: walletData as any,
+          contractAddress: CONTRACT_ADDRESS,
+          calls: [
+            {
+              contractAddress: CONTRACT_ADDRESS,
+              entrypoint: "create_payment", // Adjust entrypoint if needed for payment
+              calldata,
+            },
+          ],
+        },
+        bearerToken: token ?? "",
+      });
+
+      console.log("SC CALL", callC);
+
+      // Extract tx hash from callC response (adjust property name if different, e.g., callC.transaction_hash)
+      const transactionHash = callC || null;
+      if (!transactionHash) {
+        throw new Error("Transaction hash not returned from contract call");
+      }
+
+      setTxHash(transactionHash);
+
+      // Proceed with initiate_payment (unchanged)
       const result = await initiate_payment({
-        payment_ref,
-        local_amount: parseFloat(createPaymentAmount),
-        local_currency: createPaymentCurrency,
-        description: createPaymentDescription.trim(),
+        payment_ref: paymentRef,
+        local_amount: parseFloat(amount),
+        local_currency: currency,
+        description: description.trim(),
         chain: "starknet",
-        secondary_endpoint: webhookUrl  || "https://egyptfi.online/confirm"|| undefined,
-        email: createPaymentEmail.trim(),
+        secondary_endpoint:
+          webhookUrl || "https://egyptfi.online/confirm" || undefined,
+        email: email.trim(),
         api_key: keys.publicKey,
         wallet_address: merchantInfo.walletAddress,
       });
 
-      // if (!response.ok) {
-      //   const errorData = await response.json();
-      //   throw new Error(errorData.error || "Failed to create payment link");
-      // }
-
-      // const result = await response.json();
-      console.log(result);      
-
-      // Store the result to display
+      console.log(result);
       setPaymentLinkResult(result);
 
-      // Refresh the payments list
+      // Refresh invoices
       const invoicesData = await InvoiceService.getInvoices();
       setInvoices(invoicesData);
+
+      toast({ title: "Payment created successfully!" });
     } catch (error) {
       console.error("Error creating payment link:", error);
       toast({
@@ -399,7 +517,14 @@ export default function DashboardPage() {
       });
     } finally {
       setIsCreatingPayment(false);
+      setPendingPaymentData(null);
     }
+  };
+
+  // Updated dialog close handler
+  const handleClosePinDialog = () => {
+    setShowPinDialog(false);
+    setPendingPaymentData(null); // Clear if canceled
   };
 
   // Reset form handler
@@ -1148,6 +1273,10 @@ export default function DashboardPage() {
                 {address?.slice(0, 6)}...{address?.slice(-4)}
               </Button>
             )}
+
+            <SignedIn>
+              <UserButton />
+            </SignedIn>
           </div>
         </div>
       </header>
@@ -1612,7 +1741,7 @@ export default function DashboardPage() {
                             </div>
                           </div>
 
-                          <div>
+                          {/* <div>
                             <Label className="text-sm text-muted-foreground">
                               Reference
                             </Label>
@@ -1621,7 +1750,32 @@ export default function DashboardPage() {
                                 {paymentLinkResult.reference}
                               </code>
                             </div>
-                          </div>
+                          </div> */}
+                          {/* Transaction Hash */}
+                          {txHash && (
+                            <div className="space-y-2">
+                              <Label>Blockchain Transaction</Label>
+                              <div className="flex items-center space-x-2">
+                                <Input
+                                  value={txHash}
+                                  readOnly
+                                  className="flex-1 font-mono text-xs"
+                                />
+                                <Button size="sm" variant="outline" asChild>
+                                  <a
+                                    href={`https://voyager.online/tx/${txHash}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </a>
+                                </Button>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                View on Starknet Explorer
+                              </p>
+                            </div>
+                          )}
 
                           <div>
                             <Label className="text-sm text-muted-foreground">
@@ -2627,6 +2781,13 @@ export default function DashboardPage() {
             </div>
           </DialogContent>
         </Dialog>
+
+        <PinVerificationDialog
+          isOpen={showPinDialog}
+          onClose={handleClosePinDialog}
+          onVerify={handlePinVerified}
+          storedPinCode={privateinfo?.pin_code || ""}
+        />
       </div>
     </div>
   );

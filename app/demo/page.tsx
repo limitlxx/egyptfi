@@ -96,7 +96,7 @@ export default function DemoPage() {
         chain: "starknet",
         secondary_endpoint: "https://yourapp.com/webhook",
         email: "customer@example.com",
-        api_key: "pk_test_...",
+        api_key: "pk_test_8633ffb7324b1a4ebe97d77ade60c585",
         wallet_address: "0x...",
       });
 

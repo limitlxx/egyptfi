@@ -91,7 +91,7 @@ export function InvoiceContent({
   const [isPaid, setIsPaid] = useState(false);
   const [isPolling, setIsPolling] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [selectedChain, setSelectedChain] = useState<string>("starknet");
+  const [selectedChain, setSelectedChain] = useState<string>("bitcoin");
   const [selectedToken, setSelectedToken] = useState<string>("usdc");
   const [convertedAmounts, setConvertedAmounts] = useState<
     Record<string, string>
@@ -107,12 +107,12 @@ export function InvoiceContent({
   });
 
   const chains: Chain[] = [
+    { id: "bitcoin", name: "Bitcoin", icon: CircleDot },
     { id: "starknet", name: "StarkNet", icon: CircleDotDashed },
     { id: "ethereum", name: "Ethereum", icon: Network },
     { id: "base", name: "Base", icon: CircleDot },
     { id: "arbitrum", name: "Arbitrum", icon: Gem },
     { id: "polygon", name: "Polygon", icon: Wallet },
-    { id: "bitcoin", name: "Bitcoin", icon: CircleDot },
   ];
 
   const tokens: Record<string, Token[]> = {
