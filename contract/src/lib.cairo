@@ -63,33 +63,33 @@ pub trait IEgyptFi<TContractState> {
 
  // CustomeTypes
     #[derive(Drop, Serde, Copy, starknet::Store)]
-    struct Merchant {
-        is_active: bool, 
-        usdc_balance: u256,
-        total_payments_received: u256,
-        total_payments_count: u64,
-        withdrawal_address: ContractAddress,
-        metadata_hash: felt252, // in basis points (10000 = 100%)
-        joined_timestamp: u64,
+    pub struct Merchant {
+        pub is_active: bool, 
+        pub usdc_balance: u256,
+        pub total_payments_received: u256,
+        pub total_payments_count: u64,
+        pub withdrawal_address: ContractAddress,
+        pub metadata_hash: felt252, // in basis points (10000 = 100%)
+        pub joined_timestamp: u64,
     }
 
     #[derive(Drop, Serde, Copy, starknet::Store)]
-    struct Payment {
-        payment_id: felt252,
-        merchant: ContractAddress,
-        customer: ContractAddress,
-        amount_paid: u256,
-        usdc_amount: u256,
-        status: PaymentStatus,
-        timestamp: u64,
-        reference: felt252,
-        description: felt252,
+    pub struct Payment {
+        pub payment_id: felt252,
+        pub merchant: ContractAddress,
+        pub customer: ContractAddress,
+        pub amount_paid: u256,
+        pub usdc_amount: u256,
+        pub status: PaymentStatus,
+        pub timestamp: u64,
+        pub reference: felt252,
+        pub description: felt252,
     }
 
 
-    #[derive(Copy, Drop, Serde, PartialEq, starknet::Store)]
+    #[derive(Copy, Drop, Serde, PartialEq, starknet::Store, Debug)]
     #[allow(starknet::store_no_default_variant)]
-    enum PaymentStatus {
+    pub enum PaymentStatus {
         Pending,
         Completed,
         Refunded,
@@ -97,7 +97,7 @@ pub trait IEgyptFi<TContractState> {
     }
 
 #[starknet::contract]
-mod EgyptFi {   
+pub mod EgyptFi {   
     use starknet::storage::{Map, StoragePointerReadAccess, StoragePointerWriteAccess, StorageMapReadAccess, StorageMapWriteAccess};
     use super::{Merchant, Payment, PaymentStatus};
     use super::IEgyptFi;  
@@ -153,7 +153,7 @@ mod EgyptFi {
 
     #[event]
     #[derive(Drop, starknet::Event)]
-    enum Event {
+    pub enum Event {
         #[flat]
         OwnableEvent: OwnableComponent::Event,
         #[flat]
@@ -171,57 +171,57 @@ mod EgyptFi {
     }
 
     #[derive(Drop, starknet::Event)]
-    struct MerchantRegistered {
-        merchant: ContractAddress, 
-        timestamp: u64,
+    pub struct MerchantRegistered {
+        pub merchant: ContractAddress, 
+        pub timestamp: u64,
     }
 
     #[derive(Drop, starknet::Event)]
-    struct MerchantUpdated {
-        merchant: ContractAddress,
-        field: felt252,
-        timestamp: u64,
+    pub struct MerchantUpdated {
+        pub merchant: ContractAddress,
+        pub field: felt252,
+        pub timestamp: u64,
     }
 
     #[derive(Drop, starknet::Event)]
-    struct PaymentCreated {
-        payment_id: felt252,
-        merchant: ContractAddress,
-        customer: ContractAddress,
-        amount: u256,
-        reference: felt252,
+    pub struct PaymentCreated {
+        pub payment_id: felt252,
+        pub merchant: ContractAddress,
+        pub customer: ContractAddress,
+        pub amount: u256,
+        pub reference: felt252,
     }
 
     #[derive(Drop, starknet::Event)]
-    struct PaymentCompleted {
-        payment_id: felt252,
-        merchant: ContractAddress,
-        customer: ContractAddress,
-        usdc_amount: u256,
-        timestamp: u64,
+    pub struct PaymentCompleted {
+        pub payment_id: felt252,
+        pub merchant: ContractAddress,
+        pub customer: ContractAddress,
+        pub usdc_amount: u256,
+        pub timestamp: u64,
     }
 
     #[derive(Drop, starknet::Event)]
-    struct PaymentRefunded {
-        payment_id: felt252,
-        merchant: ContractAddress,
-        customer: ContractAddress,
-        refund_amount: u256,
-        timestamp: u64,
+    pub struct PaymentRefunded {
+        pub payment_id: felt252,
+        pub merchant: ContractAddress,
+        pub customer: ContractAddress,
+        pub refund_amount: u256,
+        pub timestamp: u64,
     }
 
     #[derive(Drop, starknet::Event)]
-    struct WithdrawalMade {
-        merchant: ContractAddress,
-        amount: u256,
-        to_address: ContractAddress,
-        timestamp: u64,
+    pub struct WithdrawalMade {
+        pub merchant: ContractAddress,
+        pub amount: u256,
+        pub to_address: ContractAddress,
+        pub timestamp: u64,
     }
 
     #[derive(Drop, starknet::Event)]
-    struct EmergencyPauseToggled {
-        paused: bool,
-        timestamp: u64,
+    pub struct EmergencyPauseToggled {
+        pub paused: bool,
+        pub timestamp: u64,
     }
 
     #[constructor]
@@ -433,7 +433,7 @@ mod EgyptFi {
         let caller = get_caller_address();
         let mut payment = self.payments.read(payment_id);
         
-        assert(payment.payment_id != 0, 'Payment not found');
+        assert(payment.payment_id != 0, 'Payment not found'); //NOTE: comparison between felt252 and 0
         assert(payment.status == PaymentStatus::Pending, 'Payment not pending');
         assert(payment.customer == caller, 'Not payment customer');
 
@@ -509,8 +509,9 @@ mod EgyptFi {
 
         let mut merchant = self.merchants.read(caller);
         assert(merchant.usdc_balance >= payment.usdc_amount, 'Insufficient merchant balance');
+        //NOTE: merchant usd bal will be lower than payment usd bal since platform fee taken
 
-        merchant.usdc_balance -= payment.usdc_amount;
+        merchant.usdc_balance -= payment.usdc_amount; //NOTE: will cause an underflow since merchant usd bal lower than payment usd bal
         self.merchants.write(caller, merchant);
 
         let usdc_contract = IERC20Dispatcher { contract_address: self.usdc_token.read() };
@@ -581,11 +582,15 @@ mod EgyptFi {
         self.ownable.assert_only_owner();
         assert(new_fee_percentage <= 500, 'Fee too high'); // Max 5%
         self.platform_fee_percentage.write(new_fee_percentage);
+
+        //NOTE: no event emitted for platform fee update
     }
 
     fn update_min_payment_amount(ref self: ContractState, new_min_amount: u256) {
         self.ownable.assert_only_owner();
         self.min_payment_amount_usd.write(new_min_amount);
+
+        //NOTE: no event emitted for min payment amount update
     }
 
     fn is_paused(self: @ContractState) -> bool {
