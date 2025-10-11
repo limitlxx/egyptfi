@@ -13,13 +13,13 @@ import {
 import { cairo } from "starknet"; // For uint256
 import pool from "@/lib/db"; // Your DB pool
 import crypto from "crypto"; // For decryption
-import { EGYPT_MAINNET_CONTRACT_ADDRESS as CONTRACT_ADDRESS } from "@/lib/utils"; // Or mainnet
+import { EGYPT_MAINNET_CONTRACT_ADDRESS as CONTRACT_ADDRESS, parseStarknetError } from "@/lib/utils"; // Or mainnet
 import { EGYPTFI_ABI } from "@/lib/abi"; // Your ABI
 import { getSponsorActivity } from "@/services/paymasterService"; // Reuse your paymaster credits fetch
 
 const DECIMALS = 6; // USDC decimals
 const RPC_URL =
-  process.env.STARKNET_RPC_URL || "https://rpc.mainnet.starknet.io/rpc/v0.1/rpc"; // Updated to more stable mainnet RPC (Infura/Alchemy recommended in env)
+  process.env.STARKNET_RPC_URL || "https://starknet-rpc.starknet.io"; // Configurable
 const PAYMASTER_URL = "https://starknet.api.avnu.fi/paymaster/v1"; // AVNU paymaster
 const PAYMASTER_API_KEY = process.env.NEXT_PUBLIC_PAYMASTER_API; // From env
 
@@ -28,14 +28,6 @@ export const scaleAmountToUint256 = (amountStr: string) => {
   const scaled = BigInt(Math.round(Number(amountStr) * 10 ** DECIMALS));
   const u = cairo.uint256(scaled);
   return { low: u.low.toString(), high: u.high.toString() };
-};
-
-// Helper: Decrypt private key (AES-256-CBC; adjust if your encryption differs)
-const decryptPrivateKey = (encryptedKey: string, pin: string): string => {
-  const decipher = crypto.createDecipher('aes-256-cbc', pin.padEnd(32, '0')); // Pad PIN to key length
-  let decrypted = decipher.update(encryptedKey, 'hex', 'utf8');
-  decrypted += decipher.final('utf8');
-  return decrypted;
 };
 
 // Helper: Get paymaster details (sponsored or default based on credits)
@@ -52,10 +44,14 @@ export const getPaymasterDetails: any = async (
     console.log("Paymaster activity:", activity);
 
     // Check if API call failed
-    if (activity.status === 'api_error' || activity.status === 'fetch_error' || activity.status === 'no_api_key') {
+    if (
+      activity.status === "api_error" ||
+      activity.status === "fetch_error" ||
+      activity.status === "no_api_key"
+    ) {
       console.warn("Paymaster unavailable, falling back to default fee mode");
       const gasToken =
-        "0x04718f5a0Fc34cC1AF16A1cdee98fFB20C31f5cD61D6Ab07201858f4287c938D"; // STRK Sepolia
+        "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d"; // STRK
       return {
         feeMode: { mode: "default", gasToken },
       };
@@ -63,7 +59,7 @@ export const getPaymasterDetails: any = async (
 
     // Parse hex to decimal (wei -> ETH/STRK)
     const parseCredits = (hexStr: string): number => {
-      if (!hexStr || hexStr === '0x0') return 0;
+      if (!hexStr || hexStr === "0x0") return 0;
       try {
         const bigIntValue = BigInt(hexStr);
         return Number(bigIntValue) / 1e18; // Divide by 10^18 for human-readable ETH/STRK
@@ -72,9 +68,9 @@ export const getPaymasterDetails: any = async (
         return 0;
       }
     };
-  
-    const ethCredits = parseCredits(activity.remainingCredits || '0x0');
-    const strkCredits = parseCredits(activity.remainingStrkCredits || '0x0');
+
+    const ethCredits = parseCredits(activity.remainingCredits || "0x0");
+    const strkCredits = parseCredits(activity.remainingStrkCredits || "0x0");
 
     console.log(`Parsed credits - ETH: ${ethCredits}, STRK: ${strkCredits}`);
     const hasCredits = ethCredits > 0.001 || strkCredits > 1.0;
@@ -87,7 +83,7 @@ export const getPaymasterDetails: any = async (
       };
     } else {
       const gasToken =
-        "0x04718f5a0Fc34cC1AF16A1cdee98fFB20C31f5cD61D6Ab07201858f4287c938D"; // STRK Sepolia
+        "0x04718f5a0fc34cc1af16a1cdee98ffb20c31f5cd61d6ab07201858f4287c938d"; // STRK
       return {
         feeMode: { mode: "default", gasToken },
       };
@@ -101,7 +97,7 @@ export const getPaymasterDetails: any = async (
       feeMode: { mode: "default", gasToken },
     };
   }
-}; 
+};
 
 // Modular: Create Transaction (e.g., create_payment)
 export async function createTransaction(
@@ -121,7 +117,8 @@ export async function createTransaction(
 
     // Decrypt private key
     const publicKey = process.env.WALLET_ADDRESS || merchant.wallet_public_key;
-    const privateKey = process.env.WALLET_SECRET_KEY || merchant.wallet_encrypted_private_key;
+    const privateKey =
+      process.env.WALLET_SECRET_KEY || merchant.wallet_encrypted_private_key;
     const provider = new RpcProvider({ nodeUrl: RPC_URL });
     const account = new Account({
       provider: provider,
@@ -129,8 +126,8 @@ export async function createTransaction(
       signer: privateKey,
     });
 
-    console.log("Provider and account set up", account.address);    
-    console.log("Calldata:", calldata);    
+    console.log("Provider and account set up", account.address);
+    console.log("Calldata:", calldata);
 
     const calls = [
       {
@@ -146,14 +143,17 @@ export async function createTransaction(
     console.log("Executing transaction with feeMode:", feeMode);
 
     const feesDetails: PaymasterDetails = {
-    // feeMode: { mode: 'default', gasToken },
-    feeMode
-    }
+      // feeMode: { mode: 'default', gasToken },
+      feeMode,
+    };
 
     // Estimate and execute
-    const feeEstimate = await account.estimatePaymasterTransactionFee(calls, feesDetails);
+    const feeEstimate = await account.estimatePaymasterTransactionFee(
+      calls,
+      feesDetails
+    );
 
-    console.log("Estimated fee:", feeEstimate);   
+    console.log("Estimated fee:", feeEstimate);
 
     const { transaction_hash } = await account.executePaymasterTransaction(
       calls,
@@ -162,7 +162,7 @@ export async function createTransaction(
     );
 
     console.log("Transaction hash:", transaction_hash);
-    
+
     // Wait for confirmation
     const receipt = await provider.waitForTransaction(transaction_hash);
     console.log("Transaction receipt:", receipt);
@@ -179,7 +179,11 @@ export async function readContractState(
   calldata: string[] // e.g., [paymentRef]
 ): Promise<any> {
   const provider = new RpcProvider({ nodeUrl: RPC_URL });
-  const contract = new Contract(EGYPTFI_ABI, CONTRACT_ADDRESS, provider); // Use imported ABI and positional constructor
+  const contract = new Contract({
+    address: CONTRACT_ADDRESS,
+    abi: EGYPTFI_ABI,
+  });
+  contract.connect(provider);
   const result = await contract.call(entrypoint, calldata);
   return result; // e.g., { status: 'Completed' }
 }
@@ -193,7 +197,7 @@ export async function callContractFunction(
 ): Promise<any> {
   const client = await pool.connect();
   try {
-    // Fetch merchant data (for logging; private key not needed for reads)
+    // Fetch merchant data (for address; private key not needed for reads)
     const merchantQuery = await client.query(
       "SELECT wallet_address FROM merchants WHERE id = $1",
       [merchantId]
@@ -201,24 +205,27 @@ export async function callContractFunction(
     const merchant = merchantQuery.rows[0];
     if (!merchant) throw new Error("Merchant not found");
 
+    const publicKey = process.env.WALLET_ADDRESS || merchant.wallet_public_key;
+    const privateKey =
+      process.env.WALLET_SECRET_KEY || merchant.wallet_encrypted_private_key;
     const provider = new RpcProvider({ nodeUrl: RPC_URL });
+    const account = new Account({
+      provider: provider,
+      address: publicKey,
+      signer: privateKey,
+    });
 
-    // Prioritize imported ABI, fallback to dynamic fetch
-    let abi = EGYPTFI_ABI;
-    if (!abi || abi.length === 0) {
-      try {
-        const classAt = await provider.getClassAt(contractAddress);
-        if (!classAt?.abi) {
-          throw new Error('Contract ABI not found');
-        }
-        abi = classAt.abi;
-      } catch (fetchErr) {
-        console.error('Dynamic ABI fetch failed:', fetchErr);
-        throw new Error('Failed to load contract ABI');
-      }
+    // Use imported ABI (or fetch dynamically if needed)
+
+    const { abi: EGYPTFI_ABI } = await provider.getClassAt(CONTRACT_ADDRESS);
+    if (EGYPTFI_ABI === undefined) {
+      throw new Error("no abi.");
     }
 
-    const contract = new Contract(abi, contractAddress, provider); // Positional constructor with provider
+    const contract = new Contract({
+      address: CONTRACT_ADDRESS,
+      abi: EGYPTFI_ABI,
+    });
 
     // Call the function (read-only)
     const result = await contract.call(entrypoint, calldata);
@@ -249,80 +256,115 @@ export async function invokeContractFunction(
     if (!merchant) throw new Error("Merchant not found");
 
     // Decrypt private key (if PIN provided; fallback to env)
-    let privateKey = process.env.WALLET_SECRET_KEY;
-    if (pin && merchant.wallet_encrypted_private_key) {
-      privateKey = decryptPrivateKey(merchant.wallet_encrypted_private_key, pin);
-    }
-    if (!privateKey) throw new Error("Private key not available");
-
-    const address = process.env.WALLET_ADDRESS || merchant.wallet_address;
+    const publicKey = process.env.WALLET_ADDRESS || merchant.wallet_public_key;
+    const privateKey =
+      process.env.WALLET_SECRET_KEY || merchant.wallet_encrypted_private_key;
     const provider = new RpcProvider({ nodeUrl: RPC_URL });
-    const account = new Account(provider, address, privateKey); // Positional constructor
+    const account = new Account({
+      provider: provider,
+      address: publicKey,
+      signer: privateKey,
+    });
 
-    // Prioritize imported ABI, fallback to dynamic fetch
-    let abi = EGYPTFI_ABI;
-    if (!abi || abi.length === 0) {
-      try {
-        const classAt = await provider.getClassAt(contractAddress);
-        if (!classAt?.abi) {
-          throw new Error('Contract ABI not found');
-        }
-        abi = classAt.abi;
-      } catch (fetchErr) {
-        console.error('Dynamic ABI fetch failed:', fetchErr);
-        throw new Error('Failed to load contract ABI');
-      }
+    // Use imported ABI (or fetch dynamically if needed)
+    const { abi: EGYPTFI_ABI } = await provider.getClassAt(CONTRACT_ADDRESS);
+    if (EGYPTFI_ABI === undefined) {
+      throw new Error("no abi.");
     }
 
-    const contract = new Contract(abi, contractAddress, provider); // Positional constructor with provider
+    const contract = new Contract({
+      abi: EGYPTFI_ABI,
+      address: CONTRACT_ADDRESS,
+      providerOrAccount: provider,
+    });
 
     console.log("Contract and account set up", account.address);
-    console.log("contract address:", contract.address); 
+    console.log("contract address:", contract.address);
+
+    // Pre-execute: Fetch merchant state via get_merchant to verify is_active
+    const merchantAddress = args[0]; // Assuming first arg is merchant address for create_payment
+    console.log("Fetching merchant state for address:", merchantAddress);
+    const merchantState = await contract.get_merchant([merchantAddress]);
+    console.log("Merchant state from SC:", merchantState);
     
-    // Since args is already prepared calldata (strings/felts), pass directly without CallData.compile
+    // Assuming merchantState is a tuple like [is_active, other_fields...]; adjust based on ABI
+    const isActive = merchantState[0]; // e.g., first field is is_active (felt: 1 for true)
+    if (isActive !== 1) {
+      throw new Error(`Merchant not active: is_active=${isActive}. Register/activate merchant first.`);
+    }
+    console.log("Merchant verified as active; proceeding with execute...");
+
     const invokeResult = await account.execute({
-      contractAddress,
+      contractAddress: CONTRACT_ADDRESS,
       entrypoint,
-      calldata: args, // Direct pass prepared calldata
+      calldata: CallData.compile(args),
     });
     console.log(`Execute result for ${entrypoint}:`, invokeResult);
     await provider.waitForTransaction(invokeResult.transaction_hash);
 
+    // contract.connect(account);
+
+    // const contract = new Contract({
+    //     address: CONTRACT_ADDRESS,
+    //     abi: EGYPTFI_ABI,
+    // });
+    // contract.connect(provider);
+    // await contract.connect(account); // Connect account for signing
+
+    // Prepare and invoke the function
+    // const populated = contract.populate(entrypoint, args);
+    // console.log(`Populated calldata for ${entrypoint}:`, populated.calldata);
+
+    // const invokeResult = await contract[entrypoint](populated.calldata);
+    // console.log(`Invoke result for ${entrypoint}:`, invokeResult);
+
+    // Wait for confirmation
+    // const receipt = await provider.waitForTransaction(invokeResult.transaction_hash);
+    // if (receipt.status !== 'ACCEPTED') {
+    //   throw new Error(`Transaction failed: ${receipt.status}`);
+    // }
+
     console.log(`Transaction confirmed: ${invokeResult.transaction_hash}`);
     return { transaction_hash: invokeResult.transaction_hash };
   } catch (err: any) {
-  console.error("Payment initiation error:", err);
+    console.error("Payment initiation error:", err);
 
-  // Default fallback
-  let message = "Internal server error";
+    // Default fallback
+    let message = "Internal server error";
 
-  // Check if Starknet RPC wrapped the revert reason
-  if (err?.message?.includes("RpcError") || err?.message?.includes("execution_error")) {
-    try {
-      const match = JSON.stringify(err).match(/'(.*?)'/g);
-      if (match && match.length > 0) {
-        // Extract readable text (revert reason usually inside single quotes)
-        const readable = match
-          .map(s => s.replace(/'/g, ""))
-          .find(s => s && !s.startsWith("0x") && s.length > 3);
-        if (readable) message = readable;
+    // Check if Starknet RPC wrapped the revert reason
+    if (
+      err?.message?.includes("RpcError") ||
+      err?.message?.includes("execution_error")
+    ) {
+      try {
+        const match = JSON.stringify(err).match(/'(.*?)'/g);
+        if (match && match.length > 0) {
+          // Extract readable text (revert reason usually inside single quotes)
+          const readable = match
+            .map((s) => s.replace(/'/g, ""))
+            .find((s) => s && !s.startsWith("0x") && s.length > 3);
+          if (readable) message = readable;
+        }
+      } catch (parseErr) {
+        console.warn("Could not extract Starknet revert reason:", parseErr);
       }
-    } catch (parseErr) {
-      console.warn("Could not extract Starknet revert reason:", parseErr);
     }
-  }
 
-  // Log structured debug info for developers
-  console.group("🔍 Starknet Payment Debug Info");
-  console.log("Error Type:", err.name || "Unknown");
-  console.log("Error Message:", err.message);
-  console.log("Parsed Revert Reason:", message);
-  console.log("Full JSON:", err);
+    const parsed = parseStarknetError(err);
+
+    // Log structured debug info for developers
+    console.group("🔍 Starknet Payment Debug Info");
+  console.error("Raw error:", err);
+  console.error("Parsed reason:", parsed);
   console.groupEnd();
 
-  throw new Error(message);
-} finally {
+    throw new Error(parsed);
+  } finally {
     client.release();
-  } 
-
+  }
 }
+
+// Example Usage:
+// Read: await callContractFunction(merchantId, undefined, 'get_payment', [paymentRef]);
+// Write: await invokeContractFunction(merchantId, undefined, 'create_payment', [merchantAddress, amount, '0', paymentRef, description]);

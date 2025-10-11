@@ -175,7 +175,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onGetStarted }) => {
             className="border-primary text-primary px-8 py-4 text-lg font-semibold rounded-lg transition-all duration-300"
             asChild
           >
-            <Link href="/demo"><Play/> Run Demo</Link>
+            <Link href="/use-cases"><Play className="m-2 h-5 w-5" />Use Cases</Link>
           </Button>
         </div>
 

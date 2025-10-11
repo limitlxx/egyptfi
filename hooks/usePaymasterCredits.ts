@@ -44,7 +44,7 @@ export function usePaymasterCredits() {
     try {
       const activity = await getSponsorActivity({
         apiKey: process.env.NEXT_PUBLIC_PAYMASTER_API,
-        baseUrl: 'https://sepolia.api.avnu.fi/paymaster/v1',
+        baseUrl: 'https://starknet.api.avnu.fi/paymaster/v1',
       });
 
       // Map AVNU API response to PaymasterActivity (adjust field names as needed)

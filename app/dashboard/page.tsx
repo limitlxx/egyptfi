@@ -458,8 +458,6 @@ export default function DashboardPage() {
         encryptedPrivateKey: privateinfo.walletSecretKey,
       };
 
-      console.log("Using walletData:", parseFloat(amount));
-
       // Call smart contract - NOW using PLAIN PIN as encryptKey
       const callC = await callAnyContractAsync({
         params: {
@@ -1741,8 +1739,6 @@ export default function DashboardPage() {
                                 )}
                               </Button>
                             </div>
-
-                            
                           </div>
 
                           {/* <div>
@@ -1755,35 +1751,31 @@ export default function DashboardPage() {
                               </code>
                             </div>
                           </div> */}
-                             {/* Transaction Hash */}
-                {txHash && (
-                  <div className="space-y-2">
-                    <Label>Blockchain Transaction</Label>
-                    <div className="flex items-center space-x-2">
-                      <Input
-                        value={txHash}
-                        readOnly
-                        className="flex-1 font-mono text-xs"
-                      />
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        asChild
-                      >
-                        <a
-                          href={`https://voyager.online/tx/${txHash}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          <ExternalLink className="h-4 w-4" />
-                        </a>
-                      </Button>
-                    </div>
-                    <p className="text-xs text-muted-foreground">
-                      View on Starknet Explorer
-                    </p>
-                  </div>
-                )}
+                          {/* Transaction Hash */}
+                          {txHash && (
+                            <div className="space-y-2">
+                              <Label>Blockchain Transaction</Label>
+                              <div className="flex items-center space-x-2">
+                                <Input
+                                  value={txHash}
+                                  readOnly
+                                  className="flex-1 font-mono text-xs"
+                                />
+                                <Button size="sm" variant="outline" asChild>
+                                  <a
+                                    href={`https://voyager.online/tx/${txHash}`}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                  >
+                                    <ExternalLink className="h-4 w-4" />
+                                  </a>
+                                </Button>
+                              </div>
+                              <p className="text-xs text-muted-foreground">
+                                View on Starknet Explorer
+                              </p>
+                            </div>
+                          )}
 
                           <div>
                             <Label className="text-sm text-muted-foreground">
@@ -1825,8 +1817,6 @@ export default function DashboardPage() {
                               Copy Link
                             </Button>
                           </div>
-
-                       
                         </div>
 
                         {/* Right side - QR code */}
