@@ -20,6 +20,53 @@ The contract interacts with external Vesu pools via the `IVesuPool` interface fo
 - Assumes USDC is pre-approved for transfers.
 - All percentages are in basis points (e.g., 10000 = 100%).
 
+## Constructor Parameters
+
+The constructor initializes core configuration and security components. It must be called during deployment (or proxy initialization for upgradable contracts).
+
+```rust
+fn constructor(
+    ref self: ContractState,
+    owner: ContractAddress,  // Initial owner address (admin) with full control over admin functions.
+    usdc_token: ContractAddress,  // ERC20 USDC contract address for all transfers and payments.
+    platform_fee_percentage: u16,  // Initial platform fee in basis points (e.g., 100 = 1%; max 500/5% enforced later).
+    platform_fee_collector: ContractAddress,  // Designated collector for fees (unused in current impl; fees accrue to platform vault/pool).
+    min_payment_amount_usd: u256,  // Minimum USDC amount for payments to prevent spam/dust.
+)
+```
+
+**Post-Initialization Defaults**:
+- `emergency_pause`: `false`.
+- `platform_vault_balance`: `0`.
+- `platform_pool_id`: `0` (must be set via `set_platform_pool_id`).
+- `platform_pool_allocation`: `5000` (50% of fees to pool, 50% to vault).
+
+These params cannot be changed post-deployment except via admin functions (e.g., `update_platform_fee`).
+
+## Major Storage States to Update for Use
+
+Post-deployment, several key storage states require updates via admin or merchant functions to enable full functionality. Below is a table of major states, their initial values, update methods, and rationale for use. Updates are protected by access controls (e.g., `ownable.assert_only_owner()` for admin states).
+
+| State | Type | Initial Value | Update Method | Updater | Rationale/When to Update |
+|-------|------|---------------|---------------|---------|--------------------------|
+| `usdc_token` | `ContractAddress` | Set in constructor | N/A (immutable post-deploy) | Admin (constructor) | Core token; update only on redeploy if changing stablecoin. |
+| `platform_fee_percentage` | `u16` (basis points) | Set in constructor (e.g., 100) | `update_platform_fee(new_fee_percentage: u16)` | Admin | Adjust fees based on business model; enforce ≤500 (5%). |
+| `min_payment_amount_usd` | `u256` | Set in constructor (e.g., 100000000) | `update_min_payment_amount(new_min_amount: u256)` | Admin | Tune for network gas/economics; prevents low-value txs. |
+| `emergency_pause` | `bool` | `false` | `toggle_emergency_pause()` | Admin | Emergency halt; toggle during exploits or maintenance. |
+| `platform_pool_id` | `felt252` | `0` | `set_platform_pool_id(pool_id: felt252)` | Admin | Assign pool for fee allocation; requires active pool. |
+| `platform_pool_allocation` | `u16` (basis points) | `5000` (50%) | `update_platform_pool_allocation(allocation_bp: u16)` | Admin | Balance liquidity vs. yield for platform fees; ≤10000. |
+| **Pool Registry** (e.g., `supported_pools`, `pool_active`) | Maps | Empty | `register_pool(...)` / `deactivate_pool(pool_id: felt252)` | Admin | Onboard new Vesu pools; activate/deactivate as needed. |
+| `merchant_pool_allocations` (per merchant/pool) | `Map<(ContractAddress, felt252), u16>` | `0` | `set_multi_pool_allocation(...)` / `add_pool_to_strategy(...)` / `update_pool_allocation(...)` | Merchant | Customize yield strategy; total ≤10000 across pools. |
+| `platform_vault_balance` | `u256` | `0` | Accrues via payments; withdraw via `admin_withdraw_fees(amount: u256, to: ContractAddress)` | Admin | Manage accumulated fees; withdraw to treasury. |
+
+**Best Practices**:
+- **Admin Setup Sequence**: After deploy, register pools → set platform pool ID/allocation → update fees/min if needed.
+- **Merchant Onboarding**: Merchants update allocations before processing payments to enable yield.
+- **Monitoring**: Use view functions (e.g., `get_all_pools`, `get_multi_pool_positions`) for state checks.
+- **Migration/Upgrade**: On upgrade, verify states (e.g., via scripts); principal/yield tracking relies on accurate `merchant_pool_deposits`/`shares`.
+
+Failure to update these (e.g., no pools set) results in funds defaulting to vault only, reducing yield potential.
+
 ## Custom Types
 
 ### Structs
@@ -141,20 +188,6 @@ Emitted for key actions (all derive from `Event` enum):
 - `YieldClaimed(merchant: ContractAddress, amount: u256, timestamp: u64)`
 - `YieldCompounded(merchant: ContractAddress, pool_id: felt252, amount: u256, timestamp: u64)`
 - OpenZeppelin events: `OwnableEvent`, `ReentrancyGuardEvent`, `UpgradeableEvent`.
-
-## Constructor
-
-```rust
-fn constructor(
-    ref self: ContractState,
-    owner: ContractAddress,
-    usdc_token: ContractAddress,
-    platform_fee_percentage: u16,
-    platform_fee_collector: ContractAddress,
-    min_payment_amount_usd: u256,
-)
-```
-Initializes ownership, USDC token, fee percentage, collector, min amount, and sets pause to `false`. Platform pool allocation defaults to 50%.
 
 ## Interfaces
 
