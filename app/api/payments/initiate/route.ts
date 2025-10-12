@@ -196,26 +196,26 @@ export async function POST(request: NextRequest) {
 
       const invoice = result.rows[0]; 
 
-      const merchantAddress =  authResult.merchant!.walletAddress; // Handle possible field name variance
+      // const merchantAddress =  authResult.merchant!.walletAddress; // Handle possible field name variance
 
-      const innerCalldata = prepareCreatePaymentCalldata({
-        merchantAddress,
-        amountStr: total_amount.toString(),
-        decimals: DECIMALS,
-        reference: ref,
-        description: description || "Ecommerce Purchase",
-      });
+      // const innerCalldata = prepareCreatePaymentCalldata({
+      //   merchantAddress,
+      //   amountStr: total_amount.toString(),
+      //   decimals: DECIMALS,
+      //   reference: ref,
+      //   description: description || "Ecommerce Purchase",
+      // });
 
-      // Execute on-chain
-      const { transaction_hash } =  await invokeContractFunction(authResult.merchant!.id, undefined, 'create_payment', innerCalldata);
+      // // Execute on-chain
+      // const { transaction_hash } =  await invokeContractFunction(authResult.merchant!.id, undefined, 'create_payment', innerCalldata);
 
-      console.log("Transaction hash:", transaction_hash);
+      // console.log("Transaction hash:", transaction_hash);
 
       // Update invoice with tx_hash (note: field is tx_hash, not txHash)
-      await client.query(
-        "UPDATE invoices SET tx_hash = $1 WHERE payment_ref = $2",
-        [transaction_hash, ref]
-      );
+      // await client.query(
+      //   "UPDATE invoices SET tx_hash = $1 WHERE payment_ref = $2",
+      //   [transaction_hash, ref]
+      // );
 
       // Call secondary endpoint if provided (fire and forget)
       if (secondary_endpoint) {
@@ -245,7 +245,7 @@ export async function POST(request: NextRequest) {
           authorization_url: hostedUrl,
           qr_code: invoice.qr_url,
           expires_at: expiresAt.toISOString(),
-          tx_hash: transaction_hash,
+          // tx_hash: transaction_hash,
         },
         { status: 201 }
       );

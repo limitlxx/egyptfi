@@ -486,7 +486,7 @@ export function InvoiceContent({
     <div className="relative flex h-full w-full flex-col">
       {/* Error Message */}
       {error && (
-        <div className="absolute top-0 left-0 right-0 p-4 bg-red-50 border-b border-red-200 flex items-center justify-center">
+        <div className="absolute mb-4 top-0 left-0 right-0 p-4 bg-red-50 border-b border-red-200 flex items-center justify-center">
           <AlertCircle className="w-4 h-4 text-red-600 mr-2" />
           <p className="text-sm text-red-600">{error}</p>
         </div>
@@ -505,6 +505,7 @@ export function InvoiceContent({
       {/* Use responsive flex layout so we can give first column a slightly smaller base width */}
       <div className="w-full flex flex-col lg:flex-row lg:gap-4">
         {/* Column 1: Blockchain Selection (slightly smaller) */}
+
         <div
           className="p-4 sm:p-6 lg:p-8 border-b lg:border-b-0 lg:border-r border-border bg-muted"
           style={{ flex: "0 0 24%" }}
@@ -699,7 +700,7 @@ export function InvoiceContent({
         </div>
 
         {/* Column 3: Summary & Confirmation */}
-        <div className="p-4 sm:p-6 lg:p-8" style={{ flex: "0 0 38%" }}>
+        <div className="p-4 sm:p-6 lg:p-8">
           <h2 className="text-base sm:text-lg font-semibold text-foreground mb-3 sm:mb-4">
             Order Summary
           </h2>
@@ -840,9 +841,9 @@ export function InvoiceContent({
         </div>
       </div>
 
-      <div className="bottom-0 left-0 right-0 p-4 bg-muted border-b border-border flex items-center justify-center">
+      {/* <div className="bottom-0 left-0 right-0 p-4 bg-muted border-b border-border flex items-center justify-center">
         <PaymentModeIndicator showDetails={false} />
-      </div>
+      </div> */}
       {/* Connector Modal Overlay */}
       {showConnectorModal && (
         <div

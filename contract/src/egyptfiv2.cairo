@@ -28,7 +28,6 @@ pub trait IEgyptFi<TContractState> {
         ref self: TContractState,
         merchant: ContractAddress,
         amount: u256,
-        platform_fee: u256,
         reference: felt252,
         description: felt252
     ) -> felt252;
@@ -111,39 +110,9 @@ pub trait IEgyptFi<TContractState> {
     fn claim_all_yields(ref self: TContractState);
     fn compound_pool_yield(ref self: TContractState, pool_id: felt252);
     fn compound_all_yields(ref self: TContractState); 
-
-    fn set_platform_pool_id(ref self: TContractState, pool_id: felt252);
-    fn update_platform_pool_allocation(ref self: TContractState, allocation_bp: u16);
-    fn admin_withdraw_fees(ref self: TContractState, amount: u256, to: ContractAddress);
-    fn admin_claim_yield_from_pool(ref self: TContractState, pool_id: felt252);
-    fn admin_redeem_principal_from_pool(ref self: TContractState, pool_id: felt252, to: ContractAddress);
-
 }
 
-#[starknet::interface]
-pub trait IVesuPool<TContractState> {
-    fn deposit(
-        ref self: TContractState,
-        assets: u256,
-        receiver: ContractAddress
-    ) -> u256;
-    fn redeem(
-        ref self: TContractState,
-        shares: u256,
-        receiver: ContractAddress,
-        owner: ContractAddress
-    ) -> u256;
-    fn preview_redeem(
-        self: @TContractState,
-        assets: u256
-    ) -> u256;
-    fn convert_to_assets(
-        self: @TContractState,
-        shares: u256
-    ) -> u256;
-}
-
-// CustomeTypes
+ // CustomeTypes
     #[derive(Drop, Serde, Copy, starknet::Store)]
     struct Merchant {
         is_active: bool, 
@@ -162,7 +131,6 @@ pub trait IVesuPool<TContractState> {
         customer: ContractAddress,
         amount_paid: u256,
         usdc_amount: u256,
-        platform_fee: u256,
         status: PaymentStatus,
         timestamp: u64,
         reference: felt252,
@@ -191,8 +159,6 @@ pub trait IVesuPool<TContractState> {
 #[starknet::contract]
 mod EgyptFi {   
     use crate::PoolInfo; 
-    use crate::IVesuPoolDispatcher;
-    use crate::IVesuPoolDispatcherTrait as IVesuPoolTrait;
     use starknet::storage::{Map, StoragePointerReadAccess, StoragePointerWriteAccess, StorageMapReadAccess, StorageMapWriteAccess};
     use super::{Merchant, Payment, PaymentStatus};
     use super::IEgyptFi;  
@@ -209,7 +175,6 @@ mod EgyptFi {
     use core::traits::Into;
     use core::hash::{HashStateTrait};
     use core::{poseidon::PoseidonTrait};
-    use core::num::traits::Zero;
     use starknet::ClassHash;
   
 
@@ -242,22 +207,14 @@ mod EgyptFi {
         merchant_pool_allocations: Map<(ContractAddress, felt252), u16>, // (merchant, pool_id) -> allocation %
         merchant_active_pools: Map<(ContractAddress, u64), felt252>, // (merchant, index) -> pool_id
         merchant_active_pool_count: Map<ContractAddress, u64>, // merchant -> number of active pools
-        merchant_pool_deposits: Map<(ContractAddress, felt252), u256>, // (merchant, pool_id) -> deposited amount (principal)
-        merchant_pool_shares: Map<(ContractAddress, felt252), u256>, // (merchant, pool_id) -> vToken shares held
-        merchant_pool_yield: Map<(ContractAddress, felt252), u256>, // (merchant, pool_id) -> unclaimed yield (legacy, now calculated real-time)
+        merchant_pool_deposits: Map<(ContractAddress, felt252), u256>, // (merchant, pool_id) -> deposited amount
+        merchant_pool_yield: Map<(ContractAddress, felt252), u256>, // (merchant, pool_id) -> unclaimed yield
         
         // Pool registry
         supported_pools: Map<felt252, PoolInfo>, // pool_id -> pool info
         pool_count: u64,
         pool_active: Map<felt252, bool>, // pool_id -> is_active
-        pool_ids: Map<u64, felt252>, // index -> pool_id 
-
-        // Platform fee handling
-        platform_vault_balance: u256,
-        platform_pool_id: felt252,
-        platform_pool_allocation: u16,  // Basis points (e.g., 5000 = 50%)
-        platform_pool_deposits: Map<felt252, u256>,  // pool_id -> principal deposited by platform
-        platform_pool_shares: Map<felt252, u256>,    // pool_id -> shares held by platform     
+        pool_ids: Map<u64, felt252>, // index -> pool_id      
 
         #[substorage(v0)]
         ownable: OwnableComponent::Storage,
@@ -416,10 +373,6 @@ mod EgyptFi {
         self.platform_fee_collector.write(platform_fee_collector);
         self.min_payment_amount_usd.write(min_payment_amount_usd);
         self.emergency_pause.write(false);
-
-        self.platform_vault_balance.write(0);
-        self.platform_pool_id.write(0);  // Admin sets via set_platform_pool_id
-        self.platform_pool_allocation.write(5000);  // Default 50% to pool, 50% to vault
     }
 
      #[abi(embed_v0)]
@@ -544,41 +497,17 @@ mod EgyptFi {
         pool_id: felt252,
         amount: u256
     ) {
-        let pool_info = self.supported_pools.read(pool_id);
-        let mut vtoken = IVesuPoolDispatcher { contract_address: pool_info.pool_address };
-        let shares_minted = vtoken.deposit(amount, get_contract_address());
-        
-        let current_shares = self.merchant_pool_shares.read((merchant, pool_id));
-        self.merchant_pool_shares.write((merchant, pool_id), current_shares + shares_minted);
-        
         let current_deposits = self.merchant_pool_deposits.read((merchant, pool_id));
         self.merchant_pool_deposits.write((merchant, pool_id), current_deposits + amount);
         
+        // TODO: Actual Vesu pool interaction
+        // Example:
+        // let pool_info = self.supported_pools.read(pool_id);
+        // let vesu_pool = IVesuPoolDispatcher { contract_address: pool_info.pool_address };
+        // vesu_pool.deposit(amount);
+        
         self.emit(YieldDeposited {
             merchant,
-            amount,
-            pool_id,
-            timestamp: get_block_timestamp(),
-        });
-    }
-    fn _deposit_platform_to_pool(
-        ref self: ContractState,
-        pool_id: felt252,
-        amount: u256
-    ) {
-        assert(self.pool_active.read(pool_id), 'Pool not active');
-        let pool_info = self.supported_pools.read(pool_id);
-        let mut vtoken = IVesuPoolDispatcher { contract_address: pool_info.pool_address };
-        let shares_minted = vtoken.deposit(amount, get_contract_address());
-        
-        let current_shares = self.platform_pool_shares.read(pool_id);
-        self.platform_pool_shares.write(pool_id, current_shares + shares_minted);
-        
-        let current_deposits = self.platform_pool_deposits.read(pool_id);
-        self.platform_pool_deposits.write(pool_id, current_deposits + amount);
-        
-        self.emit(YieldDeposited {
-            merchant: get_contract_address(),
             amount,
             pool_id,
             timestamp: get_block_timestamp(),
@@ -696,7 +625,6 @@ mod EgyptFi {
         ref self: ContractState,
         merchant: ContractAddress,
         amount: u256,
-        platform_fee: u256,
         reference: felt252,
         description: felt252
     ) -> felt252 {
@@ -713,7 +641,6 @@ mod EgyptFi {
             customer: caller,
             amount_paid: amount,
             usdc_amount: 0,
-            platform_fee,
             status: PaymentStatus::Pending,
             timestamp: get_block_timestamp(),
             reference,
@@ -771,70 +698,22 @@ mod EgyptFi {
         assert(payment.merchant == caller, 'Not payment merchant');
         assert(payment.status == PaymentStatus::Completed, 'Payment not completed');
 
-        let merchant = payment.merchant;
-        let net_amount = payment.usdc_amount - payment.platform_fee;  // Accurate net (excludes original fee)
-        let mut total_refund: u256 = 0;
+        let mut merchant = self.merchants.read(caller);
+        assert(merchant.usdc_balance >= payment.usdc_amount, 'Insufficient merchant balance');
 
-        // Get current allocations for proportional redemption
-        let total_allocation = self._calculate_total_allocation(merchant);
-        let vault_allocation_bp = 10000_u16 - total_allocation;  // Basis points for vault portion
-        let mut merchant_balance = self.merchants.read(merchant);
+        merchant.usdc_balance -= payment.usdc_amount;
+        self.merchants.write(caller, merchant);
 
-        // Withdraw from vault (non-pool remainder)
-        let vault_target = net_amount * vault_allocation_bp.into() / 10000_u256;
-        assert(merchant_balance.usdc_balance >= vault_target, 'Insufficient vault balance');
-        merchant_balance.usdc_balance -= vault_target;
-        self.merchants.write(merchant, merchant_balance);
-        total_refund += vault_target;
-
-        // Redeem proportionally from each pool (principal to refund, yield to platform vault)
-        let pool_ids = self.get_merchant_pools(merchant);
-        let mut i = 0;
-        while i != pool_ids.len() {
-            let pool_id = *pool_ids.at(i);
-            let allocation_bp = self.get_merchant_pool_allocation(merchant, pool_id);
-            if allocation_bp > 0 {
-                let pool_target = net_amount * allocation_bp.into() / 10000_u256;
-                let pool_deposits = self.merchant_pool_deposits.read((merchant, pool_id));
-                if !pool_deposits.is_zero() {
-                    let fraction = pool_target * 10000_u256 / pool_deposits;  // Avoid division loss
-                    let shares = self.merchant_pool_shares.read((merchant, pool_id));
-                    let shares_to_redeem = (shares * fraction) / 10000_u256;
-
-                    let pool_info = self.supported_pools.read(pool_id);
-                    let mut vtoken = IVesuPoolDispatcher { contract_address: pool_info.pool_address };
-                    let assets_received = vtoken.redeem(shares_to_redeem, get_contract_address(), get_contract_address());
-
-                    let yield_portion = assets_received - pool_target;
-                    if !yield_portion.is_zero() {
-                        // Yield from refunded portion goes to platform vault as additional fee
-                        self.platform_vault_balance.write(self.platform_vault_balance.read() + yield_portion);
-                    }
-
-                    let principal_received = assets_received - yield_portion;
-                    total_refund += principal_received;
-
-                    // Update merchant's pool position
-                    let remaining_shares = shares - shares_to_redeem;
-                    self.merchant_pool_shares.write((merchant, pool_id), remaining_shares);
-                    let remaining_deposits = pool_deposits - pool_target;
-                    self.merchant_pool_deposits.write((merchant, pool_id), remaining_deposits);
-                }
-            }
-            i += 1;
-        }
-
-        // Transfer net refund to customer (may be slightly less than net_amount if pool losses, but assumes no losses)
         let usdc_contract = IERC20Dispatcher { contract_address: self.usdc_token.read() };
-        usdc_contract.transfer(payment.customer, total_refund);
-
+        usdc_contract.transfer(payment.customer, payment.usdc_amount);
+        
         payment.status = PaymentStatus::Refunded;
         self.payments.write(payment_id, payment);
         self.emit(PaymentRefunded {
             payment_id,
             merchant: payment.merchant,
             customer: payment.customer,
-            refund_amount: total_refund,  // Use actual refunded
+            refund_amount: payment.usdc_amount,
             timestamp: get_block_timestamp(),
         });
         self.reentrancy_guard.end();
@@ -906,43 +785,43 @@ mod EgyptFi {
 
     // Register a new pool (admin only)
     fn register_pool(
-        ref self: ContractState,
-        pool_id: felt252,
-        pool_address: ContractAddress,
-        pool_name: felt252,
-        pool_type: felt252
-    ) {
-        self.ownable.assert_only_owner();
-        
-        // Check if pool already exists
-        let existing = self.supported_pools.read(pool_id);
-        assert(existing.pool_id == 0, 'Pool already registered');
-        
-        let pool_info = PoolInfo {
-            pool_id,
-            pool_address,
-            pool_name,
-            pool_type,
-            is_active: true,
-        };
-        
-        self.supported_pools.write(pool_id, pool_info);
-        self.pool_active.write(pool_id, true);
-        
-        // Store pool ID for iteration
-        let count = self.pool_count.read();
-        self.pool_ids.write(count, pool_id);
-        self.pool_count.write(count + 1);
-        
-        self.emit(PoolRegistered {
-            pool_id,
-            pool_address,
-            pool_name,
-            timestamp: get_block_timestamp(),
-        });
-    }
+    ref self: ContractState,
+    pool_id: felt252,
+    pool_address: ContractAddress,
+    pool_name: felt252,
+    pool_type: felt252
+) {
+    self.ownable.assert_only_owner();
+    
+    // Check if pool already exists
+    let existing = self.supported_pools.read(pool_id);
+    assert(existing.pool_id == 0, 'Pool already registered');
+    
+    let pool_info = PoolInfo {
+        pool_id,
+        pool_address,
+        pool_name,
+        pool_type,
+        is_active: true,
+    };
+    
+    self.supported_pools.write(pool_id, pool_info);
+    self.pool_active.write(pool_id, true);
+    
+    // Store pool ID for iteration
+    let count = self.pool_count.read();
+    self.pool_ids.write(count, pool_id);
+    self.pool_count.write(count + 1);
+    
+    self.emit(PoolRegistered {
+        pool_id,
+        pool_address,
+        pool_name,
+        timestamp: get_block_timestamp(),
+    });
+}
 
-    // Get all available pools
+ // Get all available pools
     fn get_all_pools(self: @ContractState) -> Array<PoolInfo> {
         let mut pools = ArrayTrait::new();
         let total_pools = self.pool_count.read();
@@ -1004,78 +883,7 @@ mod EgyptFi {
         
         self.reentrancy_guard.end();
     }
-
-    // Set the pool for platform fee allocation (admin only)
-    fn set_platform_pool_id(ref self: ContractState, pool_id: felt252) {
-        self.ownable.assert_only_owner();
-        assert(self.pool_active.read(pool_id), 'Pool not active');
-        self.platform_pool_id.write(pool_id);
-    }
-
-    // Update the % of platform fee going to pool vs. vault (admin only)
-    fn update_platform_pool_allocation(ref self: ContractState, allocation_bp: u16) {
-        self.ownable.assert_only_owner();
-        assert(allocation_bp <= 10000, 'Allocation exceeds 100%');
-        self.platform_pool_allocation.write(allocation_bp);
-    }
-
-    // Admin withdraw from platform vault balance
-    fn admin_withdraw_fees(ref self: ContractState, amount: u256, to: ContractAddress) {
-        self.ownable.assert_only_owner();
-        let current_balance = self.platform_vault_balance.read();
-        assert(current_balance >= amount, 'Insufficient platform balance');
-        self.platform_vault_balance.write(current_balance - amount);
-
-        let usdc_contract = IERC20Dispatcher { contract_address: self.usdc_token.read() };
-        usdc_contract.transfer(to, amount);
-    }
-
-    // Admin claim yield from platform's pool position (adds to platform vault)
-    fn admin_claim_yield_from_pool(ref self: ContractState, pool_id: felt252) {
-        self.ownable.assert_only_owner();
-        let shares = self.platform_pool_shares.read(pool_id);
-        assert(!shares.is_zero(), 'No position in pool');
-
-        let pool_info = self.supported_pools.read(pool_id);
-        let vtoken = IVesuPoolDispatcher { contract_address: pool_info.pool_address };
-        let current_assets = vtoken.convert_to_assets(shares);
-        let principal = self.platform_pool_deposits.read(pool_id);
-        let yield_assets = current_assets - principal;
-        assert(!yield_assets.is_zero(), 'No yield to claim');
-
-        let shares_to_burn = vtoken.preview_redeem(yield_assets);
-        let assets_received = vtoken.redeem(shares_to_burn, get_contract_address(), get_contract_address());
-
-        let remaining_shares = shares - shares_to_burn;
-        self.platform_pool_shares.write(pool_id, remaining_shares);
-
-        // Add to platform vault
-        self.platform_vault_balance.write(self.platform_vault_balance.read() + assets_received);
-
-        self.emit(YieldClaimed {
-            merchant: get_contract_address(),
-            amount: assets_received,
-            timestamp: get_block_timestamp(),
-        });
-    }
-
-    // Admin redeem principal from platform's pool position (sends directly to target)
-    fn admin_redeem_principal_from_pool(ref self: ContractState, pool_id: felt252, to: ContractAddress) {
-        self.ownable.assert_only_owner();
-        let shares = self.platform_pool_shares.read(pool_id);
-        assert(!shares.is_zero(), 'No position in pool');
-
-        let pool_info = self.supported_pools.read(pool_id);
-        let vtoken = IVesuPoolDispatcher { contract_address: pool_info.pool_address };
-        let principal_assets = self.platform_pool_deposits.read(pool_id);  // Redeem original principal worth
-        let shares_to_burn = vtoken.preview_redeem(principal_assets);
-        let _assets_received = vtoken.redeem(shares_to_burn, to, get_contract_address());
-
-        let remaining_shares = shares - shares_to_burn;
-        self.platform_pool_shares.write(pool_id, remaining_shares);
-        self.platform_pool_deposits.write(pool_id, 0);  // Reset principal (yield already claimable separately)
-    }
-        
+    
     // Get all pools for a merchant
     fn get_merchant_pools(
         self: @ContractState,
@@ -1130,30 +938,18 @@ mod EgyptFi {
         let mut i = 0;
         while i != pool_ids.len() {
             let pool_id = *pool_ids.at(i);
-            let shares = self.merchant_pool_shares.read((caller, pool_id));
-            if shares.is_zero() {
-                i += 1;
-                continue;
-            }
+            let yield_amount = self.merchant_pool_yield.read((caller, pool_id));
             
-            let pool_info = self.supported_pools.read(pool_id);
-            let vtoken = IVesuPoolDispatcher { contract_address: pool_info.pool_address };
-            let current_assets = vtoken.convert_to_assets(shares);
-            let principal = self.merchant_pool_deposits.read((caller, pool_id));
-            let yield_assets = current_assets - principal;
-            
-            if !yield_assets.is_zero() {
-                let shares_to_burn = vtoken.preview_redeem(yield_assets);
-                let assets_received = vtoken.redeem(shares_to_burn, get_contract_address(), get_contract_address());
+            if yield_amount > 0 {
+                // Add to vault balance
+                total_claimed += yield_amount;
                 
-                let remaining_shares = shares - shares_to_burn;
-                self.merchant_pool_shares.write((caller, pool_id), remaining_shares);
-                
-                total_claimed += assets_received;
+                // Reset yield counter
+                self.merchant_pool_yield.write((caller, pool_id), 0);
                 
                 self.emit(YieldClaimed {
                     merchant: caller,
-                    amount: assets_received,
+                    amount: yield_amount,
                     timestamp: get_block_timestamp(),
                 });
             }
@@ -1161,10 +957,7 @@ mod EgyptFi {
             i += 1;
         };
         
-        if total_claimed.is_zero() {
-            self.reentrancy_guard.end();
-            return ();
-        }
+        assert(total_claimed > 0, 'No yield to claim');
         
         // Update merchant balance
         merchant.usdc_balance += total_claimed;
@@ -1186,40 +979,22 @@ mod EgyptFi {
         let mut i = 0;
         while i != pool_ids.len() {
             let pool_id = *pool_ids.at(i);
-            let shares = self.merchant_pool_shares.read((caller, pool_id));
-            if shares.is_zero() {
-                i += 1;
-                continue;
-            }
+            let yield_amount = self.merchant_pool_yield.read((caller, pool_id));
             
-            let pool_info = self.supported_pools.read(pool_id);
-            let mut vtoken = IVesuPoolDispatcher { contract_address: pool_info.pool_address };
-            let current_assets = vtoken.convert_to_assets(shares);
-            let principal = self.merchant_pool_deposits.read((caller, pool_id));
-            let yield_assets = current_assets - principal;
-            
-            if !yield_assets.is_zero() {
-                let shares_to_burn = vtoken.preview_redeem(yield_assets);
-                let assets_received = vtoken.redeem(shares_to_burn, get_contract_address(), get_contract_address());
+            if yield_amount > 0 {
+                // Add yield back to pool deposits
+                let current_deposits = self.merchant_pool_deposits.read((caller, pool_id));
+                self.merchant_pool_deposits.write((caller, pool_id), current_deposits + yield_amount);
                 
-                let remaining_shares = shares - shares_to_burn;
-                self.merchant_pool_shares.write((caller, pool_id), remaining_shares);
+                // Reset yield counter
+                self.merchant_pool_yield.write((caller, pool_id), 0);
                 
-                // Reinvest
-                let shares_minted = vtoken.deposit(assets_received, get_contract_address());
-                let updated_shares = remaining_shares + shares_minted;
-                self.merchant_pool_shares.write((caller, pool_id), updated_shares);
-                
-                // Update principal
-                let updated_principal = principal + assets_received;
-                self.merchant_pool_deposits.write((caller, pool_id), updated_principal);
-                
-                total_compounded += assets_received;
+                total_compounded += yield_amount;
                 
                 self.emit(YieldCompounded {
                     merchant: caller,
                     pool_id: pool_id,
-                    amount: assets_received,
+                    amount: yield_amount,
                     timestamp: get_block_timestamp(),
                 });
             }
@@ -1227,10 +1002,7 @@ mod EgyptFi {
             i += 1;
         };
         
-        if total_compounded.is_zero() {
-            self.reentrancy_guard.end();
-            return ();
-        }
+        assert(total_compounded > 0, 'No yield to compound');
         
         self.reentrancy_guard.end();
     }
@@ -1283,20 +1055,10 @@ mod EgyptFi {
         merchant.total_payments_count += 1;
 
         self.merchants.write(payment.merchant, merchant);
-
-        // Platform fee handling: split to vault and set pool (not to external address)
-        let pool_portion = platform_fee * self.platform_pool_allocation.read().into() / 10000_u256;
-        let vault_portion = platform_fee - pool_portion;
-        self.platform_vault_balance.write(self.platform_vault_balance.read() + vault_portion);
-
-        let pool_id = self.platform_pool_id.read();
-        if pool_id != 0 && !pool_portion.is_zero() {
-            self._deposit_platform_to_pool(pool_id, pool_portion);
-        }
+        usdc_contract.transfer(self.platform_fee_collector.read(), platform_fee);
 
         let updated_payment = Payment {
             usdc_amount,
-            platform_fee,  // Added
             status: PaymentStatus::Completed,
             ..payment
         };
@@ -1351,31 +1113,19 @@ mod EgyptFi {
         let mut merchant = self.merchants.read(caller);
         assert(merchant.is_active, 'Merchant not found');
         
-        let shares = self.merchant_pool_shares.read((caller, pool_id));
-        assert(!shares.is_zero(), 'No position');
-        
-        let pool_info = self.supported_pools.read(pool_id);
-        let vtoken = IVesuPoolDispatcher { contract_address: pool_info.pool_address };
-        let current_assets = vtoken.convert_to_assets(shares);
-        let principal = self.merchant_pool_deposits.read((caller, pool_id));
-        let yield_assets = current_assets - principal;
-        assert(!yield_assets.is_zero(), 'No yield to claim');
-        
-        let shares_to_burn = vtoken.preview_redeem(yield_assets);
-        let assets_received = vtoken.redeem(shares_to_burn, get_contract_address(), get_contract_address());
-        
-        let remaining_shares = shares - shares_to_burn;
-        self.merchant_pool_shares.write((caller, pool_id), remaining_shares);
+        let yield_amount = self.merchant_pool_yield.read((caller, pool_id));
+        assert(yield_amount > 0, 'No yield to claim');
         
         // Add to vault balance
-        merchant.usdc_balance += assets_received;
+        merchant.usdc_balance += yield_amount;
         self.merchants.write(caller, merchant);
         
+        // Reset yield counter
         self.merchant_pool_yield.write((caller, pool_id), 0);
         
         self.emit(YieldClaimed {
             merchant: caller,
-            amount: assets_received,
+            amount: yield_amount,
             timestamp: get_block_timestamp(),
         });
         
@@ -1491,39 +1241,22 @@ mod EgyptFi {
         let merchant = self.merchants.read(caller);
         assert(merchant.is_active, 'Merchant not found');
         
-        let shares = self.merchant_pool_shares.read((caller, pool_id));
-        assert(!shares.is_zero(), 'No position');
+        let yield_amount = self.merchant_pool_yield.read((caller, pool_id));
+        assert(yield_amount > 0, 'No yield to compound');
         
-        let pool_info = self.supported_pools.read(pool_id);
-        let mut vtoken = IVesuPoolDispatcher { contract_address: pool_info.pool_address };
-        let current_assets = vtoken.convert_to_assets(shares);
-        let principal = self.merchant_pool_deposits.read((caller, pool_id));
-        let yield_assets = current_assets - principal;
-        assert(!yield_assets.is_zero(), 'No yield to compound');
-        
-        // Pull accrued yields by redeeming proportionally
-        let shares_to_burn = vtoken.preview_redeem(yield_assets);
-        let assets_received = vtoken.redeem(shares_to_burn, get_contract_address(), get_contract_address());
-        
-        let remaining_shares = shares - shares_to_burn;
-        self.merchant_pool_shares.write((caller, pool_id), remaining_shares);
-        
-        // Reinvest by depositing back
-        let shares_minted = vtoken.deposit(assets_received, get_contract_address());
-        let updated_shares = remaining_shares + shares_minted;
-        self.merchant_pool_shares.write((caller, pool_id), updated_shares);
-        
-        // Update principal to reflect compounded value
-        let updated_principal = principal + assets_received;
-        self.merchant_pool_deposits.write((caller, pool_id), updated_principal);
+        // Add yield back to pool deposits
+        let current_deposits = self.merchant_pool_deposits.read((caller, pool_id));
+        self.merchant_pool_deposits.write((caller, pool_id), current_deposits + yield_amount);
         
         // Reset yield counter
         self.merchant_pool_yield.write((caller, pool_id), 0);
         
+        // TODO: Actual Vesu pool interaction for compound
+        
         self.emit(YieldCompounded {
             merchant: caller,
             pool_id: pool_id,
-            amount: assets_received,
+            amount: yield_amount,
             timestamp: get_block_timestamp(),
         });
         
@@ -1532,3 +1265,4 @@ mod EgyptFi {
 
 }
 }
+
