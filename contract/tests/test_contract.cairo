@@ -1346,373 +1346,373 @@ mod tests {
         assert_eq!(pool_info.is_active, true);
     }
 
-    // #[test]
-    // #[should_panic(expected: 'Pool already registered')]
-    // fn test_register_pool_already_registered() {
-    //     let (egyptfi, owner, _pool_dispatcher, pool_address) = setup_with_pool();
-
-    //     start_cheat_caller_address(egyptfi.contract_address, owner);
-    //     egyptfi.register_pool('pool1', pool_address, 'Stablecoin', 'USDC');
-    //     stop_cheat_caller_address(egyptfi.contract_address);
-    // }
-
-    // #[test]
-    // fn test_deactivate_pool() {
-    //     let (egyptfi, owner, _, _) = setup_with_pool();
-
-    //     start_cheat_caller_address(egyptfi.contract_address, owner);
-    //     egyptfi.deactivate_pool('pool1');
-    //     stop_cheat_caller_address(egyptfi.contract_address);
-
-    //     let pool_info = egyptfi.get_pool_info('pool1');
-    //     assert_eq!(pool_info.is_active, false);
-    // }
-
-    // #[test]
-    // #[should_panic(expected: 'Pool not found')]
-    // fn test_deactivate_pool_not_found() {
-    //     let (egyptfi, owner, _, _, _, _) = setup();
-
-    //     start_cheat_caller_address(egyptfi.contract_address, owner);
-    //     egyptfi.deactivate_pool('nonexistent');
-    //     stop_cheat_caller_address(egyptfi.contract_address);
-    // }
-
-    // #[test]
-    // fn test_get_pool_info() {
-    //     let (egyptfi, _, _, pool_address) = setup_with_pool();
-
-    //     let pool_info = egyptfi.get_pool_info('pool1');
-    //     assert_eq!(pool_info.pool_id, 'pool1');
-    //     assert_eq!(pool_info.pool_address, pool_address);
-    // }
-
-    // #[test]
-    // fn test_get_all_pools() {
-    //     let (egyptfi, _owner, _pool_dispatcher, _pool_address) = setup_with_pool();
-
-    //     let pools = egyptfi.get_all_pools();
-    //     assert_eq!(pools.len(), 1);
-    //     let pool = *pools.at(0);
-    //     assert_eq!(pool.pool_id, 'pool1');
-    // }
-
-    // // Merchant pool allocation tests
-    // #[test]
-    // fn test_set_multi_pool_allocation() {
-    //     let (egyptfi, _, _, _) = setup_with_pool();
-    //     let merchant = contract_address_const::<'merchant'>();
-
-    //     start_cheat_caller_address(egyptfi.contract_address, merchant);
-    //     egyptfi.register_merchant(contract_address_const::<'withdrawal'>(), 123);
-
-    //     let allocations = array![('pool1', 10000)]; // 100%
-    //     egyptfi.set_multi_pool_allocation(allocations);
-    //     stop_cheat_caller_address(egyptfi.contract_address);
-
-    //     let allocation = egyptfi.get_merchant_pool_allocation(merchant, 'pool1');
-    //     assert_eq!(allocation, 10000);
-    // }
-
-    // #[test]
-    // #[should_panic(expected: 'Merchant not found')]
-    // fn test_set_multi_pool_allocation_not_registered() {
-    //     let (egyptfi, _, _, _) = setup_with_pool();
-    //     let merchant = contract_address_const::<'merchant'>();
-
-    //     start_cheat_caller_address(egyptfi.contract_address, merchant);
-    //     let allocations = array![('pool1', 10000)];
-    //     egyptfi.set_multi_pool_allocation(allocations);
-    //     stop_cheat_caller_address(egyptfi.contract_address);
-    // }
-
-    // #[test]
-    // #[should_panic(expected: 'Total allocation exceeds 100%')]
-    // fn test_set_multi_pool_allocation_exceeds_100() {
-    //     let (egyptfi, _, _, _) = setup_with_pool();
-    //     let merchant = contract_address_const::<'merchant'>();
-
-    //     start_cheat_caller_address(egyptfi.contract_address, merchant);
-    //     egyptfi.register_merchant(contract_address_const::<'withdrawal'>(), 123);
-
-    //     let allocations = array![('pool1', 10001)]; // >100%
-    //     egyptfi.set_multi_pool_allocation(allocations);
-    //     stop_cheat_caller_address(egyptfi.contract_address);
-    // }
-
-    // #[test]
-    // fn test_add_pool_to_strategy() {
-    //     let (egyptfi, _, _, _) = setup_with_pool();
-    //     let merchant = contract_address_const::<'merchant'>();
-
-    //     start_cheat_caller_address(egyptfi.contract_address, merchant);
-    //     egyptfi.register_merchant(contract_address_const::<'withdrawal'>(), 123);
-    //     egyptfi.add_pool_to_strategy('pool1', 5000); // 50%
-    //     stop_cheat_caller_address(egyptfi.contract_address);
-
-    //     let allocation = egyptfi.get_merchant_pool_allocation(merchant, 'pool1');
-    //     assert_eq!(allocation, 5000);
-    // }
-
-    // #[test]
-    // #[should_panic(expected: 'Merchant not found')]
-    // fn test_add_pool_to_strategy_not_registered() {
-    //     let (egyptfi, _, _, _) = setup_with_pool();
-    //     let merchant = contract_address_const::<'merchant'>();
-
-    //     start_cheat_caller_address(egyptfi.contract_address, merchant);
-    //     egyptfi.add_pool_to_strategy('pool1', 5000);
-    //     stop_cheat_caller_address(egyptfi.contract_address);
-    // }
-
-    // #[test]
-    // #[should_panic(expected: 'Pool not active')]
-    // fn test_add_pool_to_strategy_pool_not_active() {
-    //     let (egyptfi, owner, _, _) = setup_with_pool();
-    //     let merchant = contract_address_const::<'merchant'>();
-
-    //     start_cheat_caller_address(egyptfi.contract_address, owner);
-    //     egyptfi.deactivate_pool('pool1');
-    //     stop_cheat_caller_address(egyptfi.contract_address);
-
-    //     start_cheat_caller_address(egyptfi.contract_address, merchant);
-    //     egyptfi.register_merchant(contract_address_const::<'withdrawal'>(), 123);
-    //     egyptfi.add_pool_to_strategy('pool1', 5000);
-    //     stop_cheat_caller_address(egyptfi.contract_address);
-    // }
-
-    // #[test]
-    // fn test_remove_pool_from_strategy() {
-    //     let (egyptfi, _, _, _) = setup_with_pool();
-    //     let merchant = contract_address_const::<'merchant'>();
-
-    //     start_cheat_caller_address(egyptfi.contract_address, merchant);
-    //     egyptfi.register_merchant(contract_address_const::<'withdrawal'>(), 123);
-    //     egyptfi.add_pool_to_strategy('pool1', 5000);
-    //     egyptfi.remove_pool_from_strategy('pool1');
-    //     stop_cheat_caller_address(egyptfi.contract_address);
-
-    //     let allocation = egyptfi.get_merchant_pool_allocation(merchant, 'pool1');
-    //     assert_eq!(allocation, 0);
-    // }
-
-    // #[test]
-    // #[should_panic(expected: 'Merchant not found')]
-    // fn test_remove_pool_from_strategy_not_registered() {
-    //     let (egyptfi, _, _, _) = setup_with_pool();
-    //     let merchant = contract_address_const::<'merchant'>();
-
-    //     start_cheat_caller_address(egyptfi.contract_address, merchant);
-    //     egyptfi.remove_pool_from_strategy('pool1');
-    //     stop_cheat_caller_address(egyptfi.contract_address);
-    // }
-
-    // #[test]
-    // fn test_update_pool_allocation() {
-    //     let (egyptfi, _, _, _) = setup_with_pool();
-    //     let merchant = contract_address_const::<'merchant'>();
-
-    //     start_cheat_caller_address(egyptfi.contract_address, merchant);
-    //     egyptfi.register_merchant(contract_address_const::<'withdrawal'>(), 123);
-    //     egyptfi.add_pool_to_strategy('pool1', 5000);
-    //     egyptfi.update_pool_allocation('pool1', 7500);
-    //     stop_cheat_caller_address(egyptfi.contract_address);
-
-    //     let allocation = egyptfi.get_merchant_pool_allocation(merchant, 'pool1');
-    //     assert_eq!(allocation, 7500);
-    // }
-
-    // // Pool view functions tests
-    // #[test]
-    // fn test_get_merchant_pools() {
-    //     let (egyptfi, _, _, _) = setup_with_pool();
-    //     let merchant = contract_address_const::<'merchant'>();
-
-    //     start_cheat_caller_address(egyptfi.contract_address, merchant);
-    //     egyptfi.register_merchant(contract_address_const::<'withdrawal'>(), 123);
-    //     egyptfi.add_pool_to_strategy('pool1', 5000);
-    //     stop_cheat_caller_address(egyptfi.contract_address);
-
-    //     let pools = egyptfi.get_merchant_pools(merchant);
-    //     assert_eq!(pools.len(), 1);
-    //     assert_eq!(*pools.at(0), 'pool1');
-    // }
-
-    // #[test]
-    // fn test_get_merchant_pool_allocation() {
-    //     let (egyptfi, _, _, _) = setup_with_pool();
-    //     let merchant = contract_address_const::<'merchant'>();
-
-    //     start_cheat_caller_address(egyptfi.contract_address, merchant);
-    //     egyptfi.register_merchant(contract_address_const::<'withdrawal'>(), 123);
-    //     egyptfi.add_pool_to_strategy('pool1', 5000);
-    //     stop_cheat_caller_address(egyptfi.contract_address);
-
-    //     let allocation = egyptfi.get_merchant_pool_allocation(merchant, 'pool1');
-    //     assert_eq!(allocation, 5000);
-    // }
-
-    // #[test]
-    // fn test_get_multi_pool_positions() {
-    //     let (egyptfi, _, _, _) = setup_with_pool();
-    //     let merchant = contract_address_const::<'merchant'>();
-
-    //     start_cheat_caller_address(egyptfi.contract_address, merchant);
-    //     egyptfi.register_merchant(contract_address_const::<'withdrawal'>(), 123);
-    //     egyptfi.add_pool_to_strategy('pool1', 10000);
-    //     stop_cheat_caller_address(egyptfi.contract_address);
-
-    //     let positions = egyptfi.get_multi_pool_positions(merchant);
-    //     assert_eq!(positions.len(), 1);
-    //     let (pool_id, deposited, yield_amount) = *positions.at(0);
-    //     assert_eq!(pool_id, 'pool1');
-    //     assert_eq!(deposited, 0);
-    //     assert_eq!(yield_amount, 0);
-    // }
-
-    // // Yield management tests - Note: These require actual deposits, so simplified
-    // #[test]
-    // fn test_claim_all_yields_no_yield() {
-    //     let (egyptfi, _, _, _) = setup_with_pool();
-    //     let merchant = contract_address_const::<'merchant'>();
-
-    //     start_cheat_caller_address(egyptfi.contract_address, merchant);
-    //     egyptfi.register_merchant(contract_address_const::<'withdrawal'>(), 123);
-    //     egyptfi.claim_all_yields();
-    //     stop_cheat_caller_address(egyptfi.contract_address);
-
-    //     // No assertion needed as no yield
-    // }
-
-    // #[test]
-    // fn test_compound_all_yields_no_yield() {
-    //     let (egyptfi, _, _, _) = setup_with_pool();
-    //     let merchant = contract_address_const::<'merchant'>();
-
-    //     start_cheat_caller_address(egyptfi.contract_address, merchant);
-    //     egyptfi.register_merchant(contract_address_const::<'withdrawal'>(), 123);
-    //     egyptfi.compound_all_yields();
-    //     stop_cheat_caller_address(egyptfi.contract_address);
-
-    //     // No assertion needed as no yield
-    // }
-
-    // // Admin pool functions tests
-    // #[test]
-    // fn test_set_platform_pool_id() {
-    //     let (egyptfi, owner, _, _) = setup_with_pool();
-
-    //     start_cheat_caller_address(egyptfi.contract_address, owner);
-    //     egyptfi.set_platform_pool_id('pool1');
-    //     stop_cheat_caller_address(egyptfi.contract_address);
-
-    //     // No direct getter, but can check by trying to deposit
-    // }
-
-    // #[test]
-    // #[should_panic(expected: 'Pool not active')]
-    // fn test_set_platform_pool_id_not_active() {
-    //     let (egyptfi, owner, _, _, _, _) = setup();
-
-    //     start_cheat_caller_address(egyptfi.contract_address, owner);
-    //     egyptfi.set_platform_pool_id('nonexistent');
-    //     stop_cheat_caller_address(egyptfi.contract_address);
-    // }
-
-    // #[test]
-    // fn test_update_platform_pool_allocation() {
-    //     let (egyptfi, owner, _, _, _, _) = setup();
-
-    //     start_cheat_caller_address(egyptfi.contract_address, owner);
-    //     egyptfi.update_platform_pool_allocation(7500); // 75%
-    //     stop_cheat_caller_address(egyptfi.contract_address);
-
-    //     // No direct getter
-    // }
-
-    // #[test]
-    // #[should_panic(expected: 'Allocation exceeds 100%')]
-    // fn test_update_platform_pool_allocation_exceeds() {
-    //     let (egyptfi, owner, _, _, _, _) = setup();
-
-    //     start_cheat_caller_address(egyptfi.contract_address, owner);
-    //     egyptfi.update_platform_pool_allocation(10001);
-    //     stop_cheat_caller_address(egyptfi.contract_address);
-    // }
-
-    // #[test]
-    // fn test_admin_withdraw_fees() {
-    //     let (egyptfi, owner, usdc, _, _, _) = setup();
-
-    //     start_cheat_caller_address(usdc.contract_address, egyptfi.contract_address);
-    //     usdc.mint(egyptfi.contract_address, 1000000);
-    //     stop_cheat_caller_address(usdc.contract_address);
-
-    //     start_cheat_caller_address(egyptfi.contract_address, owner);
-    //     egyptfi.admin_withdraw_fees(500000, owner);
-    //     stop_cheat_caller_address(egyptfi.contract_address);
-
-    //     // Check balance if possible, but since storage is private, assume success
-    // }
-
-    // #[test]
-    // #[should_panic(expected: 'Insufficient platform balance')]
-    // fn test_admin_withdraw_fees_insufficient() {
-    //     let (egyptfi, owner, _, _, _, _) = setup();
-
-    //     start_cheat_caller_address(egyptfi.contract_address, owner);
-    //     egyptfi.admin_withdraw_fees(1000000, owner);
-    //     stop_cheat_caller_address(egyptfi.contract_address);
-    // }
-
-    // // Other admin functions require platform deposits, simplified
-    // #[test]
-    // fn test_admin_claim_yield_from_pool_no_position() {
-    //     let (egyptfi, owner, _, _) = setup_with_pool();
-
-    //     start_cheat_caller_address(egyptfi.contract_address, owner);
-    //     egyptfi.admin_claim_yield_from_pool('pool1');
-    //     stop_cheat_caller_address(egyptfi.contract_address);
-
-    //     // Should panic or do nothing
-    // }
-
-    // #[test]
-    // fn test_admin_redeem_principal_from_pool_no_position() {
-    //     let (egyptfi, owner, _, _) = setup_with_pool();
-
-    //     start_cheat_caller_address(egyptfi.contract_address, owner);
-    //     egyptfi.admin_redeem_principal_from_pool('pool1', owner);
-    //     stop_cheat_caller_address(egyptfi.contract_address);
-
-    //     // Should panic or do nothing
-    // }
-
-    // // Additional missing tests for complete coverage
-
-    // #[test]
-    // fn test_claim_yield_from_pool_no_position() {
-    //     let (egyptfi, _, _, _) = setup_with_pool();
-    //     let merchant = contract_address_const::<'merchant'>();
-
-    //     start_cheat_caller_address(egyptfi.contract_address, merchant);
-    //     egyptfi.register_merchant(contract_address_const::<'withdrawal'>(), 123);
-    //     egyptfi.claim_yield_from_pool('pool1');
-    //     stop_cheat_caller_address(egyptfi.contract_address);
-
-    //     // Should panic or do nothing
-    // }
-
-    // #[test]
-    // fn test_compound_pool_yield_no_position() {
-    //     let (egyptfi, _, _, _) = setup_with_pool();
-    //     let merchant = contract_address_const::<'merchant'>();
-
-    //     start_cheat_caller_address(egyptfi.contract_address, merchant);
-    //     egyptfi.register_merchant(contract_address_const::<'withdrawal'>(), 123);
-    //     egyptfi.compound_pool_yield('pool1');
-    //     stop_cheat_caller_address(egyptfi.contract_address);
-
-    //     // Should panic or do nothing
-    // }
+    #[test]
+    #[should_panic(expected: 'Pool already registered')]
+    fn test_register_pool_already_registered() {
+        let (egyptfi, owner, _pool_dispatcher, pool_address) = setup_with_pool();
+
+        start_cheat_caller_address(egyptfi.contract_address, owner);
+        egyptfi.register_pool('pool1', pool_address, 'Stablecoin', 'USDC');
+        stop_cheat_caller_address(egyptfi.contract_address);
+    }
+
+    #[test]
+    fn test_deactivate_pool() {
+        let (egyptfi, owner, _, _) = setup_with_pool();
+
+        start_cheat_caller_address(egyptfi.contract_address, owner);
+        egyptfi.deactivate_pool('pool1');
+        stop_cheat_caller_address(egyptfi.contract_address);
+
+        let pool_info = egyptfi.get_pool_info('pool1');
+        assert_eq!(pool_info.is_active, false);
+    }
+
+    #[test]
+    #[should_panic(expected: 'Pool not found')]
+    fn test_deactivate_pool_not_found() {
+        let (egyptfi, owner, _, _, _, _) = setup();
+
+        start_cheat_caller_address(egyptfi.contract_address, owner);
+        egyptfi.deactivate_pool('nonexistent');
+        stop_cheat_caller_address(egyptfi.contract_address);
+    }
+
+    #[test]
+    fn test_get_pool_info() {
+        let (egyptfi, _, _, pool_address) = setup_with_pool();
+
+        let pool_info = egyptfi.get_pool_info('pool1');
+        assert_eq!(pool_info.pool_id, 'pool1');
+        assert_eq!(pool_info.pool_address, pool_address);
+    }
+
+    #[test]
+    fn test_get_all_pools() {
+        let (egyptfi, _owner, _pool_dispatcher, _pool_address) = setup_with_pool();
+
+        let pools = egyptfi.get_all_pools();
+        assert_eq!(pools.len(), 1);
+        let pool = *pools.at(0);
+        assert_eq!(pool.pool_id, 'pool1');
+    }
+
+    // Merchant pool allocation tests
+    #[test]
+    fn test_set_multi_pool_allocation() {
+        let (egyptfi, _, _, _) = setup_with_pool();
+        let merchant = contract_address_const::<'merchant'>();
+
+        start_cheat_caller_address(egyptfi.contract_address, merchant);
+        egyptfi.register_merchant(contract_address_const::<'withdrawal'>(), 123);
+
+        let allocations = array![('pool1', 10000)]; // 100%
+        egyptfi.set_multi_pool_allocation(allocations);
+        stop_cheat_caller_address(egyptfi.contract_address);
+
+        let allocation = egyptfi.get_merchant_pool_allocation(merchant, 'pool1');
+        assert_eq!(allocation, 10000);
+    }
+
+    #[test]
+    #[should_panic(expected: 'Merchant not found')]
+    fn test_set_multi_pool_allocation_not_registered() {
+        let (egyptfi, _, _, _) = setup_with_pool();
+        let merchant = contract_address_const::<'merchant'>();
+
+        start_cheat_caller_address(egyptfi.contract_address, merchant);
+        let allocations = array![('pool1', 10000)];
+        egyptfi.set_multi_pool_allocation(allocations);
+        stop_cheat_caller_address(egyptfi.contract_address);
+    }
+
+    #[test]
+    #[should_panic(expected: 'Total allocation exceeds 100%')]
+    fn test_set_multi_pool_allocation_exceeds_100() {
+        let (egyptfi, _, _, _) = setup_with_pool();
+        let merchant = contract_address_const::<'merchant'>();
+
+        start_cheat_caller_address(egyptfi.contract_address, merchant);
+        egyptfi.register_merchant(contract_address_const::<'withdrawal'>(), 123);
+
+        let allocations = array![('pool1', 10001)]; // >100%
+        egyptfi.set_multi_pool_allocation(allocations);
+        stop_cheat_caller_address(egyptfi.contract_address);
+    }
+
+    #[test]
+    fn test_add_pool_to_strategy() {
+        let (egyptfi, _, _, _) = setup_with_pool();
+        let merchant = contract_address_const::<'merchant'>();
+
+        start_cheat_caller_address(egyptfi.contract_address, merchant);
+        egyptfi.register_merchant(contract_address_const::<'withdrawal'>(), 123);
+        egyptfi.add_pool_to_strategy('pool1', 5000); // 50%
+        stop_cheat_caller_address(egyptfi.contract_address);
+
+        let allocation = egyptfi.get_merchant_pool_allocation(merchant, 'pool1');
+        assert_eq!(allocation, 5000);
+    }
+
+    #[test]
+    #[should_panic(expected: 'Merchant not found')]
+    fn test_add_pool_to_strategy_not_registered() {
+        let (egyptfi, _, _, _) = setup_with_pool();
+        let merchant = contract_address_const::<'merchant'>();
+
+        start_cheat_caller_address(egyptfi.contract_address, merchant);
+        egyptfi.add_pool_to_strategy('pool1', 5000);
+        stop_cheat_caller_address(egyptfi.contract_address);
+    }
+
+    #[test]
+    #[should_panic(expected: 'Pool not active')]
+    fn test_add_pool_to_strategy_pool_not_active() {
+        let (egyptfi, owner, _, _) = setup_with_pool();
+        let merchant = contract_address_const::<'merchant'>();
+
+        start_cheat_caller_address(egyptfi.contract_address, owner);
+        egyptfi.deactivate_pool('pool1');
+        stop_cheat_caller_address(egyptfi.contract_address);
+
+        start_cheat_caller_address(egyptfi.contract_address, merchant);
+        egyptfi.register_merchant(contract_address_const::<'withdrawal'>(), 123);
+        egyptfi.add_pool_to_strategy('pool1', 5000);
+        stop_cheat_caller_address(egyptfi.contract_address);
+    }
+
+    #[test]
+    fn test_remove_pool_from_strategy() {
+        let (egyptfi, _, _, _) = setup_with_pool();
+        let merchant = contract_address_const::<'merchant'>();
+
+        start_cheat_caller_address(egyptfi.contract_address, merchant);
+        egyptfi.register_merchant(contract_address_const::<'withdrawal'>(), 123);
+        egyptfi.add_pool_to_strategy('pool1', 5000);
+        egyptfi.remove_pool_from_strategy('pool1');
+        stop_cheat_caller_address(egyptfi.contract_address);
+
+        let allocation = egyptfi.get_merchant_pool_allocation(merchant, 'pool1');
+        assert_eq!(allocation, 0);
+    }
+
+    #[test]
+    #[should_panic(expected: 'Merchant not found')]
+    fn test_remove_pool_from_strategy_not_registered() {
+        let (egyptfi, _, _, _) = setup_with_pool();
+        let merchant = contract_address_const::<'merchant'>();
+
+        start_cheat_caller_address(egyptfi.contract_address, merchant);
+        egyptfi.remove_pool_from_strategy('pool1');
+        stop_cheat_caller_address(egyptfi.contract_address);
+    }
+
+    #[test]
+    fn test_update_pool_allocation() {
+        let (egyptfi, _, _, _) = setup_with_pool();
+        let merchant = contract_address_const::<'merchant'>();
+
+        start_cheat_caller_address(egyptfi.contract_address, merchant);
+        egyptfi.register_merchant(contract_address_const::<'withdrawal'>(), 123);
+        egyptfi.add_pool_to_strategy('pool1', 5000);
+        egyptfi.update_pool_allocation('pool1', 7500);
+        stop_cheat_caller_address(egyptfi.contract_address);
+
+        let allocation = egyptfi.get_merchant_pool_allocation(merchant, 'pool1');
+        assert_eq!(allocation, 7500);
+    }
+
+    // Pool view functions tests
+    #[test]
+    fn test_get_merchant_pools() {
+        let (egyptfi, _, _, _) = setup_with_pool();
+        let merchant = contract_address_const::<'merchant'>();
+
+        start_cheat_caller_address(egyptfi.contract_address, merchant);
+        egyptfi.register_merchant(contract_address_const::<'withdrawal'>(), 123);
+        egyptfi.add_pool_to_strategy('pool1', 5000);
+        stop_cheat_caller_address(egyptfi.contract_address);
+
+        let pools = egyptfi.get_merchant_pools(merchant);
+        assert_eq!(pools.len(), 1);
+        assert_eq!(*pools.at(0), 'pool1');
+    }
+
+    #[test]
+    fn test_get_merchant_pool_allocation() {
+        let (egyptfi, _, _, _) = setup_with_pool();
+        let merchant = contract_address_const::<'merchant'>();
+
+        start_cheat_caller_address(egyptfi.contract_address, merchant);
+        egyptfi.register_merchant(contract_address_const::<'withdrawal'>(), 123);
+        egyptfi.add_pool_to_strategy('pool1', 5000);
+        stop_cheat_caller_address(egyptfi.contract_address);
+
+        let allocation = egyptfi.get_merchant_pool_allocation(merchant, 'pool1');
+        assert_eq!(allocation, 5000);
+    }
+
+    #[test]
+    fn test_get_multi_pool_positions() {
+        let (egyptfi, _, _, _) = setup_with_pool();
+        let merchant = contract_address_const::<'merchant'>();
+
+        start_cheat_caller_address(egyptfi.contract_address, merchant);
+        egyptfi.register_merchant(contract_address_const::<'withdrawal'>(), 123);
+        egyptfi.add_pool_to_strategy('pool1', 10000);
+        stop_cheat_caller_address(egyptfi.contract_address);
+
+        let positions = egyptfi.get_multi_pool_positions(merchant);
+        assert_eq!(positions.len(), 1);
+        let (pool_id, deposited, yield_amount) = *positions.at(0);
+        assert_eq!(pool_id, 'pool1');
+        assert_eq!(deposited, 0);
+        assert_eq!(yield_amount, 0);
+    }
+
+    // Yield management tests - Note: These require actual deposits, so simplified
+    #[test]
+    fn test_claim_all_yields_no_yield() {
+        let (egyptfi, _, _, _) = setup_with_pool();
+        let merchant = contract_address_const::<'merchant'>();
+
+        start_cheat_caller_address(egyptfi.contract_address, merchant);
+        egyptfi.register_merchant(contract_address_const::<'withdrawal'>(), 123);
+        egyptfi.claim_all_yields();
+        stop_cheat_caller_address(egyptfi.contract_address);
+
+        // No assertion needed as no yield
+    }
+
+    #[test]
+    fn test_compound_all_yields_no_yield() {
+        let (egyptfi, _, _, _) = setup_with_pool();
+        let merchant = contract_address_const::<'merchant'>();
+
+        start_cheat_caller_address(egyptfi.contract_address, merchant);
+        egyptfi.register_merchant(contract_address_const::<'withdrawal'>(), 123);
+        egyptfi.compound_all_yields();
+        stop_cheat_caller_address(egyptfi.contract_address);
+
+        // No assertion needed as no yield
+    }
+
+    // Admin pool functions tests
+    #[test]
+    fn test_set_platform_pool_id() {
+        let (egyptfi, owner, _, _) = setup_with_pool();
+
+        start_cheat_caller_address(egyptfi.contract_address, owner);
+        egyptfi.set_platform_pool_id('pool1');
+        stop_cheat_caller_address(egyptfi.contract_address);
+
+        // No direct getter, but can check by trying to deposit
+    }
+
+    #[test]
+    #[should_panic(expected: 'Pool not active')]
+    fn test_set_platform_pool_id_not_active() {
+        let (egyptfi, owner, _, _, _, _) = setup();
+
+        start_cheat_caller_address(egyptfi.contract_address, owner);
+        egyptfi.set_platform_pool_id('nonexistent');
+        stop_cheat_caller_address(egyptfi.contract_address);
+    }
+
+    #[test]
+    fn test_update_platform_pool_allocation() {
+        let (egyptfi, owner, _, _, _, _) = setup();
+
+        start_cheat_caller_address(egyptfi.contract_address, owner);
+        egyptfi.update_platform_pool_allocation(7500); // 75%
+        stop_cheat_caller_address(egyptfi.contract_address);
+
+        // No direct getter
+    }
+
+    #[test]
+    #[should_panic(expected: 'Allocation exceeds 100%')]
+    fn test_update_platform_pool_allocation_exceeds() {
+        let (egyptfi, owner, _, _, _, _) = setup();
+
+        start_cheat_caller_address(egyptfi.contract_address, owner);
+        egyptfi.update_platform_pool_allocation(10001);
+        stop_cheat_caller_address(egyptfi.contract_address);
+    }
+
+    #[test]
+    fn test_admin_withdraw_fees() {
+        let (egyptfi, owner, usdc, _, _, _) = setup();
+
+        start_cheat_caller_address(usdc.contract_address, egyptfi.contract_address);
+        usdc.mint(egyptfi.contract_address, 1000000);
+        stop_cheat_caller_address(usdc.contract_address);
+
+        start_cheat_caller_address(egyptfi.contract_address, owner);
+        egyptfi.admin_withdraw_fees(500000, owner);
+        stop_cheat_caller_address(egyptfi.contract_address);
+
+        // Check balance if possible, but since storage is private, assume success
+    }
+
+    #[test]
+    #[should_panic(expected: 'Insufficient platform balance')]
+    fn test_admin_withdraw_fees_insufficient() {
+        let (egyptfi, owner, _, _, _, _) = setup();
+
+        start_cheat_caller_address(egyptfi.contract_address, owner);
+        egyptfi.admin_withdraw_fees(1000000, owner);
+        stop_cheat_caller_address(egyptfi.contract_address);
+    }
+
+    // Other admin functions require platform deposits, simplified
+    #[test]
+    fn test_admin_claim_yield_from_pool_no_position() {
+        let (egyptfi, owner, _, _) = setup_with_pool();
+
+        start_cheat_caller_address(egyptfi.contract_address, owner);
+        egyptfi.admin_claim_yield_from_pool('pool1');
+        stop_cheat_caller_address(egyptfi.contract_address);
+
+        // Should panic or do nothing
+    }
+
+    #[test]
+    fn test_admin_redeem_principal_from_pool_no_position() {
+        let (egyptfi, owner, _, _) = setup_with_pool();
+
+        start_cheat_caller_address(egyptfi.contract_address, owner);
+        egyptfi.admin_redeem_principal_from_pool('pool1', owner);
+        stop_cheat_caller_address(egyptfi.contract_address);
+
+        // Should panic or do nothing
+    }
+
+    // Additional missing tests for complete coverage
+
+    #[test]
+    fn test_claim_yield_from_pool_no_position() {
+        let (egyptfi, _, _, _) = setup_with_pool();
+        let merchant = contract_address_const::<'merchant'>();
+
+        start_cheat_caller_address(egyptfi.contract_address, merchant);
+        egyptfi.register_merchant(contract_address_const::<'withdrawal'>(), 123);
+        egyptfi.claim_yield_from_pool('pool1');
+        stop_cheat_caller_address(egyptfi.contract_address);
+
+        // Should panic or do nothing
+    }
+
+    #[test]
+    fn test_compound_pool_yield_no_position() {
+        let (egyptfi, _, _, _) = setup_with_pool();
+        let merchant = contract_address_const::<'merchant'>();
+
+        start_cheat_caller_address(egyptfi.contract_address, merchant);
+        egyptfi.register_merchant(contract_address_const::<'withdrawal'>(), 123);
+        egyptfi.compound_pool_yield('pool1');
+        stop_cheat_caller_address(egyptfi.contract_address);
+
+        // Should panic or do nothing
+    }
 }
