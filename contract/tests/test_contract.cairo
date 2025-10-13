@@ -1,8 +1,8 @@
 #[cfg(test)]
 mod tests {
-    use safebox::EgyptFi;
     use safebox::{IEgyptFiDispatcher, IEgyptFiDispatcherTrait};
     use safebox::PaymentStatus;
+    use safebox::EgyptFi::{Event, MerchantRegistered, MerchantUpdated, PaymentCreated, PaymentCompleted, PaymentRefunded, WithdrawalMade, EmergencyPauseToggled};
     use snforge_std::{
         ContractClassTrait, DeclareResultTrait, declare, spy_events, EventSpyAssertionsTrait,
         start_cheat_caller_address, stop_cheat_caller_address, start_cheat_block_timestamp, stop_cheat_block_timestamp
@@ -169,12 +169,70 @@ mod tests {
             }
         }
     }
-    
+
+    // Mock Vesu Pool for testing
+    #[starknet::interface]
+    trait IMockVesuPool<TContractState> {
+        fn deposit(ref self: TContractState, assets: u256, receiver: ContractAddress) -> u256;
+        fn redeem(ref self: TContractState, shares: u256, receiver: ContractAddress, owner: ContractAddress) -> u256;
+        fn preview_redeem(self: @TContractState, assets: u256) -> u256;
+        fn convert_to_assets(self: @TContractState, shares: u256) -> u256;
+    }
+
+    #[starknet::contract]
+    mod MockVesuPool {
+        use starknet::ContractAddress;
+        use starknet::storage::{Map, StoragePointerReadAccess, StoragePointerWriteAccess, StorageMapReadAccess, StorageMapWriteAccess};
+
+        #[storage]
+        pub struct Storage {
+            total_assets: u256,
+            shares: Map<ContractAddress, u256>,
+        }
+
+        #[constructor]
+        fn constructor(ref self: ContractState) {}
+
+        #[abi(embed_v0)]
+        impl MockVesuPoolImpl of super::IMockVesuPool<ContractState> {
+            fn deposit(ref self: ContractState, assets: u256, receiver: ContractAddress) -> u256 {
+                let shares = assets; // 1:1 ratio for simplicity
+                let current_shares = self.shares.read(receiver);
+                self.shares.write(receiver, current_shares + shares);
+                self.total_assets.write(self.total_assets.read() + assets);
+                shares
+            }
+
+            fn redeem(ref self: ContractState, shares: u256, receiver: ContractAddress, owner: ContractAddress) -> u256 {
+                let current_shares = self.shares.read(owner);
+                assert(current_shares >= shares, 'Insufficient shares');
+                self.shares.write(owner, current_shares - shares);
+                let assets = shares; // 1:1 ratio
+                self.total_assets.write(self.total_assets.read() - assets);
+                assets
+            }
+
+            fn preview_redeem(self: @ContractState, assets: u256) -> u256 {
+                assets
+            }
+
+            fn convert_to_assets(self: @ContractState, shares: u256) -> u256 {
+                shares
+            }
+        }
+    }
 
     fn deploy_mock_erc20( ) -> (IMockERC20Dispatcher, ContractAddress) {
         let contract = declare("MockERC20").unwrap().contract_class();
         let (contract_address, _) = contract.deploy(@ArrayTrait::new()).unwrap();
         let dispatcher = IMockERC20Dispatcher { contract_address };
+        (dispatcher, contract_address)
+    }
+
+    fn deploy_mock_vesu_pool() -> (IMockVesuPoolDispatcher, ContractAddress) {
+        let contract = declare("MockVesuPool").unwrap().contract_class();
+        let (contract_address, _) = contract.deploy(@ArrayTrait::new()).unwrap();
+        let dispatcher = IMockVesuPoolDispatcher { contract_address };
         (dispatcher, contract_address)
     }
 
@@ -197,25 +255,25 @@ mod tests {
         IEgyptFiDispatcher { contract_address: address }
     }
 
-    fn setup() -> (IEgyptFiDispatcher, ContractAddress, IMockERC20Dispatcher, ContractAddress, ContractAddress) {
+    fn setup() -> (IEgyptFiDispatcher, ContractAddress, IMockERC20Dispatcher, ContractAddress, ContractAddress, ContractAddress) {
         let owner = contract_address_const::<'owner'>();
         let merchant = contract_address_const::<'merchant'>();
         let customer = contract_address_const::<'customer'>();
         let collector = contract_address_const::<'collector'>();
 
-        let (usdc_dispatcher, usdc_address) = deploy_mock_erc20( ); 
+        let (usdc_dispatcher, usdc_address) = deploy_mock_erc20( );
 
         let fee = 100; // 1%
         let min_amount = 1000000; // 1 USDC
 
         let egyptfi = deploy_egyptfi(owner, usdc_address, fee, collector, min_amount);
 
-        (egyptfi, owner, usdc_dispatcher, merchant, customer)
+        (egyptfi, owner, usdc_dispatcher, merchant, customer, collector)
     }
 
     #[test]
     fn test_constructor() {
-        let (egyptfi, _, _, _, _) = setup();
+        let (egyptfi, _, _, _, _, _) = setup();
 
         assert_eq!(egyptfi.is_paused(), false);
         // Test other initial states if possible, but since storage is private, we rely on behavior
@@ -223,7 +281,7 @@ mod tests {
 
     #[test]
     fn test_register_merchant() {
-        let (egyptfi, _, _, merchant, _) = setup();
+        let (egyptfi, _, _, merchant, _, _) = setup();
         let withdrawal_address = contract_address_const::<'withdrawal'>();
         let metadata_hash = 123;
 
@@ -242,8 +300,8 @@ mod tests {
         assert_eq!(merchant_data.total_payments_count, 0);
         assert_eq!(merchant_data.joined_timestamp, 1000);
 
-        let expected_event = EgyptFi::Event::MerchantRegistered(
-            EgyptFi::MerchantRegistered { merchant, timestamp: 1000 }
+        let expected_event = Event::MerchantRegistered(
+            MerchantRegistered { merchant, timestamp: 1000 }
         );
         spy.assert_emitted(@array![(egyptfi.contract_address, expected_event)]);
 
@@ -254,7 +312,7 @@ mod tests {
     #[test]
     #[should_panic(expected: 'Merchant already registered')]
     fn test_register_merchant_already_registered() {
-        let (egyptfi, _, _, merchant, _) = setup();
+        let (egyptfi, _, _, merchant, _, _) = setup();
         let withdrawal_address = contract_address_const::<'withdrawal'>();
         let metadata_hash = 123;
 
@@ -266,7 +324,7 @@ mod tests {
 
     #[test]
     fn test_update_merchant_withdrawal_address() {
-        let (egyptfi, _, _, merchant, _) = setup();
+        let (egyptfi, _, _, merchant, _, _) = setup();
         let withdrawal_address = contract_address_const::<'withdrawal'>();
         let new_withdrawal = contract_address_const::<'new_withdrawal'>();
 
@@ -287,8 +345,8 @@ mod tests {
         let merchant_data = egyptfi.get_merchant(merchant);
         assert_eq!(merchant_data.withdrawal_address, new_withdrawal);
 
-        let expected_event = EgyptFi::Event::MerchantUpdated(
-            EgyptFi::MerchantUpdated { merchant, field: 'withdrawal_address', timestamp: 2000 }
+        let expected_event = Event::MerchantUpdated(
+            MerchantUpdated { merchant, field: 'withdrawal_address', timestamp: 2000 }
         );
         spy.assert_emitted(@array![(egyptfi.contract_address, expected_event)]);
 
@@ -299,7 +357,7 @@ mod tests {
     #[test]
     #[should_panic(expected: 'Merchant not found')]
     fn test_update_merchant_withdrawal_address_not_registered() {
-        let (egyptfi, _, _, merchant, _) = setup();
+        let (egyptfi, _, _, merchant, _, _) = setup();
         let new_withdrawal = contract_address_const::<'new_withdrawal'>();
 
         start_cheat_caller_address(egyptfi.contract_address, merchant);
@@ -309,7 +367,7 @@ mod tests {
 
     #[test]
     fn test_update_merchant_metadata() {
-        let (egyptfi, _, _, merchant, _) = setup();
+        let (egyptfi, _, _, merchant, _, _) = setup();
         let withdrawal_address = contract_address_const::<'withdrawal'>();
 
         start_cheat_block_timestamp(egyptfi.contract_address,1000);
@@ -329,8 +387,8 @@ mod tests {
         let merchant_data = egyptfi.get_merchant(merchant);
         assert_eq!(merchant_data.metadata_hash, 456);
 
-        let expected_event = EgyptFi::Event::MerchantUpdated(
-            EgyptFi::MerchantUpdated { merchant, field: 'metadata_hash', timestamp: 2000 }
+        let expected_event = Event::MerchantUpdated(
+            MerchantUpdated { merchant, field: 'metadata_hash', timestamp: 2000 }
         );
         spy.assert_emitted(@array![(egyptfi.contract_address, expected_event)]);
 
@@ -341,7 +399,7 @@ mod tests {
     #[test]
     #[should_panic(expected: 'Merchant not found')]
     fn test_update_merchant_metadata_not_registered() {
-        let (egyptfi, _, _, merchant, _) = setup();
+        let (egyptfi, _, _, merchant, _, _) = setup();
 
         start_cheat_caller_address(egyptfi.contract_address, merchant);
         egyptfi.update_merchant_metadata(456);
@@ -350,7 +408,7 @@ mod tests {
 
     #[test]
     fn test_deactivate_merchant() {
-        let (egyptfi, _, _, merchant, _) = setup();
+        let (egyptfi, _, _, merchant, _, _) = setup();
         let withdrawal_address = contract_address_const::<'withdrawal'>();
 
         start_cheat_block_timestamp(egyptfi.contract_address,1000);
@@ -370,8 +428,8 @@ mod tests {
         let merchant_data = egyptfi.get_merchant(merchant);
         assert_eq!(merchant_data.is_active, false);
 
-        let expected_event = EgyptFi::Event::MerchantUpdated(
-            EgyptFi::MerchantUpdated { merchant, field: 'deactivated', timestamp: 2000 }
+        let expected_event = Event::MerchantUpdated(
+            MerchantUpdated { merchant, field: 'deactivated', timestamp: 2000 }
         );
         spy.assert_emitted(@array![(egyptfi.contract_address, expected_event)]);
 
@@ -382,7 +440,7 @@ mod tests {
     #[test]
     #[should_panic(expected: 'Merchant not found')]
     fn test_deactivate_merchant_not_registered() {
-        let (egyptfi, _, _, merchant, _) = setup();
+        let (egyptfi, _, _, merchant, _, _) = setup();
 
         start_cheat_caller_address(egyptfi.contract_address, merchant);
         egyptfi.deactivate_merchant();
@@ -391,7 +449,7 @@ mod tests {
 
     #[test]
     fn test_set_kyc_proof() {
-        let (egyptfi, _, _, merchant, _) = setup();
+        let (egyptfi, _, _, merchant, _, _) = setup();
         let withdrawal_address = contract_address_const::<'withdrawal'>();
 
         start_cheat_block_timestamp(egyptfi.contract_address,1000);
@@ -413,8 +471,8 @@ mod tests {
         let proof = egyptfi.get_kyc_proof(merchant);
         assert!(proof == proof001, "Wrong KYC proof");
 
-        let expected_event = EgyptFi::Event::MerchantUpdated(
-            EgyptFi::MerchantUpdated { merchant, field: 'kyc_proof', timestamp: 2000 }
+        let expected_event = Event::MerchantUpdated(
+            MerchantUpdated { merchant, field: 'kyc_proof', timestamp: 2000 }
         );
         spy.assert_emitted(@array![(egyptfi.contract_address, expected_event)]);
 
@@ -425,7 +483,7 @@ mod tests {
     #[test]
     #[should_panic(expected: 'Merchant not found')]
     fn test_set_kyc_proof_not_registered() {
-        let (egyptfi, _, _, merchant, _) = setup();
+        let (egyptfi, _, _, merchant, _, _) = setup();
 
         start_cheat_caller_address(egyptfi.contract_address, merchant);
         egyptfi.set_kyc_proof(1235);
@@ -434,7 +492,7 @@ mod tests {
 
     #[test]
     fn verify_kyc_proof() {
-        let (egyptfi, owner, _, merchant, _) = setup();
+        let (egyptfi, owner, _, merchant, _, _) = setup();
         let withdrawal_address = contract_address_const::<'withdrawal'>();
 
         start_cheat_block_timestamp(egyptfi.contract_address,1000);
@@ -472,7 +530,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn verify_kyc_proof_wrong_proof() {
-        let (egyptfi, owner, _, merchant, _) = setup();
+        let (egyptfi, owner, _, merchant, _, _) = setup();
         let withdrawal_address = contract_address_const::<'withdrawal'>();
 
         start_cheat_block_timestamp(egyptfi.contract_address,1000);
@@ -510,7 +568,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn verify_kyc_proof_no_kyc_proof() {
-        let (egyptfi, owner, _, merchant, _) = setup();
+        let (egyptfi, owner, _, merchant, _, _) = setup();
         let withdrawal_address = contract_address_const::<'withdrawal'>();
 
         start_cheat_block_timestamp(egyptfi.contract_address,1000);
@@ -537,7 +595,7 @@ mod tests {
 
     #[test]
     fn test_create_payment() {
-        let (egyptfi, _, _, merchant, customer) = setup();
+        let (egyptfi, _, _, merchant, customer, _) = setup();
         let withdrawal_address = contract_address_const::<'withdrawal'>();
 
         start_cheat_caller_address(egyptfi.contract_address, merchant);
@@ -547,10 +605,11 @@ mod tests {
         start_cheat_caller_address(egyptfi.contract_address, customer);
         let amount = 2000000; // 2 USDC
         let reference = 999;
+        let platform_fee = 100;
         let description = 888;
 
         let mut spy = spy_events();
-        let payment_id = egyptfi.create_payment(merchant, amount, reference, description);
+        let payment_id = egyptfi.create_payment(merchant, amount, platform_fee, reference, description);
 
         let payment = egyptfi.get_payment(payment_id);
         assert_eq!(payment.payment_id, payment_id);
@@ -558,12 +617,13 @@ mod tests {
         assert_eq!(payment.customer, customer);
         assert_eq!(payment.amount_paid, amount);
         assert_eq!(payment.usdc_amount, 0);
+        assert_eq!(payment.platform_fee, platform_fee);
         assert_eq!(payment.status, safebox::PaymentStatus::Pending);
         assert_eq!(payment.reference, reference);
         assert_eq!(payment.description, description);
 
-        let expected_event = EgyptFi::Event::PaymentCreated(
-            EgyptFi::PaymentCreated { payment_id, merchant, customer, amount, reference }
+        let expected_event = Event::PaymentCreated(
+            PaymentCreated { payment_id, merchant, customer, amount, reference }
         );
         spy.assert_emitted(@array![(egyptfi.contract_address, expected_event)]);
 
@@ -573,17 +633,17 @@ mod tests {
     #[test]
     #[should_panic(expected: 'Merchant not active')]
     fn test_create_payment_merchant_not_active() {
-        let (egyptfi, _, _, merchant, customer) = setup();
+        let (egyptfi, _, _, merchant, customer, _) = setup();
 
         start_cheat_caller_address(egyptfi.contract_address, customer);
-        egyptfi.create_payment(merchant, 2000000, 999, 888);
+        egyptfi.create_payment(merchant, 2000000, 100, 999, 888);
         stop_cheat_caller_address(egyptfi.contract_address);
     }
 
     #[test]
     #[should_panic(expected: 'Amount must be positive')]
     fn test_create_payment_zero_amount() {
-        let (egyptfi, _, _, merchant, customer) = setup();
+        let (egyptfi, _, _, merchant, customer, _) = setup();
         let withdrawal_address = contract_address_const::<'withdrawal'>();
 
         start_cheat_caller_address(egyptfi.contract_address, merchant);
@@ -591,14 +651,14 @@ mod tests {
         stop_cheat_caller_address(egyptfi.contract_address);
 
         start_cheat_caller_address(egyptfi.contract_address, customer);
-        egyptfi.create_payment(merchant, 0, 999, 888);
+        egyptfi.create_payment(merchant, 0, 100, 999, 888);
         stop_cheat_caller_address(egyptfi.contract_address);
     }
 
     #[test]
     #[should_panic(expected: 'Amount below minimum')]
     fn test_create_payment_below_minimum() {
-        let (egyptfi, _, _, merchant, customer) = setup();
+        let (egyptfi, _, _, merchant, customer, _) = setup();
         let withdrawal_address = contract_address_const::<'withdrawal'>();
 
         start_cheat_caller_address(egyptfi.contract_address, merchant);
@@ -606,13 +666,13 @@ mod tests {
         stop_cheat_caller_address(egyptfi.contract_address);
 
         start_cheat_caller_address(egyptfi.contract_address, customer);
-        egyptfi.create_payment(merchant, 500000, 999, 888); // 0.5 USDC
+        egyptfi.create_payment(merchant, 500000, 100, 999, 888); // 0.5 USDC
         stop_cheat_caller_address(egyptfi.contract_address);
     }
 
     #[test]
     fn test_process_payment() {
-        let (egyptfi, _, usdc, merchant, customer) = setup();
+        let (egyptfi, _, usdc, merchant, customer, _) = setup();
         let withdrawal_address = contract_address_const::<'withdrawal'>();
 
         start_cheat_caller_address(egyptfi.contract_address, merchant);
@@ -630,7 +690,7 @@ mod tests {
         start_cheat_block_timestamp(egyptfi.contract_address,2000);
         start_cheat_caller_address(egyptfi.contract_address, customer);
 
-        let payment_id = egyptfi.create_payment(merchant, amount, 999, 888);
+        let payment_id = egyptfi.create_payment(merchant, amount, 100, 999, 888);
 
 
         let mut spy = spy_events();
@@ -646,8 +706,8 @@ mod tests {
         assert_eq!(merchant_data.total_payments_received, expected_net);
         assert_eq!(merchant_data.total_payments_count, 1);
 
-        let expected_event = EgyptFi::Event::PaymentCompleted(
-            EgyptFi::PaymentCompleted {
+        let expected_event = Event::PaymentCompleted(
+            PaymentCompleted {
                 payment_id,
                 merchant,
                 customer,
@@ -665,7 +725,7 @@ mod tests {
     // #[ignore]
     #[should_panic]
     fn test_process_payment_not_found() {
-        let (egyptfi, _, _, _, customer) = setup();
+        let (egyptfi, _, _, _, customer, _) = setup();
 
         let payment_id: felt252 = 0.into(); // Non-existent payment ID
 
@@ -677,7 +737,7 @@ mod tests {
     #[test]
     #[should_panic(expected: 'Payment not pending')]
     fn test_process_payment_not_pending() {
-        let (egyptfi, _, usdc, merchant, customer) = setup();
+        let (egyptfi, _, usdc, merchant, customer, _) = setup();
         let withdrawal_address = contract_address_const::<'withdrawal'>();
 
         start_cheat_caller_address(egyptfi.contract_address, merchant);
@@ -693,7 +753,7 @@ mod tests {
 
         start_cheat_caller_address(egyptfi.contract_address, customer);
 
-        let payment_id = egyptfi.create_payment(merchant, amount, 999, 888);
+        let payment_id = egyptfi.create_payment(merchant, amount, 100, 999, 888);
 
 
         egyptfi.process_payment(payment_id);
@@ -704,7 +764,7 @@ mod tests {
     #[test]
     #[should_panic(expected: 'Not payment customer')]
     fn test_process_payment_wrong_customer() {
-        let (egyptfi, _, _, merchant, customer) = setup();
+        let (egyptfi, _, _, merchant, customer, _) = setup();
         let withdrawal_address = contract_address_const::<'withdrawal'>();
 
         start_cheat_caller_address(egyptfi.contract_address, merchant);
@@ -713,7 +773,7 @@ mod tests {
 
         start_cheat_caller_address(egyptfi.contract_address, customer);
         let amount = 2000000;
-        let payment_id = egyptfi.create_payment(merchant, amount, 999, 888);
+        let payment_id = egyptfi.create_payment(merchant, amount, 100, 999, 888);
         stop_cheat_caller_address(egyptfi.contract_address);
 
         let wrong_customer = contract_address_const::<'wrong_customer'>();
@@ -724,7 +784,7 @@ mod tests {
 
     #[test]
     fn test_withdraw_funds() {
-        let (egyptfi, _, usdc, merchant, customer) = setup();
+        let (egyptfi, _, usdc, merchant, customer, _) = setup();
         let withdrawal_address = contract_address_const::<'withdrawal'>();
 
         // Register merchant and process payment
@@ -741,7 +801,7 @@ mod tests {
 
         start_cheat_caller_address(egyptfi.contract_address, customer);
 
-        let payment_id = egyptfi.create_payment(merchant, amount, 999, 888);
+        let payment_id = egyptfi.create_payment(merchant, amount, 100, 999, 888);
 
         egyptfi.process_payment(payment_id);
         stop_cheat_caller_address(egyptfi.contract_address);
@@ -757,8 +817,8 @@ mod tests {
         assert_eq!(merchant_data.usdc_balance, 980000); // 0.98 USDC left after withdrawing 1 USDC since 1% fee taken on 2 USDC payment
         let withdrawal_address = merchant_data.withdrawal_address;
 
-        let expected_event = EgyptFi::Event::WithdrawalMade(
-            EgyptFi::WithdrawalMade {
+        let expected_event = Event::WithdrawalMade(
+            WithdrawalMade {
                 merchant,
                 amount: withdraw_amount,
                 to_address: withdrawal_address,
@@ -774,7 +834,7 @@ mod tests {
     #[test]
     #[should_panic(expected: 'Merchant not found')]
     fn test_withdraw_funds_no_merchant_register() {
-        let (egyptfi, _, _, merchant, _) = setup();
+        let (egyptfi, _, _, merchant, _, _) = setup();
 
         start_cheat_caller_address(egyptfi.contract_address, merchant);
         egyptfi.withdraw_funds(1000000); // 1 USDC
@@ -784,7 +844,7 @@ mod tests {
     #[test]
     #[should_panic(expected: 'Amount must be positive')]
     fn test_withdraw_funds_for_amount_zero() {
-        let (egyptfi, _, _, merchant, _) = setup();
+        let (egyptfi, _, _, merchant, _, _) = setup();
         let withdrawal_address = contract_address_const::<'withdrawal'>();
 
         start_cheat_caller_address(egyptfi.contract_address, merchant);
@@ -796,7 +856,7 @@ mod tests {
     #[test]
     #[should_panic(expected: 'Insufficient balance')]
     fn test_withdraw_funds_more_than_balance() {
-        let (egyptfi, _, _, merchant, _) = setup();
+        let (egyptfi, _, _, merchant, _, _) = setup();
         let withdrawal_address = contract_address_const::<'withdrawal'>();
 
         start_cheat_caller_address(egyptfi.contract_address, merchant);
@@ -808,7 +868,7 @@ mod tests {
     #[test]
     // #[ignore]
     fn test_refund_payment() {
-        let (egyptfi, _, usdc, merchant, customer) = setup();
+        let (egyptfi, _, usdc, merchant, customer, _) = setup();
         let withdrawal_address = contract_address_const::<'withdrawal'>();
         let customer2 = contract_address_const::<'customer2'>();
 
@@ -827,7 +887,7 @@ mod tests {
 
         start_cheat_caller_address(egyptfi.contract_address, customer);
 
-        let payment_id = egyptfi.create_payment(merchant, amount, 999, 888);
+        let payment_id = egyptfi.create_payment(merchant, amount, 100, 999, 888);
 
         egyptfi.process_payment(payment_id);
         stop_cheat_caller_address(egyptfi.contract_address);
@@ -840,7 +900,7 @@ mod tests {
 
         start_cheat_caller_address(egyptfi.contract_address, customer2);
 
-        let payment_id2 = egyptfi.create_payment(merchant, amount, 999, 888);
+        let payment_id2 = egyptfi.create_payment(merchant, amount, 100, 999, 888);
 
         egyptfi.process_payment(payment_id2);
         stop_cheat_caller_address(egyptfi.contract_address);
@@ -858,8 +918,8 @@ mod tests {
         let merchant_data = egyptfi.get_merchant(merchant);
         assert_eq!(merchant_data.usdc_balance, 0);
 
-        let expected_event = EgyptFi::Event::PaymentRefunded(
-            EgyptFi::PaymentRefunded {
+        let expected_event = Event::PaymentRefunded(
+            PaymentRefunded {
                 payment_id,
                 merchant,
                 customer,
@@ -877,7 +937,7 @@ mod tests {
     // #[ignore]
     #[should_panic]
     fn test_refund_payment_no_payment() {
-        let (egyptfi, _, usdc, merchant, customer) = setup();
+        let (egyptfi, _, usdc, merchant, customer, _) = setup();
         let withdrawal_address = contract_address_const::<'withdrawal'>();
         let merchant2 = contract_address_const::<'merchant2'>();
 
@@ -892,7 +952,7 @@ mod tests {
 
         start_cheat_caller_address(egyptfi.contract_address, customer);
         let amount = 2000000;
-        let payment_id = egyptfi.create_payment(merchant, amount, 999, 888);
+        let payment_id = egyptfi.create_payment(merchant, amount, 100, 999, 888);
         egyptfi.process_payment(payment_id);
         stop_cheat_caller_address(egyptfi.contract_address);
 
@@ -905,7 +965,7 @@ mod tests {
     #[test]
     #[should_panic(expected: 'Not payment merchant')]
     fn test_refund_payment_not_merchant() {
-        let (egyptfi, _, usdc, merchant, customer) = setup();
+        let (egyptfi, _, usdc, merchant, customer, _) = setup();
         let withdrawal_address = contract_address_const::<'withdrawal'>();
         let merchant2 = contract_address_const::<'merchant2'>();
 
@@ -920,7 +980,7 @@ mod tests {
 
         start_cheat_caller_address(egyptfi.contract_address, customer);
         let amount = 2000000;
-        let payment_id = egyptfi.create_payment(merchant, amount, 999, 888);
+        let payment_id = egyptfi.create_payment(merchant, amount, 100, 999, 888);
         egyptfi.process_payment(payment_id);
         stop_cheat_caller_address(egyptfi.contract_address);
 
@@ -932,7 +992,7 @@ mod tests {
     #[test]
     #[should_panic(expected: 'Payment not completed')]
     fn test_refund_payment_not_completed() {
-        let (egyptfi, _, _, merchant, customer) = setup();
+        let (egyptfi, _, _, merchant, customer, _) = setup();
         let withdrawal_address = contract_address_const::<'withdrawal'>();
 
         start_cheat_caller_address(egyptfi.contract_address, merchant);
@@ -941,7 +1001,7 @@ mod tests {
 
         start_cheat_caller_address(egyptfi.contract_address, customer);
         let amount = 2000000;
-        let payment_id = egyptfi.create_payment(merchant, amount, 999, 888);
+        let payment_id = egyptfi.create_payment(merchant, amount, 100, 999, 888);
 
         stop_cheat_caller_address(egyptfi.contract_address);
 
@@ -951,9 +1011,9 @@ mod tests {
     }
 
     #[test]
-    #[should_panic(expected: 'Insufficient merchant balance')]
+    #[should_panic(expected: 'Insufficient vault balance')]
     fn test_refund_payment_merchant_balance_low() {
-        let (egyptfi, _, usdc, merchant, customer) = setup();
+        let (egyptfi, _, usdc, merchant, customer, _) = setup();
         let withdrawal_address = contract_address_const::<'withdrawal'>();
 
         // Register merchant and process payment
@@ -970,7 +1030,7 @@ mod tests {
 
         start_cheat_caller_address(egyptfi.contract_address, customer);
 
-        let payment_id = egyptfi.create_payment(merchant, amount, 999, 888);
+        let payment_id = egyptfi.create_payment(merchant, amount, 100, 999, 888);
 
         egyptfi.process_payment(payment_id);
         stop_cheat_caller_address(egyptfi.contract_address);
@@ -987,7 +1047,7 @@ mod tests {
 
     #[test]
     fn test_get_merchant_payments() {
-        let (egyptfi, _, _, merchant, customer) = setup();
+        let (egyptfi, _, _, merchant, customer, _) = setup();
         let withdrawal_address = contract_address_const::<'withdrawal'>();
 
         start_cheat_caller_address(egyptfi.contract_address, merchant);
@@ -995,8 +1055,8 @@ mod tests {
         stop_cheat_caller_address(egyptfi.contract_address);
 
         start_cheat_caller_address(egyptfi.contract_address, customer);
-        let payment_id1 = egyptfi.create_payment(merchant, 2000000, 999, 888);
-        let payment_id2 = egyptfi.create_payment(merchant, 2000000, 998, 887);
+        let payment_id1 = egyptfi.create_payment(merchant, 2000000, 100, 999, 888);
+        let payment_id2 = egyptfi.create_payment(merchant, 2000000, 100, 998, 887);
         stop_cheat_caller_address(egyptfi.contract_address);
 
         let payments = egyptfi.get_merchant_payments(merchant, 0, 10);
@@ -1007,7 +1067,7 @@ mod tests {
 
     #[test]
     fn test_verify_payment() {
-        let (egyptfi, _, usdc, merchant, customer) = setup();
+        let (egyptfi, _, usdc, merchant, customer, _) = setup();
         let withdrawal_address = contract_address_const::<'withdrawal'>();
 
         start_cheat_caller_address(egyptfi.contract_address, merchant);
@@ -1023,7 +1083,7 @@ mod tests {
 
         start_cheat_caller_address(egyptfi.contract_address, customer);
 
-        let payment_id = egyptfi.create_payment(merchant, amount, 999, 888);
+        let payment_id = egyptfi.create_payment(merchant, amount, 100, 999, 888);
         // let payment_id2 = 1234.into(); // Non-existent payment ID
 
         egyptfi.process_payment(payment_id);
@@ -1036,7 +1096,7 @@ mod tests {
 
     #[test]
     fn test_toggle_emergency_pause() {
-        let (egyptfi, owner, _, _, _) = setup();
+        let (egyptfi, owner, _, _, _, _) = setup();
 
         start_cheat_caller_address(egyptfi.contract_address, owner);
         let mut spy = spy_events();
@@ -1044,8 +1104,8 @@ mod tests {
 
         assert_eq!(egyptfi.is_paused(), true);
 
-        let expected_event = EgyptFi::Event::EmergencyPauseToggled(
-            EgyptFi::EmergencyPauseToggled { paused: true, timestamp: starknet::get_block_timestamp() }
+        let expected_event = Event::EmergencyPauseToggled(
+            EmergencyPauseToggled { paused: true, timestamp: starknet::get_block_timestamp() }
         );
         spy.assert_emitted(@array![(egyptfi.contract_address, expected_event)]);
 
@@ -1053,8 +1113,8 @@ mod tests {
         egyptfi.toggle_emergency_pause();
         assert_eq!(egyptfi.is_paused(), false);
 
-        let expected_event2 = EgyptFi::Event::EmergencyPauseToggled(
-            EgyptFi::EmergencyPauseToggled { paused: false, timestamp: starknet::get_block_timestamp() }
+        let expected_event2 = Event::EmergencyPauseToggled(
+            EmergencyPauseToggled { paused: false, timestamp: starknet::get_block_timestamp() }
         );
         spy.assert_emitted(@array![(egyptfi.contract_address, expected_event2)]);
 
@@ -1064,7 +1124,7 @@ mod tests {
     #[test]
     #[should_panic(expected: 'Caller is not the owner')]
     fn test_toggle_emergency_pause_not_owner() {
-        let (egyptfi, _, _, _, customer) = setup();
+        let (egyptfi, _, _, _, customer, _) = setup();
 
         start_cheat_caller_address(egyptfi.contract_address, customer);
         egyptfi.toggle_emergency_pause();
@@ -1073,7 +1133,7 @@ mod tests {
 
     #[test]
     fn test_update_platform_fee() {
-        let (egyptfi, owner, _, _, _) = setup();
+        let (egyptfi, owner, _, _, _, _) = setup();
 
         start_cheat_caller_address(egyptfi.contract_address, owner);
         egyptfi.update_platform_fee(200); // 2%
@@ -1083,7 +1143,7 @@ mod tests {
     #[test]
     #[should_panic(expected: 'Fee too high')]
     fn test_update_platform_fee_too_high() {
-        let (egyptfi, owner, _, _, _) = setup();
+        let (egyptfi, owner, _, _, _, _) = setup();
 
         start_cheat_caller_address(egyptfi.contract_address, owner);
         egyptfi.update_platform_fee(600); // 6%
@@ -1092,7 +1152,7 @@ mod tests {
 
     #[test]
     fn test_update_min_payment_amount() {
-        let (egyptfi, owner, _, _, _) = setup();
+        let (egyptfi, owner, _, _, _, _) = setup();
 
         start_cheat_caller_address(egyptfi.contract_address, owner);
         egyptfi.update_min_payment_amount(2000000); // 2 USDC
@@ -1102,7 +1162,7 @@ mod tests {
     #[test]
     #[should_panic(expected: 'Contract is paused')]
     fn test_create_payment_when_paused() {
-        let (egyptfi, owner, _, merchant, customer) = setup();
+        let (egyptfi, owner, _, merchant, customer, _) = setup();
         let withdrawal_address = contract_address_const::<'withdrawal'>();
 
         start_cheat_caller_address(egyptfi.contract_address, owner);
@@ -1114,14 +1174,14 @@ mod tests {
         stop_cheat_caller_address(egyptfi.contract_address);
 
         start_cheat_caller_address(egyptfi.contract_address, customer);
-        egyptfi.create_payment(merchant, 2000000, 999, 888);
+        egyptfi.create_payment(merchant, 2000000, 100, 999, 888);
         stop_cheat_caller_address(egyptfi.contract_address);
     }
 
     #[test]
     #[should_panic(expected: 'Contract is paused')]
     fn test_process_payment_when_paused() {
-        let (egyptfi, owner, usdc, merchant, customer) = setup();
+        let (egyptfi, owner, usdc, merchant, customer, _) = setup();
         let withdrawal_address = contract_address_const::<'withdrawal'>();
 
         start_cheat_caller_address(egyptfi.contract_address, merchant);
@@ -1131,7 +1191,7 @@ mod tests {
         let amount = 2000000; // 2 USDC
         
         start_cheat_caller_address(egyptfi.contract_address, customer);
-        let payment_id = egyptfi.create_payment(merchant, amount, 999, 888);
+        let payment_id = egyptfi.create_payment(merchant, amount, 100, 999, 888);
         stop_cheat_caller_address(egyptfi.contract_address);
 
         start_cheat_caller_address(egyptfi.contract_address, owner);
@@ -1152,7 +1212,7 @@ mod tests {
     #[test]
     #[should_panic(expected: 'Contract is paused')]
     fn test_withdraw_funds_when_paused() {
-        let (egyptfi, owner, _, merchant, _) = setup();
+        let (egyptfi, owner, _, merchant, _, _) = setup();
         let withdrawal_address = contract_address_const::<'withdrawal'>();
 
         start_cheat_caller_address(egyptfi.contract_address, merchant);
@@ -1171,7 +1231,7 @@ mod tests {
     #[test]
     #[should_panic(expected: 'Contract is paused')]
     fn test_refund_payment_when_paused() {
-        let (egyptfi, owner, usdc, merchant, customer) = setup();
+        let (egyptfi, owner, usdc, merchant, customer, _) = setup();
         let withdrawal_address = contract_address_const::<'withdrawal'>();
 
         start_cheat_caller_address(egyptfi.contract_address, merchant);
@@ -1180,7 +1240,7 @@ mod tests {
 
         start_cheat_caller_address(egyptfi.contract_address, customer);
         let amount = 2000000;
-        let payment_id = egyptfi.create_payment(merchant, amount, 999, 888);
+        let payment_id = egyptfi.create_payment(merchant, amount, 100, 999, 888);
 
         start_cheat_caller_address(usdc.contract_address, customer);
         usdc.mint(customer, amount); // Mint some USDC to customer
@@ -1198,4 +1258,461 @@ mod tests {
         egyptfi.refund_payment(payment_id);
         stop_cheat_caller_address(egyptfi.contract_address);
     }
+
+    // Additional tests for missing coverage
+
+    #[test]
+    fn test_get_kyc_proof() {
+        let (egyptfi, _, _, merchant, _, _) = setup();
+        let withdrawal_address = contract_address_const::<'withdrawal'>();
+
+        start_cheat_caller_address(egyptfi.contract_address, merchant);
+        egyptfi.register_merchant(withdrawal_address, 123);
+        egyptfi.set_kyc_proof(456);
+        stop_cheat_caller_address(egyptfi.contract_address);
+
+        let proof = egyptfi.get_kyc_proof(merchant);
+        assert_eq!(proof, 456);
+    }
+
+    #[test]
+    fn test_get_merchant() {
+        let (egyptfi, _, _, merchant, _, _) = setup();
+        let withdrawal_address = contract_address_const::<'withdrawal'>();
+
+        start_cheat_caller_address(egyptfi.contract_address, merchant);
+        egyptfi.register_merchant(withdrawal_address, 123);
+        stop_cheat_caller_address(egyptfi.contract_address);
+
+        let merchant_data = egyptfi.get_merchant(merchant);
+        assert_eq!(merchant_data.is_active, true);
+        assert_eq!(merchant_data.withdrawal_address, withdrawal_address);
+    }
+
+    #[test]
+    fn test_get_payment() {
+        let (egyptfi, _, _, merchant, customer, _) = setup();
+        let withdrawal_address = contract_address_const::<'withdrawal'>();
+
+        start_cheat_caller_address(egyptfi.contract_address, merchant);
+        egyptfi.register_merchant(withdrawal_address, 123);
+        stop_cheat_caller_address(egyptfi.contract_address);
+
+        start_cheat_caller_address(egyptfi.contract_address, customer);
+        let payment_id = egyptfi.create_payment(merchant, 2000000, 100, 999, 888);
+        stop_cheat_caller_address(egyptfi.contract_address);
+
+        let payment = egyptfi.get_payment(payment_id);
+        assert_eq!(payment.payment_id, payment_id);
+        assert_eq!(payment.merchant, merchant);
+        assert_eq!(payment.customer, customer);
+    }
+
+    #[test]
+    fn test_is_paused() {
+        let (egyptfi, owner, _, _, _, _) = setup();
+
+        assert_eq!(egyptfi.is_paused(), false);
+
+        start_cheat_caller_address(egyptfi.contract_address, owner);
+        egyptfi.toggle_emergency_pause();
+        assert_eq!(egyptfi.is_paused(), true);
+        egyptfi.toggle_emergency_pause();
+        assert_eq!(egyptfi.is_paused(), false);
+        stop_cheat_caller_address(egyptfi.contract_address);
+    }
+
+    // Pool management tests
+    fn setup_with_pool() -> (IEgyptFiDispatcher, ContractAddress, IMockVesuPoolDispatcher, ContractAddress) {
+        let (egyptfi, owner, _, _, _, _) = setup();
+        let (pool_dispatcher, pool_address) = deploy_mock_vesu_pool();
+
+        start_cheat_caller_address(egyptfi.contract_address, owner);
+        egyptfi.register_pool('pool1', pool_address, 'Stablecoin', 'USDC');
+        stop_cheat_caller_address(egyptfi.contract_address);
+
+        (egyptfi, owner, pool_dispatcher, pool_address)
+    }
+
+    #[test]
+    fn test_register_pool() {
+        let (egyptfi, _owner, _pool_dispatcher, pool_address) = setup_with_pool();
+
+        let pool_info = egyptfi.get_pool_info('pool1');
+        assert_eq!(pool_info.pool_id, 'pool1');
+        assert_eq!(pool_info.pool_address, pool_address);
+        assert_eq!(pool_info.pool_name, 'Stablecoin');
+        assert_eq!(pool_info.pool_type, 'USDC');
+        assert_eq!(pool_info.is_active, true);
+    }
+
+    // #[test]
+    // #[should_panic(expected: 'Pool already registered')]
+    // fn test_register_pool_already_registered() {
+    //     let (egyptfi, owner, _pool_dispatcher, pool_address) = setup_with_pool();
+
+    //     start_cheat_caller_address(egyptfi.contract_address, owner);
+    //     egyptfi.register_pool('pool1', pool_address, 'Stablecoin', 'USDC');
+    //     stop_cheat_caller_address(egyptfi.contract_address);
+    // }
+
+    // #[test]
+    // fn test_deactivate_pool() {
+    //     let (egyptfi, owner, _, _) = setup_with_pool();
+
+    //     start_cheat_caller_address(egyptfi.contract_address, owner);
+    //     egyptfi.deactivate_pool('pool1');
+    //     stop_cheat_caller_address(egyptfi.contract_address);
+
+    //     let pool_info = egyptfi.get_pool_info('pool1');
+    //     assert_eq!(pool_info.is_active, false);
+    // }
+
+    // #[test]
+    // #[should_panic(expected: 'Pool not found')]
+    // fn test_deactivate_pool_not_found() {
+    //     let (egyptfi, owner, _, _, _, _) = setup();
+
+    //     start_cheat_caller_address(egyptfi.contract_address, owner);
+    //     egyptfi.deactivate_pool('nonexistent');
+    //     stop_cheat_caller_address(egyptfi.contract_address);
+    // }
+
+    // #[test]
+    // fn test_get_pool_info() {
+    //     let (egyptfi, _, _, pool_address) = setup_with_pool();
+
+    //     let pool_info = egyptfi.get_pool_info('pool1');
+    //     assert_eq!(pool_info.pool_id, 'pool1');
+    //     assert_eq!(pool_info.pool_address, pool_address);
+    // }
+
+    // #[test]
+    // fn test_get_all_pools() {
+    //     let (egyptfi, _owner, _pool_dispatcher, _pool_address) = setup_with_pool();
+
+    //     let pools = egyptfi.get_all_pools();
+    //     assert_eq!(pools.len(), 1);
+    //     let pool = *pools.at(0);
+    //     assert_eq!(pool.pool_id, 'pool1');
+    // }
+
+    // // Merchant pool allocation tests
+    // #[test]
+    // fn test_set_multi_pool_allocation() {
+    //     let (egyptfi, _, _, _) = setup_with_pool();
+    //     let merchant = contract_address_const::<'merchant'>();
+
+    //     start_cheat_caller_address(egyptfi.contract_address, merchant);
+    //     egyptfi.register_merchant(contract_address_const::<'withdrawal'>(), 123);
+
+    //     let allocations = array![('pool1', 10000)]; // 100%
+    //     egyptfi.set_multi_pool_allocation(allocations);
+    //     stop_cheat_caller_address(egyptfi.contract_address);
+
+    //     let allocation = egyptfi.get_merchant_pool_allocation(merchant, 'pool1');
+    //     assert_eq!(allocation, 10000);
+    // }
+
+    // #[test]
+    // #[should_panic(expected: 'Merchant not found')]
+    // fn test_set_multi_pool_allocation_not_registered() {
+    //     let (egyptfi, _, _, _) = setup_with_pool();
+    //     let merchant = contract_address_const::<'merchant'>();
+
+    //     start_cheat_caller_address(egyptfi.contract_address, merchant);
+    //     let allocations = array![('pool1', 10000)];
+    //     egyptfi.set_multi_pool_allocation(allocations);
+    //     stop_cheat_caller_address(egyptfi.contract_address);
+    // }
+
+    // #[test]
+    // #[should_panic(expected: 'Total allocation exceeds 100%')]
+    // fn test_set_multi_pool_allocation_exceeds_100() {
+    //     let (egyptfi, _, _, _) = setup_with_pool();
+    //     let merchant = contract_address_const::<'merchant'>();
+
+    //     start_cheat_caller_address(egyptfi.contract_address, merchant);
+    //     egyptfi.register_merchant(contract_address_const::<'withdrawal'>(), 123);
+
+    //     let allocations = array![('pool1', 10001)]; // >100%
+    //     egyptfi.set_multi_pool_allocation(allocations);
+    //     stop_cheat_caller_address(egyptfi.contract_address);
+    // }
+
+    // #[test]
+    // fn test_add_pool_to_strategy() {
+    //     let (egyptfi, _, _, _) = setup_with_pool();
+    //     let merchant = contract_address_const::<'merchant'>();
+
+    //     start_cheat_caller_address(egyptfi.contract_address, merchant);
+    //     egyptfi.register_merchant(contract_address_const::<'withdrawal'>(), 123);
+    //     egyptfi.add_pool_to_strategy('pool1', 5000); // 50%
+    //     stop_cheat_caller_address(egyptfi.contract_address);
+
+    //     let allocation = egyptfi.get_merchant_pool_allocation(merchant, 'pool1');
+    //     assert_eq!(allocation, 5000);
+    // }
+
+    // #[test]
+    // #[should_panic(expected: 'Merchant not found')]
+    // fn test_add_pool_to_strategy_not_registered() {
+    //     let (egyptfi, _, _, _) = setup_with_pool();
+    //     let merchant = contract_address_const::<'merchant'>();
+
+    //     start_cheat_caller_address(egyptfi.contract_address, merchant);
+    //     egyptfi.add_pool_to_strategy('pool1', 5000);
+    //     stop_cheat_caller_address(egyptfi.contract_address);
+    // }
+
+    // #[test]
+    // #[should_panic(expected: 'Pool not active')]
+    // fn test_add_pool_to_strategy_pool_not_active() {
+    //     let (egyptfi, owner, _, _) = setup_with_pool();
+    //     let merchant = contract_address_const::<'merchant'>();
+
+    //     start_cheat_caller_address(egyptfi.contract_address, owner);
+    //     egyptfi.deactivate_pool('pool1');
+    //     stop_cheat_caller_address(egyptfi.contract_address);
+
+    //     start_cheat_caller_address(egyptfi.contract_address, merchant);
+    //     egyptfi.register_merchant(contract_address_const::<'withdrawal'>(), 123);
+    //     egyptfi.add_pool_to_strategy('pool1', 5000);
+    //     stop_cheat_caller_address(egyptfi.contract_address);
+    // }
+
+    // #[test]
+    // fn test_remove_pool_from_strategy() {
+    //     let (egyptfi, _, _, _) = setup_with_pool();
+    //     let merchant = contract_address_const::<'merchant'>();
+
+    //     start_cheat_caller_address(egyptfi.contract_address, merchant);
+    //     egyptfi.register_merchant(contract_address_const::<'withdrawal'>(), 123);
+    //     egyptfi.add_pool_to_strategy('pool1', 5000);
+    //     egyptfi.remove_pool_from_strategy('pool1');
+    //     stop_cheat_caller_address(egyptfi.contract_address);
+
+    //     let allocation = egyptfi.get_merchant_pool_allocation(merchant, 'pool1');
+    //     assert_eq!(allocation, 0);
+    // }
+
+    // #[test]
+    // #[should_panic(expected: 'Merchant not found')]
+    // fn test_remove_pool_from_strategy_not_registered() {
+    //     let (egyptfi, _, _, _) = setup_with_pool();
+    //     let merchant = contract_address_const::<'merchant'>();
+
+    //     start_cheat_caller_address(egyptfi.contract_address, merchant);
+    //     egyptfi.remove_pool_from_strategy('pool1');
+    //     stop_cheat_caller_address(egyptfi.contract_address);
+    // }
+
+    // #[test]
+    // fn test_update_pool_allocation() {
+    //     let (egyptfi, _, _, _) = setup_with_pool();
+    //     let merchant = contract_address_const::<'merchant'>();
+
+    //     start_cheat_caller_address(egyptfi.contract_address, merchant);
+    //     egyptfi.register_merchant(contract_address_const::<'withdrawal'>(), 123);
+    //     egyptfi.add_pool_to_strategy('pool1', 5000);
+    //     egyptfi.update_pool_allocation('pool1', 7500);
+    //     stop_cheat_caller_address(egyptfi.contract_address);
+
+    //     let allocation = egyptfi.get_merchant_pool_allocation(merchant, 'pool1');
+    //     assert_eq!(allocation, 7500);
+    // }
+
+    // // Pool view functions tests
+    // #[test]
+    // fn test_get_merchant_pools() {
+    //     let (egyptfi, _, _, _) = setup_with_pool();
+    //     let merchant = contract_address_const::<'merchant'>();
+
+    //     start_cheat_caller_address(egyptfi.contract_address, merchant);
+    //     egyptfi.register_merchant(contract_address_const::<'withdrawal'>(), 123);
+    //     egyptfi.add_pool_to_strategy('pool1', 5000);
+    //     stop_cheat_caller_address(egyptfi.contract_address);
+
+    //     let pools = egyptfi.get_merchant_pools(merchant);
+    //     assert_eq!(pools.len(), 1);
+    //     assert_eq!(*pools.at(0), 'pool1');
+    // }
+
+    // #[test]
+    // fn test_get_merchant_pool_allocation() {
+    //     let (egyptfi, _, _, _) = setup_with_pool();
+    //     let merchant = contract_address_const::<'merchant'>();
+
+    //     start_cheat_caller_address(egyptfi.contract_address, merchant);
+    //     egyptfi.register_merchant(contract_address_const::<'withdrawal'>(), 123);
+    //     egyptfi.add_pool_to_strategy('pool1', 5000);
+    //     stop_cheat_caller_address(egyptfi.contract_address);
+
+    //     let allocation = egyptfi.get_merchant_pool_allocation(merchant, 'pool1');
+    //     assert_eq!(allocation, 5000);
+    // }
+
+    // #[test]
+    // fn test_get_multi_pool_positions() {
+    //     let (egyptfi, _, _, _) = setup_with_pool();
+    //     let merchant = contract_address_const::<'merchant'>();
+
+    //     start_cheat_caller_address(egyptfi.contract_address, merchant);
+    //     egyptfi.register_merchant(contract_address_const::<'withdrawal'>(), 123);
+    //     egyptfi.add_pool_to_strategy('pool1', 10000);
+    //     stop_cheat_caller_address(egyptfi.contract_address);
+
+    //     let positions = egyptfi.get_multi_pool_positions(merchant);
+    //     assert_eq!(positions.len(), 1);
+    //     let (pool_id, deposited, yield_amount) = *positions.at(0);
+    //     assert_eq!(pool_id, 'pool1');
+    //     assert_eq!(deposited, 0);
+    //     assert_eq!(yield_amount, 0);
+    // }
+
+    // // Yield management tests - Note: These require actual deposits, so simplified
+    // #[test]
+    // fn test_claim_all_yields_no_yield() {
+    //     let (egyptfi, _, _, _) = setup_with_pool();
+    //     let merchant = contract_address_const::<'merchant'>();
+
+    //     start_cheat_caller_address(egyptfi.contract_address, merchant);
+    //     egyptfi.register_merchant(contract_address_const::<'withdrawal'>(), 123);
+    //     egyptfi.claim_all_yields();
+    //     stop_cheat_caller_address(egyptfi.contract_address);
+
+    //     // No assertion needed as no yield
+    // }
+
+    // #[test]
+    // fn test_compound_all_yields_no_yield() {
+    //     let (egyptfi, _, _, _) = setup_with_pool();
+    //     let merchant = contract_address_const::<'merchant'>();
+
+    //     start_cheat_caller_address(egyptfi.contract_address, merchant);
+    //     egyptfi.register_merchant(contract_address_const::<'withdrawal'>(), 123);
+    //     egyptfi.compound_all_yields();
+    //     stop_cheat_caller_address(egyptfi.contract_address);
+
+    //     // No assertion needed as no yield
+    // }
+
+    // // Admin pool functions tests
+    // #[test]
+    // fn test_set_platform_pool_id() {
+    //     let (egyptfi, owner, _, _) = setup_with_pool();
+
+    //     start_cheat_caller_address(egyptfi.contract_address, owner);
+    //     egyptfi.set_platform_pool_id('pool1');
+    //     stop_cheat_caller_address(egyptfi.contract_address);
+
+    //     // No direct getter, but can check by trying to deposit
+    // }
+
+    // #[test]
+    // #[should_panic(expected: 'Pool not active')]
+    // fn test_set_platform_pool_id_not_active() {
+    //     let (egyptfi, owner, _, _, _, _) = setup();
+
+    //     start_cheat_caller_address(egyptfi.contract_address, owner);
+    //     egyptfi.set_platform_pool_id('nonexistent');
+    //     stop_cheat_caller_address(egyptfi.contract_address);
+    // }
+
+    // #[test]
+    // fn test_update_platform_pool_allocation() {
+    //     let (egyptfi, owner, _, _, _, _) = setup();
+
+    //     start_cheat_caller_address(egyptfi.contract_address, owner);
+    //     egyptfi.update_platform_pool_allocation(7500); // 75%
+    //     stop_cheat_caller_address(egyptfi.contract_address);
+
+    //     // No direct getter
+    // }
+
+    // #[test]
+    // #[should_panic(expected: 'Allocation exceeds 100%')]
+    // fn test_update_platform_pool_allocation_exceeds() {
+    //     let (egyptfi, owner, _, _, _, _) = setup();
+
+    //     start_cheat_caller_address(egyptfi.contract_address, owner);
+    //     egyptfi.update_platform_pool_allocation(10001);
+    //     stop_cheat_caller_address(egyptfi.contract_address);
+    // }
+
+    // #[test]
+    // fn test_admin_withdraw_fees() {
+    //     let (egyptfi, owner, usdc, _, _, _) = setup();
+
+    //     start_cheat_caller_address(usdc.contract_address, egyptfi.contract_address);
+    //     usdc.mint(egyptfi.contract_address, 1000000);
+    //     stop_cheat_caller_address(usdc.contract_address);
+
+    //     start_cheat_caller_address(egyptfi.contract_address, owner);
+    //     egyptfi.admin_withdraw_fees(500000, owner);
+    //     stop_cheat_caller_address(egyptfi.contract_address);
+
+    //     // Check balance if possible, but since storage is private, assume success
+    // }
+
+    // #[test]
+    // #[should_panic(expected: 'Insufficient platform balance')]
+    // fn test_admin_withdraw_fees_insufficient() {
+    //     let (egyptfi, owner, _, _, _, _) = setup();
+
+    //     start_cheat_caller_address(egyptfi.contract_address, owner);
+    //     egyptfi.admin_withdraw_fees(1000000, owner);
+    //     stop_cheat_caller_address(egyptfi.contract_address);
+    // }
+
+    // // Other admin functions require platform deposits, simplified
+    // #[test]
+    // fn test_admin_claim_yield_from_pool_no_position() {
+    //     let (egyptfi, owner, _, _) = setup_with_pool();
+
+    //     start_cheat_caller_address(egyptfi.contract_address, owner);
+    //     egyptfi.admin_claim_yield_from_pool('pool1');
+    //     stop_cheat_caller_address(egyptfi.contract_address);
+
+    //     // Should panic or do nothing
+    // }
+
+    // #[test]
+    // fn test_admin_redeem_principal_from_pool_no_position() {
+    //     let (egyptfi, owner, _, _) = setup_with_pool();
+
+    //     start_cheat_caller_address(egyptfi.contract_address, owner);
+    //     egyptfi.admin_redeem_principal_from_pool('pool1', owner);
+    //     stop_cheat_caller_address(egyptfi.contract_address);
+
+    //     // Should panic or do nothing
+    // }
+
+    // // Additional missing tests for complete coverage
+
+    // #[test]
+    // fn test_claim_yield_from_pool_no_position() {
+    //     let (egyptfi, _, _, _) = setup_with_pool();
+    //     let merchant = contract_address_const::<'merchant'>();
+
+    //     start_cheat_caller_address(egyptfi.contract_address, merchant);
+    //     egyptfi.register_merchant(contract_address_const::<'withdrawal'>(), 123);
+    //     egyptfi.claim_yield_from_pool('pool1');
+    //     stop_cheat_caller_address(egyptfi.contract_address);
+
+    //     // Should panic or do nothing
+    // }
+
+    // #[test]
+    // fn test_compound_pool_yield_no_position() {
+    //     let (egyptfi, _, _, _) = setup_with_pool();
+    //     let merchant = contract_address_const::<'merchant'>();
+
+    //     start_cheat_caller_address(egyptfi.contract_address, merchant);
+    //     egyptfi.register_merchant(contract_address_const::<'withdrawal'>(), 123);
+    //     egyptfi.compound_pool_yield('pool1');
+    //     stop_cheat_caller_address(egyptfi.contract_address);
+
+    //     // Should panic or do nothing
+    // }
 }
