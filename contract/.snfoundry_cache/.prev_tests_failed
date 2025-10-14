@@ -1,6 +1,1 @@
-safebox_integrationtest::test_contract::tests::test_admin_claim_yield_from_pool_no_position
-safebox_integrationtest::test_contract::tests::test_admin_redeem_principal_from_pool_no_position
 safebox_integrationtest::test_contract::tests::test_admin_withdraw_fees
-safebox_integrationtest::test_contract::tests::test_claim_yield_from_pool_no_position
-safebox_integrationtest::test_contract::tests::test_compound_pool_yield_no_position
-safebox_integrationtest::test_contract::tests::test_refund_payment

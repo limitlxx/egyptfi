@@ -381,7 +381,7 @@ pub mod EgyptFi {
 
     #[derive(Drop, starknet::Event)]
     pub struct MultiPoolAllocationSet {
-        merchant: ContractAddress,
+        pub merchant: ContractAddress,
         pub pool_id: felt252,
         pub allocation_percentage: u16,
         pub timestamp: u64,
@@ -465,9 +465,9 @@ pub mod EgyptFi {
     impl InternalMultiPoolFunctions of InternalMultiPoolFunctionsTrait {
 
         fn _add_to_active_pools(
-        ref self: ContractState,
-        merchant: ContractAddress,
-        pool_id: felt252
+            ref self: ContractState,
+            merchant: ContractAddress,
+            pool_id: felt252
         ) {
             let count = self.merchant_active_pool_count.read(merchant);
             let mut exists = false;
@@ -966,7 +966,7 @@ pub mod EgyptFi {
             
             pools
         }
-        
+       
         // Set multiple pool allocations at once
         fn set_multi_pool_allocation(
             ref self: ContractState,
@@ -1398,9 +1398,9 @@ pub mod EgyptFi {
             self.supported_pools.write(pool_id, pool_info);
             self.pool_active.write(pool_id, false);
             
-            self.emit(MerchantUpdated {
+            self.emit(PoolDeactivated {
                 merchant: get_caller_address(),
-                field: 'pool_deactivated',
+                pool_id: pool_info.pool_id,
                 timestamp: get_block_timestamp(),
             });
         }
