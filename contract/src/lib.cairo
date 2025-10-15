@@ -1347,8 +1347,6 @@ pub mod EgyptFi {
             self.reentrancy_guard.end();
         }
         
-        
-        
         // Claim yield from specific pool
         fn claim_yield_from_pool(ref self: ContractState, pool_id: felt252) {
             self.reentrancy_guard.start();
