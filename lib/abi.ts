@@ -30,24 +30,6 @@ export const EGYPTFI_ABI: Abi = [
     "interface_name": "safebox::IEgyptFi"
   },
   {
-    "type": "struct",
-    "name": "core::byte_array::ByteArray",
-    "members": [
-      {
-        "name": "data",
-        "type": "core::array::Array::<core::bytes_31::bytes31>"
-      },
-      {
-        "name": "pending_word",
-        "type": "core::felt252"
-      },
-      {
-        "name": "pending_word_len",
-        "type": "core::integer::u32"
-      }
-    ]
-  },
-  {
     "type": "enum",
     "name": "core::bool",
     "variants": [
@@ -101,7 +83,7 @@ export const EGYPTFI_ABI: Abi = [
       },
       {
         "name": "metadata_hash",
-        "type": "core::byte_array::ByteArray"
+        "type": "core::felt252"
       },
       {
         "name": "joined_timestamp",
@@ -156,6 +138,10 @@ export const EGYPTFI_ABI: Abi = [
         "type": "core::integer::u256"
       },
       {
+        "name": "platform_fee",
+        "type": "core::integer::u256"
+      },
+      {
         "name": "status",
         "type": "safebox::PaymentStatus"
       },
@@ -174,6 +160,32 @@ export const EGYPTFI_ABI: Abi = [
     ]
   },
   {
+    "type": "struct",
+    "name": "safebox::PoolInfo",
+    "members": [
+      {
+        "name": "pool_id",
+        "type": "core::felt252"
+      },
+      {
+        "name": "pool_address",
+        "type": "core::starknet::contract_address::ContractAddress"
+      },
+      {
+        "name": "pool_name",
+        "type": "core::felt252"
+      },
+      {
+        "name": "pool_type",
+        "type": "core::felt252"
+      },
+      {
+        "name": "is_active",
+        "type": "core::bool"
+      }
+    ]
+  },
+  {
     "type": "interface",
     "name": "safebox::IEgyptFi",
     "items": [
@@ -187,7 +199,7 @@ export const EGYPTFI_ABI: Abi = [
           },
           {
             "name": "metadata_hash",
-            "type": "core::byte_array::ByteArray"
+            "type": "core::felt252"
           }
         ],
         "outputs": [],
@@ -211,7 +223,7 @@ export const EGYPTFI_ABI: Abi = [
         "inputs": [
           {
             "name": "new_metadata_hash",
-            "type": "core::byte_array::ByteArray"
+            "type": "core::felt252"
           }
         ],
         "outputs": [],
@@ -282,6 +294,10 @@ export const EGYPTFI_ABI: Abi = [
           },
           {
             "name": "amount",
+            "type": "core::integer::u256"
+          },
+          {
+            "name": "platform_fee",
             "type": "core::integer::u256"
           },
           {
@@ -453,6 +469,283 @@ export const EGYPTFI_ABI: Abi = [
           }
         ],
         "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "register_pool",
+        "inputs": [
+          {
+            "name": "pool_id",
+            "type": "core::felt252"
+          },
+          {
+            "name": "pool_address",
+            "type": "core::starknet::contract_address::ContractAddress"
+          },
+          {
+            "name": "pool_name",
+            "type": "core::felt252"
+          },
+          {
+            "name": "pool_type",
+            "type": "core::felt252"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "deactivate_pool",
+        "inputs": [
+          {
+            "name": "pool_id",
+            "type": "core::felt252"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "get_pool_info",
+        "inputs": [
+          {
+            "name": "pool_id",
+            "type": "core::felt252"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "safebox::PoolInfo"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "get_all_pools",
+        "inputs": [],
+        "outputs": [
+          {
+            "type": "core::array::Array::<safebox::PoolInfo>"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "set_multi_pool_allocation",
+        "inputs": [
+          {
+            "name": "pool_allocations",
+            "type": "core::array::Array::<(core::felt252, core::integer::u16)>"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "add_pool_to_strategy",
+        "inputs": [
+          {
+            "name": "pool_id",
+            "type": "core::felt252"
+          },
+          {
+            "name": "allocation_percentage",
+            "type": "core::integer::u16"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "remove_pool_from_strategy",
+        "inputs": [
+          {
+            "name": "pool_id",
+            "type": "core::felt252"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "update_pool_allocation",
+        "inputs": [
+          {
+            "name": "pool_id",
+            "type": "core::felt252"
+          },
+          {
+            "name": "new_allocation",
+            "type": "core::integer::u16"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "get_merchant_pools",
+        "inputs": [
+          {
+            "name": "merchant",
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::array::Array::<core::felt252>"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "get_merchant_pool_allocation",
+        "inputs": [
+          {
+            "name": "merchant",
+            "type": "core::starknet::contract_address::ContractAddress"
+          },
+          {
+            "name": "pool_id",
+            "type": "core::felt252"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::integer::u16"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "get_multi_pool_positions",
+        "inputs": [
+          {
+            "name": "merchant",
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "outputs": [
+          {
+            "type": "core::array::Array::<(core::felt252, core::integer::u256, core::integer::u256)>"
+          }
+        ],
+        "state_mutability": "view"
+      },
+      {
+        "type": "function",
+        "name": "claim_yield_from_pool",
+        "inputs": [
+          {
+            "name": "pool_id",
+            "type": "core::felt252"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "claim_all_yields",
+        "inputs": [],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "compound_pool_yield",
+        "inputs": [
+          {
+            "name": "pool_id",
+            "type": "core::felt252"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "compound_all_yields",
+        "inputs": [],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "set_platform_pool_id",
+        "inputs": [
+          {
+            "name": "pool_id",
+            "type": "core::felt252"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "update_platform_pool_allocation",
+        "inputs": [
+          {
+            "name": "allocation_bp",
+            "type": "core::integer::u16"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "admin_withdraw_fees",
+        "inputs": [
+          {
+            "name": "amount",
+            "type": "core::integer::u256"
+          },
+          {
+            "name": "to",
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "admin_claim_yield_from_pool",
+        "inputs": [
+          {
+            "name": "pool_id",
+            "type": "core::felt252"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
+      },
+      {
+        "type": "function",
+        "name": "admin_redeem_principal_from_pool",
+        "inputs": [
+          {
+            "name": "pool_id",
+            "type": "core::felt252"
+          },
+          {
+            "name": "to",
+            "type": "core::starknet::contract_address::ContractAddress"
+          }
+        ],
+        "outputs": [],
+        "state_mutability": "external"
       }
     ]
   },
@@ -804,6 +1097,180 @@ export const EGYPTFI_ABI: Abi = [
   },
   {
     "type": "event",
+    "name": "safebox::EgyptFi::YieldDeposited",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "merchant",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "data"
+      },
+      {
+        "name": "amount",
+        "type": "core::integer::u256",
+        "kind": "data"
+      },
+      {
+        "name": "pool_id",
+        "type": "core::felt252",
+        "kind": "data"
+      },
+      {
+        "name": "timestamp",
+        "type": "core::integer::u64",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "safebox::EgyptFi::YieldClaimed",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "merchant",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "data"
+      },
+      {
+        "name": "amount",
+        "type": "core::integer::u256",
+        "kind": "data"
+      },
+      {
+        "name": "timestamp",
+        "type": "core::integer::u64",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "safebox::EgyptFi::YieldCompounded",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "merchant",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "data"
+      },
+      {
+        "name": "pool_id",
+        "type": "core::felt252",
+        "kind": "data"
+      },
+      {
+        "name": "amount",
+        "type": "core::integer::u256",
+        "kind": "data"
+      },
+      {
+        "name": "timestamp",
+        "type": "core::integer::u64",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "safebox::EgyptFi::PoolRegistered",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "pool_id",
+        "type": "core::felt252",
+        "kind": "data"
+      },
+      {
+        "name": "pool_address",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "data"
+      },
+      {
+        "name": "pool_name",
+        "type": "core::felt252",
+        "kind": "data"
+      },
+      {
+        "name": "timestamp",
+        "type": "core::integer::u64",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "safebox::EgyptFi::PoolActivated",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "merchant",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "data"
+      },
+      {
+        "name": "pool_id",
+        "type": "core::felt252",
+        "kind": "data"
+      },
+      {
+        "name": "timestamp",
+        "type": "core::integer::u64",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "safebox::EgyptFi::PoolDeactivated",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "merchant",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "data"
+      },
+      {
+        "name": "pool_id",
+        "type": "core::felt252",
+        "kind": "data"
+      },
+      {
+        "name": "timestamp",
+        "type": "core::integer::u64",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
+    "name": "safebox::EgyptFi::MultiPoolAllocationSet",
+    "kind": "struct",
+    "members": [
+      {
+        "name": "merchant",
+        "type": "core::starknet::contract_address::ContractAddress",
+        "kind": "data"
+      },
+      {
+        "name": "pool_id",
+        "type": "core::felt252",
+        "kind": "data"
+      },
+      {
+        "name": "allocation_percentage",
+        "type": "core::integer::u16",
+        "kind": "data"
+      },
+      {
+        "name": "timestamp",
+        "type": "core::integer::u64",
+        "kind": "data"
+      }
+    ]
+  },
+  {
+    "type": "event",
     "name": "safebox::EgyptFi::Event",
     "kind": "enum",
     "variants": [
@@ -855,6 +1322,41 @@ export const EGYPTFI_ABI: Abi = [
       {
         "name": "EmergencyPauseToggled",
         "type": "safebox::EgyptFi::EmergencyPauseToggled",
+        "kind": "nested"
+      },
+      {
+        "name": "YieldDeposited",
+        "type": "safebox::EgyptFi::YieldDeposited",
+        "kind": "nested"
+      },
+      {
+        "name": "YieldClaimed",
+        "type": "safebox::EgyptFi::YieldClaimed",
+        "kind": "nested"
+      },
+      {
+        "name": "YieldCompounded",
+        "type": "safebox::EgyptFi::YieldCompounded",
+        "kind": "nested"
+      },
+      {
+        "name": "PoolRegistered",
+        "type": "safebox::EgyptFi::PoolRegistered",
+        "kind": "nested"
+      },
+      {
+        "name": "PoolActivated",
+        "type": "safebox::EgyptFi::PoolActivated",
+        "kind": "nested"
+      },
+      {
+        "name": "PoolDeactivated",
+        "type": "safebox::EgyptFi::PoolDeactivated",
+        "kind": "nested"
+      },
+      {
+        "name": "MultiPoolAllocationSet",
+        "type": "safebox::EgyptFi::MultiPoolAllocationSet",
         "kind": "nested"
       }
     ]

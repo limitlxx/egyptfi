@@ -215,9 +215,6 @@ Include relevant screenshots or a link to a short demo video here. This helps us
 
 ---
 
-
-## Summary Section
-
 ### License: EgyptFi White Label Educational License (BWLEL-1.0)
 
 This project is licensed under the **EgyptFi White Label Educational License (BWLEL-1.0)**, which promotes open access for learning while safeguarding our intellectual property.

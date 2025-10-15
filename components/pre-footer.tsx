@@ -187,7 +187,7 @@ export const PreFooter: React.FC<PreFooterProps> = ({ onGetStarted }) => {
             className="bg-primary hover:bg-primary/90 text-lg px-8 py-4"
             onClick={onGetStarted}
           >
-            Start Your Free Trial
+            Get Started Today
             <ArrowRight className="ml-2 h-5 w-5" />
           </Button>
         </div>

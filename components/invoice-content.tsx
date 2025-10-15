@@ -49,6 +49,7 @@ import {
   request,
   AddressPurpose,
 } from "@sats-connect/core";
+import { usePayment } from "@/hooks/usePayment";
 
 interface Chain {
   id: string;
@@ -105,6 +106,9 @@ export function InvoiceContent({
   const { starknetkitConnectModal } = useStarknetkitConnectModal({
     connectors: availableConnectors as StarknetkitConnector[],
   });
+
+  const { processStarknetPayment, isProcessing: isPaymentProcessing } =
+    usePayment(invoiceData);
 
   const chains: Chain[] = [
     { id: "bitcoin", name: "Bitcoin", icon: CircleDot },
@@ -293,9 +297,75 @@ export function InvoiceContent({
     }
   };
 
-  const handlePaidClick = () => {
-    setIsPolling(true);
+  const handlePaidClick = async () => {
     setError(null);
+    console.log("Handle paid click for chain:", selectedChain);    
+
+    if (selectedChain === "starknet") {
+      console.log("Address:", snAddress, "isConnected:", snIsConnected);
+      
+      if (!snIsConnected || !snAddress) {
+        toast.error("Connect Starknet wallet");
+        return;
+      }
+      const tokenAmount = convertedAmounts[selectedToken.toUpperCase()];
+      console.log("selectedToken:", selectedToken, "tokenAmount:", tokenAmount);
+      
+      if (!tokenAmount) {
+        toast.error("Load amount first");
+        return;
+      }
+      setIsPolling(true);
+      const result = await processStarknetPayment(selectedToken, tokenAmount);
+      if (result.success) {
+        setIsPaid(true);
+        onPaymentConfirmed?.(invoiceData.paymentRef);
+        setTimeout(
+          () => router.push(`/confirm?ref=${invoiceData.paymentRef}`),
+          2000
+        );
+      }
+      setIsPolling(false);
+      return;
+    }
+
+    console.log("selectedChain:", selectedChain, "selectedToken:", selectedToken);    
+
+    if (selectedChain === "bitcoin") {
+      // BTC: Initiate swap via API (user sends to generated address)
+      const userAddress = snAddress || xverseAddress; // Fallback to Starknet for final USDC
+      if (!userAddress) {
+        toast.error("Connect wallet for final USDC receipt");
+        return;
+      }
+      setIsPolling(true);
+      try {
+        const response = await fetch("/api/payments/btc-swap", {
+          // Use your proposed route
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            payment_ref: invoiceData.paymentRef,
+            token_type: selectedToken === "btc-l1" ? "BTC" : "BTCLN",
+            user_address: userAddress,
+          }),
+        });
+        const { success, paymentAddress, invoice, error } =
+          await response.json();
+        if (!success) throw new Error(error);
+        toast.success(
+          `Send ${selectedToken.toUpperCase()} to: ${paymentAddress || invoice}`
+        );
+        // Polling continues via existing useEffect (hits /api/payments/verify)
+      } catch (err: any) {
+        toast.error(err.message);
+      }
+      setIsPolling(false);
+      return;
+    }
+
+    // Fallback polling for manual "I Have Paid"
+    setIsPolling(true);
   };
 
   const handleConnectWallet = async () => {
@@ -482,11 +552,23 @@ export function InvoiceContent({
   const openConnectorModal = () => setShowConnectorModal(true);
   const closeConnectorModal = () => setShowConnectorModal(false);
 
+  // Determine if wallet is connected for the selected chain
+  const isWalletConnected = (() => {
+    switch (selectedChain) {
+      case "bitcoin":
+        return !!xverseAddress;
+      case "starknet":
+        return snIsConnected && !!snAddress;
+      default:
+        return false;
+    }
+  })();
+
   return (
     <div className="relative flex h-full w-full flex-col">
       {/* Error Message */}
       {error && (
-        <div className="absolute mb-4 top-0 left-0 right-0 p-4 bg-red-50 border-b border-red-200 flex items-center justify-center">
+        <div className="relative mb-1 p-4 bg-red-50 border border-red-200 flex items-center justify-center rounded-t-md rounded-b-none">
           <AlertCircle className="w-4 h-4 text-red-600 mr-2" />
           <p className="text-sm text-red-600">{error}</p>
         </div>
@@ -615,7 +697,7 @@ export function InvoiceContent({
 
           {/* Action Buttons */}
           <div className="space-y-2 sm:space-y-3">
-            <Button
+            {/* <Button
               variant="outline"
               size="sm"
               className="w-full bg-transparent border-border h-8 sm:h-9 text-xs sm:text-sm"
@@ -633,16 +715,16 @@ export function InvoiceContent({
                   Copy Payment Link
                 </>
               )}
-            </Button>
+            </Button> */}
             {/* Connect / Connected button: show connected address and disconnect on click */}
             {selectedChain === "bitcoin" ? (
               xverseAddress ? (
-                <>
+                <div className="flex gap-2">
                   <Button
                     variant="outline"
                     size="sm"
                     disabled
-                    className="w-full bg-transparent border-border h-8 sm:h-9 text-xs sm:text-sm opacity-75"
+                    className="flex-1 bg-transparent border-border h-8 sm:h-9 text-xs sm:text-sm opacity-75"
                   >
                     <Wallet className="w-3 h-3 mr-1" aria-hidden="true" />
                     {formatShortAddress(xverseAddress)}
@@ -650,13 +732,13 @@ export function InvoiceContent({
                   <Button
                     variant="outline"
                     size="sm"
-                    className="w-full bg-transparent border-border h-8 sm:h-9 text-xs sm:text-sm"
+                    className="w-8 h-8 sm:h-9 p-0 bg-transparent border-border"
                     onClick={disconnectXverse}
+                    aria-label="Disconnect wallet"
                   >
-                    <LogOut className="w-3 h-3 mr-1" aria-hidden="true" />
-                    Disconnect
+                    <LogOut className="w-3 h-3" aria-hidden="true" />
                   </Button>
-                </>
+                </div>
               ) : (
                 <Button
                   variant="outline"
@@ -700,13 +782,13 @@ export function InvoiceContent({
         </div>
 
         {/* Column 3: Summary & Confirmation */}
-        <div className="p-4 sm:p-6 lg:p-8">
-          <h2 className="text-base sm:text-lg font-semibold text-foreground mb-3 sm:mb-4">
+        <div className="p-2 sm:p-4 lg:p-6">
+          <h2 className="text-xs sm:text-sm font-semibold text-foreground mb-2 sm:mb-3">
             Order Summary
           </h2>
 
           {/* Merchant Brand */}
-          <div className="flex items-center space-x-3 mb-4 sm:mb-6">
+          <div className="flex items-center space-x-3 mb-2 sm:mb-4">
             <div className="bg-gradient-to-br from-primary to-yellow-600 rounded-lg w-12 h-12 flex items-center justify-center text-lg sm:text-xl">
               {invoiceData.merchantLogo ? (
                 <img
@@ -728,7 +810,7 @@ export function InvoiceContent({
               )}
             </div>
             <div>
-              <h3 className="font-semibold text-foreground text-sm sm:text-base">
+              <h3 className="font-semibold text-foreground text-xs sm:text-sm">
                 {invoiceData.merchantName}
               </h3>
               <p className="text-xs text-muted-foreground">
@@ -739,24 +821,27 @@ export function InvoiceContent({
 
           {/* Description */}
           {invoiceData.description && (
-            <div className="mb-4 sm:mb-6">
-              <p className="text-sm text-muted-foreground">
+            <div className="mb-2 sm:mb-4">
+              <p className="text-xs text-muted-foreground">
                 {invoiceData.description}
               </p>
             </div>
           )}
 
           {/* Amount Details */}
-          <div className="bg-muted rounded-xl p-4 sm:p-6 mb-4 sm:mb-6">
+          <div className="bg-muted rounded-xl p-4 sm:p-6 mb-2 sm:mb-4">
             <div className="flex justify-between items-center mb-2 sm:mb-3">
               <span className="text-muted-foreground">
                 Amount <br />
-                <strong> {formatted.format(fiatAmount ?? 0)} </strong>
+                <strong>
+                  {" "}
+                  {invoiceData.currency} {formatted.format(fiatAmount ?? 0)}{" "}
+                </strong>
               </span>
               {/* <span className="text-xs sm:text-sm font-bold text-foreground"></span> */}
             </div>
             {currentTokenData && (
-              <div className="flex justify-between items-center text-xs sm:text-sm">
+              <div className="flex justify-between items-center text-xs">
                 <span className="text-muted-foreground">You Pay</span>
                 <span className="font-medium text-foreground">
                   ≈{" "}
@@ -769,7 +854,7 @@ export function InvoiceContent({
                 </span>
               </div>
             )}
-            <div className="flex justify-between items-center text-xs sm:text-sm mt-2">
+            <div className="flex justify-between items-center text-xs mt-2">
               <span className="text-muted-foreground">Network</span>
               <span className="font-medium text-foreground">
                 {chains.find((c) => c.id === selectedChain)?.name}
@@ -783,37 +868,44 @@ export function InvoiceContent({
 
           {/* Confirmation Button */}
           <Button
-            className="w-full h-9 sm:h-10 bg-gradient-to-r from-primary to-yellow-600 hover:from-primary/90 hover:to-yellow-600/90 text-sm sm:text-base font-semibold"
+            variant={isWalletConnected ? "default" : "outline"}
+            className={cn(
+              "w-full h-8 text-xs font-semibold",
+              isWalletConnected
+                ? "bg-gradient-to-r from-primary to-yellow-600 hover:from-primary/90 hover:to-yellow-600/90"
+                : "border-border bg-transparent"
+            )}
             onClick={handlePaidClick}
             disabled={
               isPolling ||
               isPaid ||
-              !convertedAmounts[selectedToken.toUpperCase()]
+              isPaymentProcessing ||
+              !convertedAmounts[selectedToken.toUpperCase()] ||
+              (selectedChain === "starknet" && !snIsConnected) ||
+              (selectedChain === "bitcoin" && !xverseAddress)
             }
             aria-label={
               isPaid
                 ? "Payment confirmed"
                 : isPolling
-                ? "Waiting for payment confirmation"
-                : "Confirm payment"
+                ? "Waiting..."
+                : isWalletConnected
+                ? "Execute payment"
+                : "Confirm paid"
             }
           >
             {isPolling ? (
               <>
-                <Loader2
-                  className="w-3 h-3 sm:w-4 sm:h-4 mr-2 animate-spin"
-                  aria-hidden="true"
-                />
-                Waiting for Payment...
+                <Loader2 className="w-3 h-3 mr-2 animate-spin" />
+                Waiting...
               </>
             ) : isPaid ? (
               <>
-                <Check
-                  className="w-3 h-3 sm:w-4 sm:h-4 mr-2"
-                  aria-hidden="true"
-                />
-                Payment Confirmed!
+                <Check className="w-3 h-3 mr-2" />
+                Confirmed!
               </>
+            ) : isWalletConnected ? (
+              "Deposit to Contract"
             ) : (
               "I Have Paid"
             )}
@@ -821,14 +913,14 @@ export function InvoiceContent({
 
           {/* Payment Status */}
           {isPaid && (
-            <div className="mt-3 sm:mt-4 p-3 bg-green-50 border border-green-200 rounded-lg">
+            <div className="mt-2 sm:mt-3 p-2 bg-green-50 border border-green-200 rounded-lg">
               <div className="flex items-center">
                 <Check
-                  className="w-3 h-3 sm:w-4 sm:h-4 text-green-600 mr-2"
+                  className="w-3 h-3 text-green-600 mr-2"
                   aria-hidden="true"
                 />
                 <div>
-                  <p className="font-medium text-green-900 text-xs sm:text-sm">
+                  <p className="font-medium text-green-900 text-xs">
                     Payment Confirmed
                   </p>
                   <p className="text-xs text-green-700">

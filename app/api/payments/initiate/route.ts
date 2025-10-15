@@ -4,8 +4,11 @@ import { z } from "zod";
 import pool from "@/lib/db";
 import { authenticateApiKey, getAuthHeaders } from "@/lib/auth-helpers";
 import QRCode from "qrcode";
-import { invokeContractFunction } from "@/lib/starknetService";
-import { cairo, shortString } from "starknet";
+import {
+  createTransaction,
+  invokeContractFunction,
+} from "@/lib/starknetService";
+import { cairo, shortString, uint256 } from "starknet";
 
 const DECIMALS = 6; // USDC decimals
 
@@ -46,16 +49,18 @@ async function generateQRCode(paymentUrl: string): Promise<string> {
 // helper to prepare the exact calldata expected by create_payment
 function prepareCreatePaymentCalldata({
   merchantAddress,
-  amountStr,        // decimal string like "100.5" or already in smallest units
+  amountStr, // decimal string like "100.5" or already in smallest units
   decimals = DECIMALS,
-  reference,        // felt decimal/hex string
-  description,      // plain UTF-8 string
+  fee,
+  reference, // felt decimal/hex string
+  description, // plain UTF-8 string
 }: {
-  merchantAddress: string,
-  amountStr: string,
-  decimals?: number,
-  reference: string,
-  description: string,
+  merchantAddress: string;
+  amountStr: string;
+  decimals?: number;
+  reference: string;
+  fee: any;
+  description: string;
 }) {
   // 1) scale amount to smallest integer units (USDC: 6 decimals)
   //    If caller already passed smallest-units integer string, this still works.
@@ -69,25 +74,45 @@ function prepareCreatePaymentCalldata({
   // 2) ensure reference is a single felt: passed as hex or decimal string
   // if decimal string, convert to hex felt
   const referenceFelt = shortString.encodeShortString(reference);
-  
+
   // 3) encode description as a single short-string felt
   const descriptionFelt = shortString.encodeShortString(description);
 
-  const calldata = [
-    merchantAddress,
-    low,
-    high,
-    referenceFelt,
-    descriptionFelt,
-  ];
+  const scaledAmount = BigInt(
+    Math.floor(parseFloat(amountStr) * 10 ** decimals)
+  );
 
-  // final validation
-  if (calldata.length !== 5) {
-    throw new Error("Prepared calldata has incorrect length");
-  }
-  return calldata;
+  const scaledFee = BigInt(Math.floor(parseFloat(fee) * 10 ** decimals));
+
+  // const amount = BigInt(amountStr);
+  // const platformFee = amount / 5n; // example: 1% fee — adjust as needed
+
+  // Convert both amount and platform fee to Uint256
+  const amountUint = uint256.bnToUint256(scaledAmount);
+  const feeUint = uint256.bnToUint256(scaledFee);
+
+  // const calldata = [
+  //   merchantAddress,
+  //   // low,
+  //   // high,
+  //   // fee,
+  //   referenceFelt,
+  //   descriptionFelt,
+  // ];
+
+  // // final validation
+  // if (calldata.length !== 5) {
+  //   throw new Error("Prepared calldata has incorrect length");
+  // }
+  // return calldata;
+  return {
+    merchant: merchantAddress,
+    amount: amountUint,
+    platform_fee: feeUint,
+    reference: shortString.encodeShortString(reference),
+    description: shortString.encodeShortString(description),
+  };
 }
-
 
 export async function POST(request: NextRequest) {
   try {
@@ -135,7 +160,7 @@ export async function POST(request: NextRequest) {
     }
     const client = await pool.connect();
 
-    console.log("Initiating payment...");    
+    console.log("Initiating payment...");
 
     try {
       const existingInvoice = await client.query(
@@ -171,9 +196,10 @@ export async function POST(request: NextRequest) {
       const feeRate = 0.005; // 1.08%
 
       const total_amount = local_amount + local_amount * feeRate;
+      const fee = local_amount * feeRate;
 
-      console.log({ total_amount, local_amount, fee: local_amount * feeRate }); 
-      console.log("public_key:", {ref, description, total_amount});   
+      console.log({ total_amount, local_amount, fee: local_amount * feeRate });
+      console.log("public_key:", { ref, description, total_amount });
 
       // Insert new invoice into database using your existing schema
       const result = await client.query(
@@ -194,28 +220,33 @@ export async function POST(request: NextRequest) {
         ]
       );
 
-      const invoice = result.rows[0]; 
+      const invoice = result.rows[0];
 
-      // const merchantAddress =  authResult.merchant!.walletAddress; // Handle possible field name variance
+      const merchantAddress = authResult.merchant!.walletAddress; // Handle possible field name variance
 
-      // const innerCalldata = prepareCreatePaymentCalldata({
-      //   merchantAddress,
-      //   amountStr: total_amount.toString(),
-      //   decimals: DECIMALS,
-      //   reference: ref,
-      //   description: description || "Ecommerce Purchase",
-      // });
+      const innerCalldata = prepareCreatePaymentCalldata({
+        merchantAddress,
+        amountStr: total_amount.toString(),
+        decimals: DECIMALS,
+        fee: fee,
+        reference: ref,
+        description: description || "Ecommerce Purchase",
+      });
 
-      // // Execute on-chain
-      // const { transaction_hash } =  await invokeContractFunction(authResult.merchant!.id, undefined, 'create_payment', innerCalldata);
+      // // Execute on-chain  invokeContractFunction undefined,
+      const { transaction_hash, paymentId } = await invokeContractFunction(
+        authResult.merchant!.id,
+        undefined,
+        "create_payment",
+        innerCalldata
+      );
 
-      // console.log("Transaction hash:", transaction_hash);
+      console.log("Transaction hash:", transaction_hash);
 
-      // Update invoice with tx_hash (note: field is tx_hash, not txHash)
-      // await client.query(
-      //   "UPDATE invoices SET tx_hash = $1 WHERE payment_ref = $2",
-      //   [transaction_hash, ref]
-      // );
+      await client.query(
+        "UPDATE invoices SET tx_hash = $1, payment_id = $2 WHERE payment_ref = $3",
+        [transaction_hash, paymentId, ref]
+      );
 
       // Call secondary endpoint if provided (fire and forget)
       if (secondary_endpoint) {
@@ -245,7 +276,7 @@ export async function POST(request: NextRequest) {
           authorization_url: hostedUrl,
           qr_code: invoice.qr_url,
           expires_at: expiresAt.toISOString(),
-          // tx_hash: transaction_hash,
+          tx_hash: transaction_hash,
         },
         { status: 201 }
       );

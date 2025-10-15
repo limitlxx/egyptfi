@@ -4,6 +4,7 @@ import { EGYPT_SEPOLIA_CONTRACT_ADDRESS } from "@/lib/utils";
 
 // Interface for payment data (unchanged)
 interface PaymentData {
+  paymentId: any;
   paymentUrl: any;
   walletUrl: any;
   payment_ref: string;
@@ -53,17 +54,17 @@ export async function prepare_payment_call({
   usdc_address?: string;
 }): Promise<Call[]> {
   // Create payment call
-  const createPaymentCall: Call = {
-    contractAddress: contract_address,
-    entrypoint: "create_payment",
-    calldata: [
-      merchant_address, // merchant
-      amount.toString(), // amount (u256 low)
-      "0", // amount (u256 high)
-      payment_ref, // reference
-      description || "", // description (empty string if not provided)
-    ],
-  };
+  // const createPaymentCall: Call = {
+  //   contractAddress: contract_address,
+  //   entrypoint: "create_payment",
+  //   calldata: [
+  //     merchant_address, // merchant
+  //     amount.toString(), // amount (u256 low)
+  //     "0", // amount (u256 high)
+  //     payment_ref, // reference
+  //     description || "", // description (empty string if not provided)
+  //   ],
+  // };
 
   if (token_address === usdc_address) {
     // Direct USDC payment: approve + process_payment
@@ -77,7 +78,7 @@ export async function prepare_payment_call({
       entrypoint: "process_payment",
       calldata: [payment_ref],
     };
-    return [createPaymentCall, approveCall, processCall];
+    return [approveCall, processCall];
   } else {
     // Swap to USDC via API
     const response = await fetch("/api/swap", {
@@ -110,7 +111,7 @@ export async function prepare_payment_call({
       calldata: [payment_ref],
     };
 
-    return [createPaymentCall, approveUsdcCall, processCall];
+    return [approveUsdcCall, processCall];
   }
 }
 
@@ -138,6 +139,7 @@ export async function initiate_payment({
   wallet_address: string;
   environment?: string;
 }): Promise<{
+  tx_hash: string;
   reference: string;
   authorization_url: string;
   qr_code: string;
@@ -196,7 +198,12 @@ export async function verify_payment({
   if (payment.status === "paid") {
     return true;
   }
-  const contract = new Contract(EGYPTFI_ABI, contract_address, provider);
+  const contract = new Contract({
+        abi: EGYPTFI_ABI,
+        address: contract_address,
+        providerOrAccount: provider,
+      });
+  // const contract = new Contract(EGYPTFI_ABI, contract_address, provider);
   const paymentInfo = await contract.call("get_payment", [payment_ref]);
   // handle both tuple or object return
   const status =

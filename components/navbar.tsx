@@ -51,24 +51,24 @@ export const Navbar: React.FC<NavbarProps> = ({
     <nav className="border-b bg-white backdrop-blur-sm sticky top-0 z-50 dark:bg-background/80 dark:border-border">
       <div className="container mx-auto px-4 py-4 flex items-center justify-between">
         {/* Logo */}
-        <div className="flex-shrink-0">
+        <div className="flex-shrink-0 h-16 flex items-center">
           <Link href="/" className="flex items-center">
             <Image
               // src="/egyptfi_logo-03.png"
-              src= "/egyptfi.jpeg"
+              src="/egyptfi.jpeg"
               alt="EGYPTFI"
-              width={150}
-              height={150}
+              width={600}
+              height={600}
               priority
-              className="dark:hidden"
+              className="h-48 w-48 object-contain dark:hidden"
             />
             <Image
               src="/egyptfi_white-03.png"
               alt="EGYPTFI"
-              width={150}
-              height={150}
+              width={600}
+              height={600}
               priority
-              className="h-10 w-10 rounded-full hidden dark:block"
+              className="h-48 w-48 object-contain rounded-full hidden dark:block"
             />
           </Link>
         </div>
@@ -96,21 +96,14 @@ export const Navbar: React.FC<NavbarProps> = ({
             >
               Sign In
             </Button>
-            <Button
-              onClick={onGetStarted}
-              className="text-sm font-medium"
-            >
+            <Button onClick={onGetStarted} className="text-sm font-medium">
               Get Started
             </Button>
           </SignedOut>
           <SignedIn>
-          <Link href="/dashboard" className="flex items-center">
-          <Button
-              className="text-sm font-medium"
-            >
-              Dashboard
-            </Button>
-          </Link>
+            <Link href="/dashboard" className="flex items-center">
+              <Button className="text-sm font-medium">Dashboard</Button>
+            </Link>
             <UserButton />
           </SignedIn>
 

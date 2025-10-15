@@ -139,11 +139,11 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onGetStarted }) => {
           ref={titleRef}
           className="text-4xl sm:text-5xl mt-12 md:text-6xl lg:text-7xl font-bold text-foreground mb-8 leading-tight"
         >
-          The Future of{" "}
+          Simplifying{" "}
           <span className="bg-gradient-to-r from-primary to-yellow-600 bg-clip-text text-transparent">
-            Decentralized Finance
+            Crypto Payments 
           </span>{" "}
-          for Merchants
+          Across Africa
         </h1>
 
         {/* Subtitle */}
@@ -151,8 +151,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onGetStarted }) => {
           ref={subtitleRef}
           className="text-lg sm:text-xl md:text-2xl text-muted-foreground mb-8 max-w-3xl mx-auto leading-relaxed"
         >
-          Empower your business with invisible wallets, zk-KYC compliance, yield
-          farming, and instant payments on the Starknet blockchain.
+          Invisible wallets. zk-KYC compliance. BTC yield. <br/>Cross-chain payments - All on Starknet.
         </p>
 
         {/* CTA Buttons */}
@@ -175,7 +174,7 @@ export const HeroSection: React.FC<HeroSectionProps> = ({ onGetStarted }) => {
             className="border-primary text-primary px-8 py-4 text-lg font-semibold rounded-lg transition-all duration-300"
             asChild
           >
-            <Link href="/use-cases"><Play className="m-2 h-5 w-5" />Use Cases</Link>
+            <Link href="/demo"><Play className="m-2 h-5 w-5" />Use Cases</Link>
           </Button>
         </div>
 

@@ -4,7 +4,7 @@
 @custom-variant dark (&:is(.dark *));
 
 :root {
-  /* Light mode - White background with gold accents */
+  /* Light mode - White background with gold accents #170b02;*/
   --background: #ffffff;
   --foreground: #170b02;
   --card: #ffffff;

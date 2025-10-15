@@ -9,17 +9,21 @@ import {
   shortString,
   Contract,
   PaymasterDetails,
+  hash,
 } from "starknet";
 import { cairo } from "starknet"; // For uint256
 import pool from "@/lib/db"; // Your DB pool
 import crypto from "crypto"; // For decryption
-import { EGYPT_MAINNET_CONTRACT_ADDRESS as CONTRACT_ADDRESS, parseStarknetError } from "@/lib/utils"; // Or mainnet
+import {
+  EGYPT_MAINNET_CONTRACT_ADDRESS as CONTRACT_ADDRESS,
+  parseStarknetError,
+} from "@/lib/utils"; // Or mainnet
 import { EGYPTFI_ABI } from "@/lib/abi"; // Your ABI
 import { getSponsorActivity } from "@/services/paymasterService"; // Reuse your paymaster credits fetch
 
 const DECIMALS = 6; // USDC decimals
 const RPC_URL =
-  process.env.STARKNET_RPC_URL || "https://starknet-rpc.starknet.io"; // Configurable
+  process.env.STARKNET_RPC_URL || "https://starknet-mainnet.public.blastapi.io"; // Configurable
 const PAYMASTER_URL = "https://starknet.api.avnu.fi/paymaster/v1"; // AVNU paymaster
 const PAYMASTER_API_KEY = process.env.NEXT_PUBLIC_PAYMASTER_API; // From env
 
@@ -242,18 +246,19 @@ export async function invokeContractFunction(
   merchantId: string,
   contractAddress: string = CONTRACT_ADDRESS,
   entrypoint: string,
-  args: any[], // Raw args for the function (e.g., [amount, paymentRef])
+  args: any, // Raw args for the function (e.g., [amount, paymentRef])
   pin?: string // Optional PIN for decryption (if not using env vars)
-): Promise<{ transaction_hash: string }> {
+): Promise<{ transaction_hash: string; paymentId: string }> {
   const client = await pool.connect();
   try {
     // Fetch merchant data
     const merchantQuery = await client.query(
-      "SELECT wallet_address, wallet_encrypted_private_key FROM merchants WHERE id = $1",
+      "SELECT wallet_address, wallet_encrypted_private_key, business_email FROM merchants WHERE id = $1",
       [merchantId]
     );
     const merchant = merchantQuery.rows[0];
     if (!merchant) throw new Error("Merchant not found");
+    console.log("Merchant data fetched for ID:", merchant);
 
     // Decrypt private key (if PIN provided; fallback to env)
     const publicKey = process.env.WALLET_ADDRESS || merchant.wallet_public_key;
@@ -267,7 +272,7 @@ export async function invokeContractFunction(
     });
 
     // Use imported ABI (or fetch dynamically if needed)
-    const { abi: EGYPTFI_ABI } = await provider.getClassAt(CONTRACT_ADDRESS);
+    // const { abi: EGYPTFI_ABI } = await provider.getClassAt(CONTRACT_ADDRESS);
     if (EGYPTFI_ABI === undefined) {
       throw new Error("no abi.");
     }
@@ -280,52 +285,89 @@ export async function invokeContractFunction(
 
     console.log("Contract and account set up", account.address);
     console.log("contract address:", contract.address);
+    console.log("arguments:", args);
 
     // Pre-execute: Fetch merchant state via get_merchant to verify is_active
-    const merchantAddress = args[0]; // Assuming first arg is merchant address for create_payment
+    const merchantAddress = args.merchant; // Assuming first arg is merchant address for create_payment
     console.log("Fetching merchant state for address:", merchantAddress);
-    const merchantState = await contract.get_merchant([merchantAddress]);
+    console.log(
+      "Merchant address type:",
+      typeof merchantAddress,
+      merchantAddress
+    );
+    console.log("merchantAddress raw:", merchantAddress);
+    // console.log("merchantAddress keys:", Object.keys(merchantAddress || {}));
+    console.log("typeof merchantAddress:", typeof merchantAddress);
+
+    // const normalizedAddress =
+    //   typeof merchantAddress === "string"
+    //     ? merchantAddress
+    //     : merchantAddress.toString();
+
+    const merchantState = await contract.get_merchant(merchantAddress);
+
+    // const merchantState = await contract.get_merchant([merchantAddress.toString(16)]);
+    // const merchantState = await contract.get_merchant([String(merchantAddress)]);
     console.log("Merchant state from SC:", merchantState);
-    
+
     // Assuming merchantState is a tuple like [is_active, other_fields...]; adjust based on ABI
-    const isActive = merchantState[0]; // e.g., first field is is_active (felt: 1 for true)
-    if (isActive !== 1) {
-      throw new Error(`Merchant not active: is_active=${isActive}. Register/activate merchant first.`);
+    const isActive = merchantState.is_active; // e.g., first field is is_active (felt: 1 for true)
+    console.log("Merchant is_active status:", isActive);
+
+    if (isActive != true) {
+      throw new Error(
+        `Merchant not active: is_active=${isActive}. Register/activate merchant first.`
+      );
     }
     console.log("Merchant verified as active; proceeding with execute...");
 
     const invokeResult = await account.execute({
       contractAddress: CONTRACT_ADDRESS,
       entrypoint,
-      calldata: CallData.compile(args),
+      // calldata: CallData.compile(args),
+      calldata: CallData.compile({
+        merchant: args.merchant,
+        amount: args.amount,
+        platform_fee: args.platform_fee,
+        reference: args.reference,
+        description: args.description,
+      }),
     });
     console.log(`Execute result for ${entrypoint}:`, invokeResult);
-    await provider.waitForTransaction(invokeResult.transaction_hash);
+    // await provider.waitForTransaction(invokeResult.transaction_hash);
 
-    // contract.connect(account);
+    const receipt = await provider.waitForTransaction(
+      invokeResult.transaction_hash
+    );
+    if ("events" in receipt && Array.isArray(receipt.events)) {
+      const eventSelector = hash.getSelectorFromName("PaymentCreated");
 
-    // const contract = new Contract({
-    //     address: CONTRACT_ADDRESS,
-    //     abi: EGYPTFI_ABI,
-    // });
-    // contract.connect(provider);
-    // await contract.connect(account); // Connect account for signing
+      console.log(
+        "All events:",
+        JSON.stringify(receipt.events, null, 2)
+      );
 
-    // Prepare and invoke the function
-    // const populated = contract.populate(entrypoint, args);
-    // console.log(`Populated calldata for ${entrypoint}:`, populated.calldata);
+      const paymentEvent = receipt.events.find(
+        (e) => e.keys?.[0]?.toLowerCase() === eventSelector.toLowerCase()
+      );
 
-    // const invokeResult = await contract[entrypoint](populated.calldata);
-    // console.log(`Invoke result for ${entrypoint}:`, invokeResult);
+      // const paymentEvent = await receipt.events.find(
+      //   (e) =>
+      //     e.keys[0] === eventSelector &&
+      //     e.from_address.toLowerCase() === CONTRACT_ADDRESS.toLowerCase()
+      // );
 
-    // Wait for confirmation
-    // const receipt = await provider.waitForTransaction(invokeResult.transaction_hash);
-    // if (receipt.status !== 'ACCEPTED') {
-    //   throw new Error(`Transaction failed: ${receipt.status}`);
-    // }
+      if (!paymentEvent) throw new Error("PaymentCreated event not found");
 
-    console.log(`Transaction confirmed: ${invokeResult.transaction_hash}`);
-    return { transaction_hash: invokeResult.transaction_hash };
+      const paymentId = paymentEvent.data?.[0];
+      console.log("✅ Payment ID:", paymentId);
+
+      console.log(`Transaction confirmed: ${invokeResult.transaction_hash}`);
+      return { transaction_hash: invokeResult.transaction_hash, paymentId };
+    } else {
+      console.error("❌ Transaction failed:", receipt);
+      throw new Error("Transaction failed or no events found");
+    }
   } catch (err: any) {
     console.error("Payment initiation error:", err);
 
@@ -355,9 +397,9 @@ export async function invokeContractFunction(
 
     // Log structured debug info for developers
     console.group("🔍 Starknet Payment Debug Info");
-  console.error("Raw error:", err);
-  console.error("Parsed reason:", parsed);
-  console.groupEnd();
+    console.error("Raw error:", err);
+    console.error("Parsed reason:", parsed);
+    console.groupEnd();
 
     throw new Error(parsed);
   } finally {
@@ -368,3 +410,52 @@ export async function invokeContractFunction(
 // Example Usage:
 // Read: await callContractFunction(merchantId, undefined, 'get_payment', [paymentRef]);
 // Write: await invokeContractFunction(merchantId, undefined, 'create_payment', [merchantAddress, amount, '0', paymentRef, description]);
+
+// Specialized for process_payment (no args beyond payment_id; assumes state from create_payment)
+export async function processPayment(
+  merchantId: string,
+  paymentId: string // payment_ref as felt
+): Promise<{ transaction_hash: string }> {
+  try {
+    // Pre-check: Verify payment exists and is pending
+    const paymentState = await callContractFunction(
+      merchantId,
+      undefined,
+      "get_payment",
+      [paymentId]
+    );
+    console.log("Payment state before processing:", paymentState);
+
+    if (paymentState.status !== "pending") {
+      // Adjust based on your contract's status field
+      throw new Error(
+        `Payment ${paymentId} not pending: status=${paymentState.status}`
+      );
+    }
+
+    // Invoke process_payment (transfers tokens to merchant)
+    const { transaction_hash } = await invokeContractFunction(
+      merchantId,
+      undefined,
+      "process_payment",
+      { payment_id: shortString.encodeShortString(paymentId) } // Compile as felt
+    );
+
+    // Post-check: Verify payment completed
+    const updatedState = await callContractFunction(
+      merchantId,
+      undefined,
+      "get_payment",
+      [paymentId]
+    );
+    if (updatedState.status !== "completed") {
+      throw new Error(`Payment processing incomplete: ${updatedState.status}`);
+    }
+
+    console.log(`Payment ${paymentId} processed successfully`);
+    return { transaction_hash };
+  } catch (err: any) {
+    console.error("Process payment error:", err);
+    throw new Error(parseStarknetError(err));
+  }
+}

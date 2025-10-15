@@ -89,6 +89,7 @@ export default function InvoicePage() {
         walletUrl: invoice.walletUrl,
         currency: invoice.currency, // Ensure currency is included
         amount: invoice.amount, // Ensure amount is included
+        paymentId: invoice.paymentId
       };
 
       setInvoiceData(formattedData);

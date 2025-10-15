@@ -138,25 +138,6 @@ export default function KycPage() {
 
         const result = await response.json();
         console.log("Document submitted:", result);
-
-        // Verify the document
-        const verifyResponse = await fetch("/api/merchants/kyc/verify", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            kycId: result.kycId,
-          }),
-        });
-
-        if (!verifyResponse.ok) {
-          const error = await verifyResponse.json();
-          throw new Error(error.error || "Failed to verify document");
-        }
-
-        const verifyResult = await verifyResponse.json();
-        console.log("Document verified:", verifyResult);
       }
 
       alert("KYC verification completed successfully!");

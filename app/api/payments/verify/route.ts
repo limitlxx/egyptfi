@@ -53,7 +53,8 @@ export async function GET(
           secondary_endpoint: invoice.secondary_endpoint,
           merchant_address: invoice.wallet_address,
           preferred_btc_flow: invoice.preferred_btc_flow,
-          qrCode: invoice.qr_url
+          qrCode: invoice.qr_url,
+          paymentId: invoice.payment_id
         }
       })
     } finally {
